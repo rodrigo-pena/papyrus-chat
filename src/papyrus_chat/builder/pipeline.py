@@ -1,7 +1,5 @@
 """Corpus build pipeline: source records → validated artifact (SPEC 6, 7)."""
 
-import hashlib
-import json
 import os
 import subprocess
 import tempfile
@@ -11,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from papyrus_chat.artifact.hashing import logical_content_hash
 from papyrus_chat.artifact.manifest import (
     ARTIFACT_SCHEMA_VERSION,
     ArtifactManifest,
@@ -19,7 +18,7 @@ from papyrus_chat.artifact.manifest import (
     Statistics,
     save_manifest,
 )
-from papyrus_chat.artifact.records import IdentifierRecord, PassageRecord
+from papyrus_chat.artifact.records import DocumentRecord, IdentifierRecord, PassageRecord
 from papyrus_chat.artifact.schema import ArtifactWriter
 from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.builder.collections.dclp import parse_record as parse_dclp
@@ -46,6 +45,7 @@ class BuildResult:
     output_dir: Path
     collections: list[str]
     resolved_commit: str
+    logical_content_hash: str
     documents: int
     passages: int
     parse_errors: int
@@ -123,32 +123,16 @@ def build_artifact(
         writer.commit()
         writer.close()
 
-        hash_payload = json.dumps(
-            {
-                "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
-                "builder_version": BUILDER_VERSION,
-                "source_url": source_url,
-                "resolved_commit": resolved_commit,
-                "collections": canonical,
-                "documents": [
-                    d.model_dump(mode="json")
-                    for d in sorted(documents, key=lambda d: d.document_id)
-                ],
-                "passages": [
-                    p.model_dump(mode="json") for p in sorted(passages, key=lambda p: p.passage_id)
-                ],
-                "identifiers": [
-                    i.model_dump(mode="json")
-                    for i in sorted(
-                        identifiers, key=lambda i: (i.document_id, i.namespace, i.value)
-                    )
-                ],
-            },
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
+        logical_hash = logical_content_hash(
+            schema_version=ARTIFACT_SCHEMA_VERSION,
+            builder_version=BUILDER_VERSION,
+            source_url=source_url,
+            resolved_commit=resolved_commit,
+            collections=canonical,
+            documents=documents,
+            passages=passages,
+            identifiers=identifiers,
         )
-        logical_hash = "sha256:" + hashlib.sha256(hash_payload.encode("utf-8")).hexdigest()
 
         manifest = ArtifactManifest(
             builder=BuilderInfo(name=BUILDER_NAME, version=BUILDER_VERSION),
@@ -183,6 +167,7 @@ def build_artifact(
         output_dir=output,
         collections=canonical,
         resolved_commit=resolved_commit,
+        logical_content_hash=logical_hash,
         documents=len(documents),
         passages=len(passages),
         parse_errors=0,
@@ -195,7 +180,7 @@ def build_artifact(
 def _parse_collections(
     canonical: list[str], *, source_dir: Path, source_url: str, commit: str
 ) -> tuple[
-    list,  # documents
+    list[DocumentRecord],
     list[PassageRecord],
     list[IdentifierRecord],
     list[str],

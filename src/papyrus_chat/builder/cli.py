@@ -84,6 +84,7 @@ def build(
     typer.echo(f"Artifact path: {result.output_dir}")
     typer.echo(f"Collections: {', '.join(result.collections)}")
     typer.echo(f"Source commit: {result.resolved_commit}")
+    typer.echo(f"Logical content hash: {result.logical_content_hash}")
     typer.echo(f"documents: {result.documents}")
     typer.echo(f"passages: {result.passages}")
     typer.echo(f"parse errors: {result.parse_errors}")
