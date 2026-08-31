@@ -76,6 +76,9 @@ def build_artifact(
             "Remove it or pass --force to replace exactly this artifact."
         )
     resolved_commit = source.resolve_commit(requested_ref)
+    sparse = getattr(source, "ensure_sparse_checkout", None)
+    if callable(sparse):
+        sparse(canonical)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.tmp-", dir=output.parent))

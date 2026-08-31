@@ -4,7 +4,7 @@ import typer
 
 from papyrus_chat.builder.errors import BuildError
 from papyrus_chat.builder.pipeline import BUILDER_VERSION, SUPPORTED_COLLECTIONS, build_artifact
-from papyrus_chat.builder.source import LocalGitSource
+from papyrus_chat.builder.source import LocalGitSource, RemoteGitSource
 
 app = typer.Typer(
     add_completion=False,
@@ -68,7 +68,7 @@ def build(
         result = build_artifact(
             collections,
             output=_output_path(output),
-            source=_local_source(source),
+            source=_source(source),
             source_url=source,
             requested_ref=ref,
             force=force,
@@ -97,16 +97,15 @@ def _output_path(output: str):
     return Path(output).expanduser()
 
 
-def _local_source(source: str):
+def _source(source: str):
     from pathlib import Path
 
-    if source.startswith(("http://", "https://", "git@")):
-        raise BuildError(
-            "Remote source acquisition is not implemented in this build. "
-            "Pass --source pointing to a local idp.data Git checkout."
-        )
     path = Path(source).expanduser()
-    return LocalGitSource(path)
+    if path.exists():
+        return LocalGitSource(path)
+    if source.startswith(("http://", "https://", "git@", "file://")) or source.endswith(".git"):
+        return RemoteGitSource(source)
+    raise BuildError(f"Source not found: {source}. Pass a Git checkout path or a remote Git URL.")
 
 
 if __name__ == "__main__":
