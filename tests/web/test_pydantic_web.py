@@ -58,3 +58,36 @@ def test_loaded_app_retains_artifact_and_agent_dependencies(
     assert app.state.artifact == corpus_artifact
     assert app.state.agent is not None
     assert app.state.tool_service is not None
+
+
+def test_stock_chat_api_streams_a_deterministic_response(
+    corpus_artifact: Path, tmp_path: Path
+) -> None:
+    html = tmp_path / "chat.html"
+    html.write_text("<main>Chat</main>", encoding="utf-8")
+    app = load_app(
+        corpus_artifact,
+        env=TEST_ENV,
+        model=TestModel(call_tools=[], custom_output_text="Model-supplied background."),
+        html_source=html,
+    )
+    client = TestClient(app, base_url="http://localhost")
+
+    response = client.post(
+        "/api/chat",
+        json={
+            "trigger": "submit-message",
+            "id": "thread-1",
+            "messages": [
+                {
+                    "id": "message-1",
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "What can be concluded?"}],
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "text-delta" in response.text
+    assert "Model-supplied" in response.text
