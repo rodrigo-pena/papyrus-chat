@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from papyrus_chat.artifact.manifest import load_manifest
+from papyrus_chat.artifact.schema import ArtifactReader
 from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.chat.provider import load_provider_config
 from papyrus_chat.retrieval.evidence import EvidencePacket
@@ -54,12 +55,12 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
     app.state.artifact = artifact
     app.state.manifest = manifest
     app.state.search = CorpusSearch(artifact / "corpus.sqlite")
+    app.state.templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     app.mount(
         "/static",
         StaticFiles(directory=str(Path(__file__).parent / "static")),
         name="static",
     )
-    app.state.templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
@@ -78,10 +79,7 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
     ) -> HTMLResponse:
         packet: EvidencePacket | None = None
         if query.strip():
-            filters = SearchFilters(
-                collection=collection or None,
-                kind=kind or None,
-            )
+            filters = SearchFilters(collection=collection or None, kind=kind or None)
             packet = app.state.search.search(query, filters, limit=25)
 
         return app.state.templates.TemplateResponse(
@@ -93,6 +91,45 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
                 "selected_collection": collection,
                 "selected_kind": kind,
                 "doc_url": document_url,
+            },
+        )
+
+    @app.get("/documents/{document_id:path}", response_class=HTMLResponse)
+    async def document(request: Request, document_id: str) -> HTMLResponse:
+        templates = app.state.templates
+        reader = ArtifactReader(app.state.artifact / "corpus.sqlite")
+        record = reader.get_document(document_id)
+        if record is None:
+            reader.close()
+            return templates.TemplateResponse(
+                request=request,
+                name="not_found.html",
+                status_code=404,
+                context={"message": "No document with that identifier in this corpus."},
+            )
+
+        passages = reader.get_passages(document_id)
+        identifiers = reader.get_identifiers(document_id)
+        reader.close()
+
+        preferred = next(
+            (i for i in identifiers if i.namespace.lower() == "tm"),
+            identifiers[0] if identifiers else None,
+        )
+        citation = (
+            f"{preferred.namespace} {preferred.value} ({record.title})"
+            if preferred
+            else record.title
+        )
+
+        return templates.TemplateResponse(
+            request=request,
+            name="document.html",
+            context={
+                "doc": record,
+                "passages": passages,
+                "identifiers": identifiers,
+                "citation": citation,
             },
         )
 
