@@ -1,4 +1,4 @@
-"""Command-line interface for the local chat application (SPEC 9.1)."""
+"""Command-line interface for the local chat application."""
 
 import threading
 import webbrowser

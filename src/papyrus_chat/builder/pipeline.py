@@ -1,4 +1,4 @@
-"""Corpus build pipeline: source records → validated artifact (SPEC 6, 7)."""
+"""Corpus build pipeline: source records → validated artifact."""
 
 import os
 import shutil

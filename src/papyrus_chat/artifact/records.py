@@ -1,4 +1,4 @@
-"""Frozen boundary models passed between parsing, storage, and retrieval (SPEC 11)."""
+"""Frozen boundary models passed between parsing, storage, and retrieval."""
 
 from typing import Literal
 

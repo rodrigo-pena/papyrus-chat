@@ -1,4 +1,4 @@
-"""Failure, replacement, and atomic assembly behavior (SPEC 6.4)."""
+"""Failure, replacement, and atomic assembly behavior."""
 
 import json
 from pathlib import Path

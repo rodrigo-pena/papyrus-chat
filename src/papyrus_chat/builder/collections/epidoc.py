@@ -1,4 +1,4 @@
-"""Shared EpiDoc extraction for collection adapters (SPEC 6.3).
+"""Shared EpiDoc extraction for collection adapters.
 
 Per-collection adapters (`dclp.py`, `translations.py`) reuse this generic
 parser; collection-specific behavior can be layered on top. Records without

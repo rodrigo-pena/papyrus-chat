@@ -1,4 +1,4 @@
-"""Provider configuration and OpenAI-compatible client (SPEC 9.2)."""
+"""Provider configuration and OpenAI-compatible client."""
 
 import socket
 

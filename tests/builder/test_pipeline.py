@@ -1,4 +1,4 @@
-"""End-to-end tests for the corpus build pipeline and CLI (SPEC 6.1, 6.4, 6.5, 7.x)."""
+"""End-to-end tests for the corpus build pipeline and CLI."""
 
 import json
 import sqlite3

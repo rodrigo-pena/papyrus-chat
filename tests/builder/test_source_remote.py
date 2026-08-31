@@ -1,4 +1,4 @@
-"""Remote source acquisition: partial clone, sparse checkout, user cache (SPEC 6.2)."""
+"""Remote source acquisition: partial clone, sparse checkout, user cache."""
 
 import subprocess
 from pathlib import Path

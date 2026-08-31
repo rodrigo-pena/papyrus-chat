@@ -1,4 +1,4 @@
-"""Validation of corpus artifact directories (SPEC 7.1, 7.2, 7.3)."""
+"""Validation of corpus artifact directories."""
 
 import sqlite3
 from pathlib import Path

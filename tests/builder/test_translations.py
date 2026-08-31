@@ -1,4 +1,4 @@
-"""Unit tests for the Translations collection adapter (SPEC 3.1, 6.3)."""
+"""Unit tests for the Translations collection adapter."""
 
 from pathlib import Path
 

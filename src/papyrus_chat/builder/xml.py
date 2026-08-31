@@ -1,4 +1,4 @@
-"""Hardened XML parsing for EpiDoc sources (SPEC 6.3).
+"""Hardened XML parsing for EpiDoc sources.
 
 External entity expansion and network resolution are disabled; entity
 references and malformed records are rejected with structured errors.

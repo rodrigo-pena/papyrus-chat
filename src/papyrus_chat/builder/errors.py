@@ -1,4 +1,4 @@
-"""User-facing builder errors (SPEC 6.4, 11): concise, actionable."""
+"""User-facing builder errors: concise, actionable."""
 
 from __future__ import annotations
 

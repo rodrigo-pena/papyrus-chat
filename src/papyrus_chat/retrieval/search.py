@@ -1,4 +1,4 @@
-"""Corpus search: identifier lookup first, then FTS5 (SPEC 8).
+"""Corpus search: identifier lookup first, then FTS5.
 
 Ranking uses a fixed, explicit BM25 configuration over the FTS5 table's two
 indexed columns (search text, title): passage text is weighted 10x over
@@ -21,7 +21,7 @@ from papyrus_chat.retrieval.evidence import (
 from papyrus_chat.retrieval.identifiers import IdentifierLookup
 from papyrus_chat.textnorm import normalize_identifier_value, normalize_search_text
 
-# Explicit FTS5/BM25 configuration (SPEC 8). Column order matches the
+# Explicit FTS5/BM25 configuration. Column order matches the
 # passages_fts definition: (search_text, title).
 BM25_WEIGHTS = (10.0, 1.0)
 
@@ -75,7 +75,7 @@ class CorpusSearch:
 
     def _full_text(self, query: str, filters: SearchFilters, limit: int) -> list[EvidenceItem]:
         # Questions rarely satisfy all-token AND semantics; fall back to OR,
-        # letting the explicit BM25 ranking order the matches (SPEC 8).
+        # letting the explicit BM25 ranking order the matches.
         items = self._fts_search(build_fts_query(query), filters, limit)
         if not items:
             items = self._fts_search(build_fts_query(query, operator="OR"), filters, limit)
@@ -116,7 +116,7 @@ class CorpusSearch:
         return [self._passage_item(row) for row in rows]
 
     def _metadata_only_matches(self, query: str, limit: int) -> list[EvidenceItem]:
-        """Find textless documents by title/metadata substring (SPEC 8)."""
+        """Find textless documents by title/metadata substring."""
         like = f"%{normalize_identifier_value(query)}%"
         rows = self._connection.execute(
             "SELECT d.* FROM documents d"

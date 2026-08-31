@@ -1,4 +1,4 @@
-"""Command-line interface for building corpus artifacts (SPEC 6.1)."""
+"""Command-line interface for building corpus artifacts."""
 
 import typer
 

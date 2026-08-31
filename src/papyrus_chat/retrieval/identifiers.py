@@ -1,4 +1,4 @@
-"""Normalized exact identifier lookup (SPEC 8, step 1)."""
+"""Normalized exact identifier lookup."""
 
 import sqlite3
 from pathlib import Path

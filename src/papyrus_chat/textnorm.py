@@ -1,4 +1,4 @@
-"""Normalization used only for retrieval (SPEC 6.3).
+"""Normalization used only for retrieval.
 
 `search_text` and search queries both pass through `normalize_search_text`:
 case folding plus NFD stripping of combining marks, so Greek matches are

@@ -1,4 +1,4 @@
-"""Security audit: escaping, no external resources, secret hygiene (SPEC 9.2, 10)."""
+"""Security audit: escaping, no external resources, secret hygiene."""
 
 import re
 from pathlib import Path

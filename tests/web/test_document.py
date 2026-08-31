@@ -1,4 +1,4 @@
-"""Document view: metadata, passages, provenance, citations (SPEC 3.1, 7.4, 10)."""
+"""Document view: metadata, passages, provenance, citations."""
 
 import re
 from pathlib import Path

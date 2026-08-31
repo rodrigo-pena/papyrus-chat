@@ -1,4 +1,4 @@
-"""Web application skeleton and startup validation (SPEC 9.1, 10)."""
+"""Web application skeleton and startup validation."""
 
 import json
 import shutil

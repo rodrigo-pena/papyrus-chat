@@ -1,4 +1,4 @@
-"""Evidence packet structure: typed items with locators and citations (SPEC 8)."""
+"""Evidence packet structure: typed items with locators and citations."""
 
 from pathlib import Path
 

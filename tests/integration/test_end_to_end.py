@@ -1,4 +1,4 @@
-"""Integration: build → validate → serve → search → document → chat (SPEC 12.2, 15)."""
+"""Integration: build → validate → serve → search → document → chat."""
 
 import re
 import shutil

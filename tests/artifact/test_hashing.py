@@ -1,4 +1,4 @@
-"""Tests pinning the logical content hash canonicalization (SPEC 7.2)."""
+"""Tests pinning the logical content hash canonicalization."""
 
 from papyrus_chat.artifact.hashing import logical_content_hash
 from papyrus_chat.artifact.records import (

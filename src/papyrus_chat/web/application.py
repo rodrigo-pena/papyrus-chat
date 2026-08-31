@@ -1,4 +1,4 @@
-"""FastAPI application for the local web interface (SPEC 9.1, 10)."""
+"""FastAPI application for the local web interface."""
 
 from pathlib import Path
 
@@ -31,7 +31,7 @@ class StartupError(Exception):
 def validate_startup(
     artifact: Path, env: dict[str, str] | None = None, *, require_provider: bool = True
 ) -> None:
-    """Validate manifest, schema, files, integrity, and provider config (SPEC 9.1)."""
+    """Validate manifest, schema, files, integrity, and provider config."""
     if not artifact.is_dir():
         raise StartupError(
             f"Artifact directory not found: {artifact}. "
@@ -51,7 +51,7 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
     """Validate and build the FastAPI application for a corpus artifact.
 
     Provider configuration is not required here: search works without an
-    LLM (SPEC 15). The chat panel surfaces configuration errors when used,
+    LLM. The chat panel surfaces configuration errors when used,
     and the papyrus-chat CLI validates the provider before launch.
     """
     validate_startup(artifact, env=env, require_provider=False)

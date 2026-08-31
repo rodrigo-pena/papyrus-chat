@@ -1,4 +1,4 @@
-"""Accessibility audit: labels, headings, language attributes (SPEC 10)."""
+"""Accessibility audit: labels, headings, language attributes."""
 
 import sys
 from pathlib import Path

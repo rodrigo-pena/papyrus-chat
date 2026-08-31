@@ -1,4 +1,4 @@
-"""Source acquisition for corpus builds (SPEC 6.2).
+"""Source acquisition for corpus builds.
 
 A `CorpusSource` resolves a Git ref to an exact commit and reads files from
 that commit's tree — never from a working tree, so uncommitted changes and
@@ -170,7 +170,7 @@ class RemoteGitSource:
 
         Uses cone-mode sparse checkout plus a full checkout of the resolved
         commit: only the selected collections' blobs are fetched from the
-        promisor remote (SPEC 6.2).
+        promisor remote.
         """
         dirs = sorted(self.COLLECTION_DIRS.get(c, c) for c in {col.lower() for col in collections})
         _run_git(["sparse-checkout", "set", "--cone", *dirs], cwd=self.worktree)

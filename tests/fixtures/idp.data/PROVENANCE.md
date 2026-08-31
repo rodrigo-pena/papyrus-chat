@@ -22,7 +22,7 @@ translations (see the `<authority>` element inside each record).
 
 | File                                    | Purpose                                                            |
 | --------------------------------------- | ------------------------------------------------------------------ |
-| `../idp.data-invalid/DCLP/99/broken-record.xml` | Deliberately malformed XML for failure-path testing (SPEC 12.1). |
+| `../idp.data-invalid/DCLP/99/broken-record.xml` | Deliberately malformed XML for failure-path testing. |
 
 The `idp.data-invalid` tree is kept outside the buildable fixture corpus so
 normal builds from `tests/fixtures/idp.data` always succeed.

@@ -1,4 +1,4 @@
-"""Reproducibility: identical inputs must yield identical logical hashes (SPEC 7.2)."""
+"""Reproducibility: identical inputs must yield identical logical hashes."""
 
 import json
 import shutil

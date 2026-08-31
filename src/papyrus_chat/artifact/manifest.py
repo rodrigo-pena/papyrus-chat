@@ -1,4 +1,4 @@
-"""Manifest models for corpus artifacts (SPEC 7.2)."""
+"""Manifest models for corpus artifacts."""
 
 import json
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""A real local mock OpenAI-compatible provider for offline tests (SPEC 12.2)."""
+"""A real local mock OpenAI-compatible provider for offline tests."""
 
 import json
 import threading

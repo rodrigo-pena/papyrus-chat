@@ -1,4 +1,4 @@
-"""Full-text search behavior: ordering, safety, filters (SPEC 8)."""
+"""Full-text search behavior: ordering, safety, filters."""
 
 from pathlib import Path
 

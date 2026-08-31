@@ -1,4 +1,4 @@
-"""Local Git source resolution: commit-accurate reads (SPEC 6.2)."""
+"""Local Git source resolution: commit-accurate reads."""
 
 import subprocess
 from pathlib import Path

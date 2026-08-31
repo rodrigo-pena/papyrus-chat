@@ -1,4 +1,4 @@
-"""Safety tests for the shared EpiDoc XML parser (SPEC 6.3)."""
+"""Safety tests for the shared EpiDoc XML parser."""
 
 import pytest
 

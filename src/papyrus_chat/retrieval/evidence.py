@@ -1,4 +1,4 @@
-"""Evidence packets: typed retrieval results with locators and citations (SPEC 8)."""
+"""Evidence packets: typed retrieval results with locators and citations."""
 
 from typing import Literal
 

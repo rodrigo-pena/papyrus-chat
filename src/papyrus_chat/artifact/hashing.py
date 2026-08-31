@@ -1,4 +1,4 @@
-"""Deterministic logical content hash of a corpus artifact (SPEC 7.2).
+"""Deterministic logical content hash of a corpus artifact.
 
 The hash is computed over a canonical JSON representation of everything that
 defines the artifact's logical content:

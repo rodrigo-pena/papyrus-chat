@@ -1,4 +1,4 @@
-"""Unit tests for the DCLP collection adapter (SPEC 6.3)."""
+"""Unit tests for the DCLP collection adapter."""
 
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-"""Evidence-grounded conversation (SPEC 9.3).
+"""Evidence-grounded conversation.
 
 Each question retrieves a bounded evidence set locally, sends only the
 question, bounded client-supplied history, and that evidence to the

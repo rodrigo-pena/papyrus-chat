@@ -1,4 +1,4 @@
-"""Search interface: results, filters, escaping, no-LLM operation (SPEC 10)."""
+"""Search interface: results, filters, escaping, no-LLM operation."""
 
 from pathlib import Path
 

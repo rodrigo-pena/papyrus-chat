@@ -1,4 +1,4 @@
-"""SQLite logical schema for corpus artifacts (SPEC 7.3).
+"""SQLite logical schema for corpus artifacts.
 
 Schema version 1 exposes: documents, identifiers, passages, and an FTS5
 index over passage search text and document titles. Stable IDs derive from

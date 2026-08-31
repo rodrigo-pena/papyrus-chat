@@ -1,4 +1,4 @@
-"""Chat panel and the Evidence used section (SPEC 9.3, 10)."""
+"""Chat panel and the Evidence used section."""
 
 from pathlib import Path
 

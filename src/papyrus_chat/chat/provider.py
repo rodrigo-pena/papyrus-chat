@@ -1,4 +1,4 @@
-"""OpenAI-compatible Chat Completions provider configuration and client (SPEC 9.2).
+"""OpenAI-compatible Chat Completions provider configuration and client.
 
 Configuration comes from the environment: LLM_BASE_URL (required),
 LLM_MODEL (required), LLM_API_KEY (optional, so unauthenticated local

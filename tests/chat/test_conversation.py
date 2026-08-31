@@ -1,4 +1,4 @@
-"""Evidence-grounded conversation (SPEC 9.3)."""
+"""Evidence-grounded conversation."""
 
 from pathlib import Path
 from typing import cast
