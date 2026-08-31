@@ -11,6 +11,7 @@ from papyrus_chat.artifact.manifest import load_manifest
 from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.chat.provider import ProviderError, load_provider_config
 from papyrus_chat.retrieval.structured import StructuredCorpusSearch
+from papyrus_chat.web.streaming import install_validated_chat_route
 
 
 class StartupError(Exception):
@@ -59,10 +60,12 @@ def load_app(
     search = StructuredCorpusSearch(artifact / "corpus.sqlite")
     tool_service = CorpusToolService(search)
     agent = create_research_agent(provider_config, tool_service, model=model)
+    deps = CorpusToolDeps(service=tool_service)
     app = agent.to_web(
-        deps=CorpusToolDeps(service=tool_service),
+        deps=deps,
         html_source=html_source,
     )
+    install_validated_chat_route(app, agent, deps)
     app.state.artifact = artifact
     app.state.manifest = manifest
     app.state.search = search

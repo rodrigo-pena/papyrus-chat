@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from pydantic_ai.messages import ToolReturnPart
+from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from pydantic_ai.models.test import TestModel
 from starlette.testclient import TestClient
 
@@ -11,6 +13,33 @@ TEST_ENV = {
     "LLM_BASE_URL": "https://provider.example/v1",
     "LLM_MODEL": "research-model",
 }
+
+
+def _chat(client: TestClient):
+    return client.post(
+        "/api/chat",
+        json={
+            "trigger": "submit-message",
+            "id": "thread-1",
+            "messages": [
+                {
+                    "id": "message-1",
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "What can be concluded?"}],
+                }
+            ],
+        },
+    )
+
+
+def _text_stream_model(*outputs: str) -> FunctionModel:
+    attempts = iter(outputs)
+
+    async def stream(messages, info):
+        del messages, info
+        yield next(attempts)
+
+    return FunctionModel(stream_function=stream)
 
 
 def test_load_app_serves_stock_chat_routes_with_local_html(
@@ -73,21 +102,78 @@ def test_stock_chat_api_streams_a_deterministic_response(
     )
     client = TestClient(app, base_url="http://localhost")
 
-    response = client.post(
-        "/api/chat",
-        json={
-            "trigger": "submit-message",
-            "id": "thread-1",
-            "messages": [
-                {
-                    "id": "message-1",
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "What can be concluded?"}],
-                }
-            ],
-        },
-    )
+    response = _chat(client)
 
     assert response.status_code == 200
     assert "text-delta" in response.text
     assert "Model-supplied" in response.text
+
+
+def test_chat_emits_only_the_answer_that_passes_output_validation(
+    corpus_artifact: Path, tmp_path: Path
+) -> None:
+    app = load_app(
+        corpus_artifact,
+        env=TEST_ENV,
+        model=_text_stream_model(
+            "Corpus evidence: https://papyri.info/ddbdp/not-returned-by-a-tool.",
+            "Scope and method: no corpus evidence matched the request.",
+        ),
+        html_source=tmp_path / "unused.html",
+    )
+
+    response = _chat(TestClient(app, base_url="http://localhost"))
+
+    assert response.status_code == 200
+    assert "not-returned-by-a-tool" not in response.text
+    assert response.text.count("no corpus evidence matched") == 1
+
+
+def test_chat_does_not_leak_text_when_output_validation_exhausts_retries(
+    corpus_artifact: Path, tmp_path: Path
+) -> None:
+    invalid = "Corpus evidence: https://papyri.info/ddbdp/not-returned-by-a-tool."
+    app = load_app(
+        corpus_artifact,
+        env=TEST_ENV,
+        model=_text_stream_model(invalid, invalid),
+        html_source=tmp_path / "unused.html",
+    )
+
+    response = _chat(TestClient(app, base_url="http://localhost"))
+
+    assert response.status_code == 200
+    assert "not-returned-by-a-tool" not in response.text
+    assert '"type":"error"' in response.text
+
+
+def test_chat_streams_tool_activity_before_buffered_final_text(
+    corpus_artifact: Path, tmp_path: Path
+) -> None:
+    async def scripted_model(messages, info):
+        del info
+        tool_returned = any(
+            isinstance(part, ToolReturnPart) for message in messages for part in message.parts
+        )
+        if not tool_returned:
+            yield {
+                0: DeltaToolCall(
+                    name="describe_corpus", json_args="{}", tool_call_id="describe-corpus"
+                )
+            }
+            return
+        yield "Model-supplied background after corpus inspection."
+
+    app = load_app(
+        corpus_artifact,
+        env=TEST_ENV,
+        model=FunctionModel(stream_function=scripted_model),
+        html_source=tmp_path / "unused.html",
+    )
+
+    response = _chat(TestClient(app, base_url="http://localhost"))
+
+    assert response.status_code == 200
+    assert response.text.index("tool-output-available") < response.text.index(
+        "Model-supplied background"
+    )
