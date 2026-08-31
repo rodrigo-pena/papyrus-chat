@@ -7,6 +7,7 @@ visible uncertainty signals; `search_text` is normalized separately;
 unsupported elements are recorded as warnings, never silently dropped.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -44,6 +45,8 @@ def parse_epidoc_record(
     source_path: str,
     repository_url: str,
     commit: str,
+    languages_from_editions: bool = False,
+    include_translations: bool = True,
 ) -> ParsedRecord:
     try:
         tree = parse_xml(data)
@@ -68,7 +71,7 @@ def parse_epidoc_record(
     title_element = header.find(f".//{TEI}titleStmt/{TEI}title")
     title = element_text(title_element) if title_element is not None else "(untitled)"
 
-    languages = _languages(root)
+    languages = _languages(root, from_editions=languages_from_editions)
     metadata = _metadata(header)
     canonical_url = _canonical_url(identifiers)
 
@@ -85,7 +88,8 @@ def parse_epidoc_record(
 
     passages: list[PassageRecord] = []
     warnings: list[str] = []
-    for div_kind, passage_kind in _PASSAGE_DIV_KINDS:
+    passage_div_kinds = _PASSAGE_DIV_KINDS if include_translations else (("edition", "edition"),)
+    for div_kind, passage_kind in passage_div_kinds:
         for div in root.iterfind(f".//{TEI}div[@type='{div_kind}']"):
             passages.extend(
                 _passages_from_div(
@@ -105,19 +109,38 @@ def parse_epidoc_record(
     )
 
 
-def _languages(root: _etree._Element) -> list[str]:
+def _languages(root: _etree._Element, *, from_editions: bool = False) -> list[str]:
+    if from_editions:
+        languages = [
+            element.get(XML_LANG)
+            for element in root.iterfind(f".//{TEI}div[@type='edition']")
+            if element.get(XML_LANG)
+        ]
+        return _unique(languages)
+
     languages: list[str] = []
     for element in root.iterfind(f".//{TEI}language"):
         ident = element.get("ident")
         if ident:
             languages.append(ident)
     if not languages:
-        declared = root.get(XML_LANG) or root.findtext(f".//{TEI}div[@type='edition']")
+        declared = root.get(XML_LANG) or next(
+            (
+                element.get(XML_LANG)
+                for element in root.iterfind(f".//{TEI}div[@type='edition']")
+                if element.get(XML_LANG)
+            ),
+            None,
+        )
         if declared:
             languages = [declared]
+    return _unique(languages)
+
+
+def _unique(languages: Iterable[str | None]) -> list[str]:
     unique: list[str] = []
     for language in languages:
-        if language not in unique:
+        if language is not None and language not in unique:
             unique.append(language)
     return unique
 

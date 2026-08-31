@@ -4,6 +4,10 @@ The XML files under this directory are copied verbatim from the
 [`papyri/idp.data`](https://github.com/papyri/idp.data) repository, which is
 distributed under the [Creative Commons Attribution 3.0 License](https://creativecommons.org/licenses/by/3.0/).
 
+The original DCLP and Translations fixtures remain pinned to the commit below.
+The DDbDP/HGV pair was added from the later upstream snapshot recorded in its
+own table because the older snapshot does not contain that pair.
+
 - **Pinned upstream commit:** `04568cb5ea3775d8113bb6e7edfd9c7168cf7e88`
 - **Pinned on:** 2026-08-31
 
@@ -13,6 +17,13 @@ distributed under the [Creative Commons Attribution 3.0 License](https://creativ
 | `DCLP/23/23702.xml`                | `DCLP/23/23702.xml`           |
 | `Translations/3/3227-1.xml`        | `Translations/3/3227-1.xml`   |
 | `Translations/3/3643-1.xml`        | `Translations/3/3643-1.xml`   |
+
+Additional documentary fixtures:
+
+| Fixture file (this repository) | Upstream source path | Upstream commit |
+| ------------------------------ | -------------------- | --------------- |
+| `DDbDP/27/27093.xml` | `DDbDP/27/27093.xml` | `027a4a3a2d8a669bed692ed5d918892bdb7ea1b3` |
+| `HGV_meta_EpiDoc/HGV28/27093.xml` | `HGV_meta_EpiDoc/HGV28/27093.xml` | `027a4a3a2d8a669bed692ed5d918892bdb7ea1b3` |
 
 Upstream contributing projects represented by these records: the Digital
 Corpus of Literary Papyri (DCLP/LDAB, Trismegistos) and APIS-derived
