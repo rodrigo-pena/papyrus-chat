@@ -148,6 +148,33 @@ class CorpusSearchResult(BaseModel):
         return self.query
 
 
+class CorpusDescription(BaseModel):
+    """Small inventory summary safe to expose to an agent."""
+
+    model_config = ConfigDict(frozen=True)
+
+    collections: tuple[str, ...]
+    documents: int
+    passages: int
+    components: int
+    languages: tuple[str, ...]
+
+
+class CorpusInspection(BaseModel):
+    """A selected document and a bounded set of located passages."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document_id: str
+    title: str
+    collection: str
+    languages: tuple[str, ...]
+    metadata: dict[str, str]
+    source: SourceReference
+    canonical_url: str | None
+    passages: tuple[CorpusHit, ...]
+
+
 class CorpusFacetValue(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -218,6 +245,78 @@ class StructuredCorpusSearch:
             for value, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
         )
         return CorpusFacetResult(query=normalized, field=field, values=values)
+
+    def describe(self) -> CorpusDescription:
+        collections = tuple(
+            row["collection"]
+            for row in self._connection.execute(
+                "SELECT DISTINCT collection FROM documents ORDER BY collection"
+            )
+        )
+        languages = {
+            row["language"]
+            for row in self._connection.execute("SELECT DISTINCT language FROM languages")
+        }
+        if not languages:
+            for row in self._connection.execute("SELECT languages FROM documents"):
+                languages.update(json.loads(row["languages"]))
+        return CorpusDescription(
+            collections=collections,
+            documents=int(self._connection.execute("SELECT count(*) FROM documents").fetchone()[0]),
+            passages=int(self._connection.execute("SELECT count(*) FROM passages").fetchone()[0]),
+            components=int(
+                self._connection.execute("SELECT count(*) FROM components").fetchone()[0]
+            ),
+            languages=tuple(sorted(languages)),
+        )
+
+    def inspect_documents(
+        self,
+        document_ids: Iterable[str],
+        *,
+        excerpt_limit: int = 3,
+    ) -> tuple[CorpusInspection, ...]:
+        ids = tuple(dict.fromkeys(document_ids))
+        if len(ids) > 20:
+            raise ValueError("at most 20 documents may be inspected")
+        if not 1 <= excerpt_limit <= 10:
+            raise ValueError("excerpt_limit must be between 1 and 10")
+        if not ids:
+            return ()
+        placeholders = ", ".join("?" for _ in ids)
+        rows = self._connection.execute(
+            f"SELECT * FROM documents WHERE document_id IN ({placeholders})", ids
+        ).fetchall()
+        by_id = {row["document_id"]: row for row in rows}
+        query = CorpusQuery(fields=("transcription", "translation"))
+        inspections: list[CorpusInspection] = []
+        for document_id in ids:
+            row = by_id.get(document_id)
+            if row is None:
+                continue
+            passages = self._connection.execute(
+                "SELECT * FROM passages WHERE document_id = ? ORDER BY sequence LIMIT ?",
+                (document_id, excerpt_limit),
+            ).fetchall()
+            source = SourceReference(
+                repository_url=row["source_url"],
+                commit=row["source_commit"],
+                path=row["source_path"],
+                locator=row["locator"],
+            )
+            inspections.append(
+                CorpusInspection(
+                    document_id=document_id,
+                    title=row["title"],
+                    collection=row["collection"],
+                    languages=tuple(json.loads(row["languages"])),
+                    metadata=json.loads(row["metadata"]),
+                    source=source,
+                    canonical_url=row["canonical_url"],
+                    passages=tuple(self._hit(row, query, passage=passage) for passage in passages),
+                )
+            )
+        return tuple(inspections)
 
     def close(self) -> None:
         self._connection.close()
@@ -298,8 +397,15 @@ class StructuredCorpusSearch:
             params.extend([kind, _column_fts_query("search_text", fts_query)])
         return conditions or ["0 = 1"]
 
-    def _hit(self, row: sqlite3.Row, query: CorpusQuery) -> CorpusHit:
-        passage = self._matched_passage(row["document_id"], query)
+    def _hit(
+        self,
+        row: sqlite3.Row,
+        query: CorpusQuery,
+        *,
+        passage: sqlite3.Row | None = None,
+    ) -> CorpusHit:
+        if passage is None:
+            passage = self._matched_passage(row["document_id"], query)
         if passage is None:
             source = SourceReference(
                 repository_url=row["source_url"],

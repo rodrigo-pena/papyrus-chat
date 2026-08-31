@@ -135,6 +135,32 @@ def test_facets_count_distinct_documents_from_the_normalized_query(
     assert CorpusFacetValue(value="Geld", count=1) in facets.values
 
 
+def test_describe_reports_distinct_corpus_inventory(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    description = documentary_search.describe()
+
+    assert description.collections == ("ddbdp",)
+    assert description.documents == 1
+    assert description.passages == 1
+    assert description.components == 2
+    assert description.languages == ("grc",)
+
+
+def test_inspect_documents_preserves_requested_order_and_bounds_passages(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    inspections = documentary_search.inspect_documents(
+        ["missing", "ddbdp:DDbDP/27/27093.xml"], excerpt_limit=1
+    )
+
+    assert [inspection.document_id for inspection in inspections] == [
+        "ddbdp:DDbDP/27/27093.xml"
+    ]
+    assert len(inspections[0].passages) == 1
+    assert inspections[0].passages[0].line_reference == "lines 1-18"
+
+
 def test_query_is_safe_for_fts_injection_and_reports_truncation(
     documentary_search: StructuredCorpusSearch,
 ) -> None:
