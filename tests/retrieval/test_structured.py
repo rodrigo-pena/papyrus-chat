@@ -17,6 +17,39 @@ from papyrus_chat.retrieval.structured import (
 )
 
 
+def _insert_search_document(
+    search: StructuredCorpusSearch,
+    document_id: str,
+    *,
+    title: str = "Synthetic",
+    metadata: str = "{}",
+    passage_text: str | None = None,
+) -> None:
+    connection = search._connection  # noqa: SLF001 - focused ranking fixture
+    connection.execute(
+        "INSERT INTO documents VALUES (?, 'dclp', ?, '[\"grc\"]', ?, 'repo', 'commit', "
+        "?, NULL, NULL)",
+        (document_id, title, metadata, document_id),
+    )
+    connection.execute(
+        "INSERT INTO documents_fts (document_id, title, metadata) VALUES (?, ?, ?)",
+        (document_id, title, metadata),
+    )
+    if passage_text is None:
+        return
+    passage_id = f"{document_id}#edition:1:edition"
+    connection.execute(
+        "INSERT INTO passages VALUES (?, ?, 'edition', 1, NULL, NULL, ?, ?, '{}', "
+        "'repo', 'commit', ?, 'edition')",
+        (passage_id, document_id, passage_text, passage_text.casefold(), document_id),
+    )
+    connection.execute("INSERT INTO passage_languages VALUES (?, 'grc')", (passage_id,))
+    connection.execute(
+        "INSERT INTO passages_fts (search_text, title, passage_id) VALUES (?, ?, ?)",
+        (passage_text.casefold(), title, passage_id),
+    )
+
+
 @pytest.fixture()
 def documentary_search(tmp_path: Path, fixture_git_repo: Path) -> StructuredCorpusSearch:
     artifact = tmp_path / "corpus"
@@ -300,3 +333,59 @@ def test_query_is_safe_for_fts_injection_and_reports_truncation(
     assert isinstance(result, CorpusSearchResult)
     assert result.candidate_count == 0
     assert result.truncated is False
+
+
+def test_query_ranks_relevance_before_alphabetical_document_ids(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    _insert_search_document(
+        documentary_search, "dclp:a-metadata", metadata='{"subject":"rankingneedle"}'
+    )
+    _insert_search_document(documentary_search, "dclp:m-title", title="rankingneedle")
+    _insert_search_document(
+        documentary_search,
+        "dclp:z-passage",
+        passage_text="rankingneedle rankingneedle rankingneedle",
+    )
+
+    result = documentary_search.query(CorpusQuery(term_groups=[["rankingneedle"]], limit=2))
+
+    assert result.candidate_count == 3
+    assert result.truncated is True
+    assert [hit.document_id for hit in result.hits] == ["dclp:m-title", "dclp:a-metadata"]
+
+
+def test_query_ranks_stronger_passage_match_before_alphabetical_id(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    _insert_search_document(documentary_search, "dclp:a-passage", passage_text="textneedle")
+    _insert_search_document(
+        documentary_search,
+        "dclp:z-passage",
+        passage_text="textneedle textneedle textneedle textneedle",
+    )
+
+    result = documentary_search.query(
+        CorpusQuery(term_groups=[["textneedle"]], fields=["transcription"], limit=1)
+    )
+
+    assert result.candidate_count == 2
+    assert result.truncated is True
+    assert result.hits[0].document_id == "dclp:z-passage"
+
+
+def test_query_uses_deterministic_ties_and_alphabetical_nonlexical_order(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    _insert_search_document(documentary_search, "dclp:z-tie", passage_text="tiephrase")
+    _insert_search_document(documentary_search, "dclp:a-tie", passage_text="tiephrase")
+
+    lexical = documentary_search.query(
+        CorpusQuery(term_groups=[["tiephrase"]], fields=["transcription"])
+    )
+    nonlexical = documentary_search.query(CorpusQuery())
+
+    assert [hit.document_id for hit in lexical.hits] == ["dclp:a-tie", "dclp:z-tie"]
+    assert [hit.document_id for hit in nonlexical.hits] == sorted(
+        hit.document_id for hit in nonlexical.hits
+    )

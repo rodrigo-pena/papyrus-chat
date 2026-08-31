@@ -219,11 +219,14 @@ class StructuredCorpusSearch:
                 f"SELECT count(*) FROM documents d WHERE {where_sql}", params
             ).fetchone()[0]
         )
-        rows = self._connection.execute(
-            f"SELECT d.* FROM documents d WHERE {where_sql} "
-            "ORDER BY d.collection, d.document_id LIMIT ?",
-            [*params, normalized.limit],
-        ).fetchall()
+        if normalized.term_groups:
+            rows = self._ranked_rows(normalized, where_sql, params)
+        else:
+            rows = self._connection.execute(
+                f"SELECT d.* FROM documents d WHERE {where_sql} "
+                "ORDER BY d.collection, d.document_id LIMIT ?",
+                [*params, normalized.limit],
+            ).fetchall()
         components = self._components_by_document(row["document_id"] for row in rows)
         hits = tuple(
             self._hit(
@@ -422,6 +425,69 @@ class StructuredCorpusSearch:
             )
             params.extend([kind, _column_fts_query("search_text", fts_query)])
         return conditions or ["0 = 1"]
+
+    def _ranked_rows(
+        self, query: CorpusQuery, where_sql: str, params: list[object]
+    ) -> list[sqlite3.Row]:
+        fts_queries = tuple(
+            dict.fromkeys(
+                fts_query
+                for group in query.term_groups
+                for term in group
+                if (fts_query := build_fts_query(term))
+            )
+        )
+        document_alternatives = [
+            _column_fts_query(column, fts_query)
+            for fts_query in fts_queries
+            for field, column in (("title", "title"), ("metadata", "metadata"))
+            if field in query.fields
+        ]
+        passage_query = " OR ".join(
+            f"({_column_fts_query('search_text', fts_query)})" for fts_query in fts_queries
+        )
+        passage_kinds = [
+            kind
+            for kind, field in (("edition", "transcription"), ("translation", "translation"))
+            if field in query.fields
+        ]
+
+        ranking_params: list[object] = [*params]
+        if document_alternatives:
+            document_scores = (
+                "SELECT document_id, bm25(documents_fts, 0.0, 5.0, 2.0) AS score "
+                "FROM documents_fts WHERE documents_fts MATCH ?"
+            )
+            ranking_params.append(" OR ".join(f"({item})" for item in document_alternatives))
+        else:
+            document_scores = "SELECT NULL AS document_id, 0.0 AS score WHERE 0"
+
+        if passage_kinds and passage_query:
+            placeholders = ", ".join("?" for _ in passage_kinds)
+            passage_matches = (
+                "SELECT p.document_id, "
+                "(bm25(passages_fts, 1.0, 0.0, 0.0) * 10.0) AS score "
+                "FROM passages_fts JOIN passages p ON p.passage_id = passages_fts.passage_id "
+                f"WHERE p.kind IN ({placeholders}) AND passages_fts MATCH ?"
+            )
+            ranking_params.extend([*passage_kinds, passage_query])
+        else:
+            passage_matches = "SELECT NULL AS document_id, 0.0 AS score WHERE 0"
+
+        ranking_params.append(query.limit)
+        return self._connection.execute(
+            f"WITH candidates AS (SELECT d.* FROM documents d WHERE {where_sql}), "
+            f"document_scores AS MATERIALIZED ({document_scores}), "
+            f"passage_matches AS MATERIALIZED ({passage_matches}), "
+            "passage_scores AS ("
+            "SELECT document_id, sum(score) AS score FROM passage_matches GROUP BY document_id"
+            ") SELECT candidates.* FROM candidates "
+            "LEFT JOIN document_scores ds ON ds.document_id = candidates.document_id "
+            "LEFT JOIN passage_scores ps ON ps.document_id = candidates.document_id "
+            "ORDER BY (coalesce(ds.score, 0.0) + coalesce(ps.score, 0.0)) ASC, "
+            "candidates.collection, candidates.document_id LIMIT ?",
+            ranking_params,
+        ).fetchall()
 
     def _hit(
         self,
