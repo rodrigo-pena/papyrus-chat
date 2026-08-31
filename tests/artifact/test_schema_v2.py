@@ -1,7 +1,9 @@
 """Coverage for the documentary corpus artifact schema and build boundary."""
 
 import json
+import shutil
 import sqlite3
+import subprocess
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -47,6 +49,7 @@ def test_ddbdp_build_persists_linked_components_and_distinct_document_fts(
         "component_links",
         "documents_fts",
         "passages_fts",
+        "passage_languages",
     } <= tables
 
     components = connection.execute(
@@ -94,6 +97,62 @@ def test_ddbdp_build_persists_linked_components_and_distinct_document_fts(
     reader = ArtifactReader(result.output_dir / "corpus.sqlite")
     components = reader.get_components("ddbdp:DDbDP/27/27093.xml")
     assert {component.kind for component in components} == {"ddbdp", "hgv"}
+    hgv_component = next(component for component in components if component.kind == "hgv")
+    assert hgv_component.document_id is None
+    assert reader.get_passages("ddbdp:DDbDP/27/27093.xml")[0].language == "grc"
+    reader.close()
+
+
+def test_shared_hgv_component_is_linked_to_every_ddbdp_document(
+    tmp_path: Path, fixture_git_repo: Path
+) -> None:
+    source_repo = tmp_path / "source"
+    subprocess.run(["git", "clone", "--quiet", str(fixture_git_repo), str(source_repo)], check=True)
+    duplicate = source_repo / "DDbDP" / "27" / "27094.xml"
+    shutil.copy2(source_repo / "DDbDP" / "27" / "27093.xml", duplicate)
+    subprocess.run(["git", "add", str(duplicate)], cwd=source_repo, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Fixture Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "--quiet",
+            "-m",
+            "add shared HGV fixture",
+        ],
+        cwd=source_repo,
+        check=True,
+    )
+    result = build_artifact(
+        ["ddbdp"],
+        output=tmp_path / "corpus",
+        source=LocalGitSource(source_repo),
+        source_url="https://github.com/papyri/idp.data.git",
+        requested_ref="HEAD",
+    )
+
+    connection = sqlite3.connect(result.output_dir / "corpus.sqlite")
+    assert connection.execute(
+        "SELECT document_id FROM components WHERE kind = 'hgv'"
+    ).fetchone() == (None,)
+    assert connection.execute("SELECT count(*) FROM component_links").fetchone() == (2,)
+    assert connection.execute(
+        "SELECT count(*) FROM documents_fts WHERE documents_fts MATCH 'Terentianus'"
+    ).fetchone() == (2,)
+    connection.close()
+
+    reader = ArtifactReader(result.output_dir / "corpus.sqlite")
+    assert {component.kind for component in reader.get_components("ddbdp:DDbDP/27/27093.xml")} == {
+        "ddbdp",
+        "hgv",
+    }
+    assert {component.kind for component in reader.get_components("ddbdp:DDbDP/27/27094.xml")} == {
+        "ddbdp",
+        "hgv",
+    }
     reader.close()
 
 

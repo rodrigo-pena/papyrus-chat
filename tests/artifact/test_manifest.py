@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -108,4 +109,14 @@ class TestValidateArtifact:
         root = write_artifact(tmp_path / "artifact", manifest)
 
         with pytest.raises(ArtifactInvalid, match="schema"):
+            validate_artifact(root)
+
+    def test_pre_language_index_v2_artifact_requests_a_rebuild(self, tmp_path: Path) -> None:
+        root = write_artifact(tmp_path / "artifact", make_manifest())
+        connection = sqlite3.connect(root / "corpus.sqlite")
+        connection.execute("DROP TABLE passage_languages")
+        connection.commit()
+        connection.close()
+
+        with pytest.raises(ArtifactInvalid, match=r"passage_languages.*Rebuild.*0\.2\.1"):
             validate_artifact(root)

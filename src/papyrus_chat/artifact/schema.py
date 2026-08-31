@@ -66,6 +66,12 @@ CREATE TABLE passages (
 );
 CREATE INDEX passages_by_document ON passages(document_id, sequence);
 
+CREATE TABLE passage_languages (
+    passage_id TEXT PRIMARY KEY REFERENCES passages(passage_id),
+    language   TEXT NOT NULL
+);
+CREATE INDEX passage_languages_lookup ON passage_languages(language, passage_id);
+
 CREATE VIRTUAL TABLE passages_fts USING fts5(
     search_text,
     title,
@@ -230,6 +236,10 @@ class ArtifactWriter:
                 for record in records
             ],
         )
+        self._connection.executemany(
+            "INSERT INTO passage_languages VALUES (?, ?)",
+            [(record.passage_id, record.language) for record in records if record.language],
+        )
         for record in records:
             title = self._connection.execute(
                 "SELECT title FROM documents WHERE document_id = ?",
@@ -369,16 +379,23 @@ class ArtifactWriter:
         if document is None:
             return
         component_rows = self._connection.execute(
-            "SELECT title FROM components WHERE document_id = ? ORDER BY component_id",
-            (document_id,),
+            "SELECT title FROM components WHERE document_id = ? "
+            "UNION SELECT h.title FROM component_links l "
+            "JOIN components d ON d.component_id = l.ddbdp_component_id "
+            "JOIN components h ON h.component_id = l.hgv_component_id "
+            "WHERE d.document_id = ? ORDER BY title",
+            (document_id, document_id),
         ).fetchall()
         title = " ".join([document[0], *(row[0] for row in component_rows)])
         metadata = document[1]
         component_metadata = self._connection.execute(
-            "SELECT value FROM metadata WHERE component_id IN "
-            "(SELECT component_id FROM components WHERE document_id = ?) "
+            "SELECT value FROM metadata WHERE component_id IN ("
+            "SELECT component_id FROM components WHERE document_id = ? "
+            "UNION SELECT l.hgv_component_id FROM component_links l "
+            "JOIN components d ON d.component_id = l.ddbdp_component_id "
+            "WHERE d.document_id = ?) "
             "ORDER BY component_id, key, value",
-            (document_id,),
+            (document_id, document_id),
         ).fetchall()
         if component_metadata:
             metadata += " " + " ".join(row[0] for row in component_metadata)
@@ -419,7 +436,9 @@ class ArtifactReader:
 
     def get_passages(self, document_id: str) -> list[PassageRecord]:
         rows = self._connection.execute(
-            "SELECT * FROM passages WHERE document_id = ? ORDER BY sequence",
+            "SELECT p.*, pl.language FROM passages p "
+            "LEFT JOIN passage_languages pl ON pl.passage_id = p.passage_id "
+            "WHERE p.document_id = ? ORDER BY p.sequence",
             (document_id,),
         ).fetchall()
         return [
@@ -427,6 +446,7 @@ class ArtifactReader:
                 passage_id=row["passage_id"],
                 document_id=row["document_id"],
                 kind=row["kind"],
+                language=row["language"],
                 sequence=row["sequence"],
                 textpart=row["textpart"],
                 line_reference=row["line_reference"],
@@ -455,8 +475,12 @@ class ArtifactReader:
 
     def get_components(self, document_id: str) -> list[ComponentRecord]:
         rows = self._connection.execute(
-            "SELECT * FROM components WHERE document_id = ? ORDER BY component_id",
-            (document_id,),
+            "SELECT * FROM components WHERE document_id = ? "
+            "OR component_id IN ("
+            "SELECT l.hgv_component_id FROM component_links l "
+            "JOIN components d ON d.component_id = l.ddbdp_component_id "
+            "WHERE d.document_id = ?) ORDER BY component_id",
+            (document_id, document_id),
         ).fetchall()
         components: list[ComponentRecord] = []
         for row in rows:

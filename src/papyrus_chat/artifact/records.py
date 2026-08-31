@@ -89,6 +89,7 @@ class PassageRecord(BaseModel):
     passage_id: str
     document_id: str
     kind: Literal["edition", "translation"]
+    language: str | None = None
     sequence: int
     textpart: str | None = None
     line_reference: str | None = None

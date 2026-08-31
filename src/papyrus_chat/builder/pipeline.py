@@ -47,7 +47,7 @@ from papyrus_chat.builder.errors import BuildError
 from papyrus_chat.builder.source import CorpusSource
 
 BUILDER_NAME = "papyrus-corpus-build"
-BUILDER_VERSION = "0.2.0"
+BUILDER_VERSION = "0.2.1"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -491,7 +491,6 @@ def _artifact_components(
                 canonical_url=ddbdp.canonical_url,
             )
         )
-        ddbdp_document_id = _document_id_from_component(ddbdp)
         for hgv in item.hgv_components:
             links.append(
                 ComponentLinkRecord(
@@ -502,7 +501,7 @@ def _artifact_components(
             if hgv.component_id in seen_hgv:
                 continue
             seen_hgv.add(hgv.component_id)
-            components.append(_hgv_artifact_component(hgv, ddbdp_document_id))
+            components.append(_hgv_artifact_component(hgv))
     return components, links
 
 
@@ -512,7 +511,7 @@ def _document_id_from_component(component: DDbDPComponent) -> str:
     return component.component_id.removeprefix("ddbdp:")
 
 
-def _hgv_artifact_component(component: HGVComponent, document_id: str) -> ArtifactComponentRecord:
+def _hgv_artifact_component(component: HGVComponent) -> ArtifactComponentRecord:
     metadata: dict[str, tuple[str, ...]] = {}
     if component.subjects:
         metadata["subject"] = component.subjects
@@ -524,7 +523,7 @@ def _hgv_artifact_component(component: HGVComponent, document_id: str) -> Artifa
         metadata["origin"] = component.origins
     return ArtifactComponentRecord(
         component_id=component.component_id,
-        document_id=document_id,
+        document_id=None,
         kind=component.kind,
         title=component.title,
         metadata=metadata,

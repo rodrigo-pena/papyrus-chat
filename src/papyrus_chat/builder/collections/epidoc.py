@@ -265,6 +265,7 @@ def _passages_from_div(
                 passage_id=derive_passage_id(document.document_id, kind, sequence, locator),
                 document_id=document.document_id,
                 kind=kind,
+                language=_effective_language(unit),
                 sequence=sequence,
                 textpart=label,
                 line_reference=_line_reference(unit),
@@ -275,3 +276,11 @@ def _passages_from_div(
             )
         )
     return passages
+
+
+def _effective_language(element: _etree._Element) -> str | None:
+    """Return the nearest inherited ``xml:lang`` value for an element."""
+    for candidate in (element, *element.iterancestors()):
+        if language := candidate.get(XML_LANG):
+            return language
+    return None

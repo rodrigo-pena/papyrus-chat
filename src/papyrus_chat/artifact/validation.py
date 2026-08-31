@@ -18,6 +18,7 @@ REQUIRED_TABLES = {
     "identifiers",
     "passages",
     "passages_fts",
+    "passage_languages",
     "components",
     "component_identifiers",
     "metadata",
@@ -59,6 +60,7 @@ def validate_artifact(root: Path) -> None:
             raise ArtifactInvalid(
                 f"SQLite artifact is missing schema v{ARTIFACT_SCHEMA_VERSION} table(s): "
                 + ", ".join(missing_tables)
+                + ". Rebuild this artifact with papyrus-corpus-build 0.2.1 or newer."
             )
         violations = connection.execute("PRAGMA foreign_key_check").fetchall()
         if violations:

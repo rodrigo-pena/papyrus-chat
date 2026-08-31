@@ -93,6 +93,25 @@ class TestDclpEditionRecord:
         assert parsed.warnings
         assert "<g>" in parsed.warnings[0]
 
+    def test_passage_language_inherits_from_nearest_ancestor(self) -> None:
+        xml = b"""<TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en">
+          <teiHeader><fileDesc><titleStmt><title>t</title></titleStmt></fileDesc></teiHeader>
+          <text><body><div type="edition" xml:lang="grc">
+            <div type="textpart" n="1"><ab>alpha</ab></div>
+            <div type="textpart" n="2" xml:lang="la"><ab>beta</ab></div>
+          </div></body></text>
+        </TEI>"""
+
+        parsed = parse_record(
+            xml,
+            collection="dclp",
+            source_path="DCLP/23/languages.xml",
+            repository_url=REPO_URL,
+            commit=COMMIT,
+        )
+
+        assert [passage.language for passage in parsed.passages] == ["grc", "la"]
+
 
 class TestDclpMetadataOnlyRecord:
     parsed = parse("DCLP/23/23702.xml")
