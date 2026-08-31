@@ -47,7 +47,7 @@
           {% if passage.textpart %}<span>{{ passage.textpart }}</span>{% endif %}
           {% if passage.line_reference %}<span>{{ passage.line_reference }}</span>{% endif %}
         </p>
-        <p class="passage-text" lang="{{ doc.languages[0] if doc.languages else 'und' }}">{{ passage.display_text }}</p>
+        <p class="passage-text" lang="{{ 'grc' if 'grc' in doc.languages and passage.kind == 'edition' else (doc.languages[0] if doc.languages else 'und') }}">{{ passage.display_text }}</p>
         <p class="provenance">Source: {{ passage.source.path }}, commit {{ passage.source.commit[:12] }}{% if passage.locator %}, {{ passage.locator }}{% endif %}</p>
       </div>
     {% endfor %}
