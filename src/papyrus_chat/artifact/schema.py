@@ -16,6 +16,7 @@ from papyrus_chat.artifact.records import (
     IdentifierRecord,
     PassageRecord,
 )
+from papyrus_chat.textnorm import normalize_identifier_value
 
 SCHEMA_VERSION = 1
 
@@ -34,12 +35,15 @@ CREATE TABLE documents (
 );
 
 CREATE TABLE identifiers (
-    document_id TEXT NOT NULL REFERENCES documents(document_id),
-    namespace   TEXT NOT NULL,
-    value       TEXT NOT NULL,
+    document_id    TEXT NOT NULL REFERENCES documents(document_id),
+    namespace      TEXT NOT NULL,
+    value          TEXT NOT NULL,
+    namespace_norm TEXT NOT NULL,
+    value_norm     TEXT NOT NULL,
     PRIMARY KEY (document_id, namespace, value)
 );
 CREATE INDEX identifiers_lookup ON identifiers(namespace, value);
+CREATE INDEX identifiers_norm_lookup ON identifiers(namespace_norm, value_norm);
 
 CREATE TABLE passages (
     passage_id     TEXT PRIMARY KEY,
@@ -155,8 +159,17 @@ class ArtifactWriter:
 
     def insert_identifiers(self, records: Sequence[IdentifierRecord]) -> None:
         self._connection.executemany(
-            "INSERT INTO identifiers VALUES (?, ?, ?)",
-            [(record.document_id, record.namespace, record.value) for record in records],
+            "INSERT INTO identifiers VALUES (?, ?, ?, ?, ?)",
+            [
+                (
+                    record.document_id,
+                    record.namespace,
+                    record.value,
+                    normalize_identifier_value(record.namespace),
+                    normalize_identifier_value(record.value),
+                )
+                for record in records
+            ],
         )
 
     def commit(self) -> None:

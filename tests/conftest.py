@@ -32,3 +32,20 @@ def fixture_git_repo(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session")
 def invalid_git_repo(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return make_git_repo(INVALID_FIXTURES, tmp_path_factory.mktemp("git-invalid"))
+
+
+@pytest.fixture(scope="session")
+def corpus_artifact(tmp_path_factory: pytest.TempPathFactory, fixture_git_repo: Path) -> Path:
+    """A real corpus artifact built once per session from the fixture repo."""
+    from papyrus_chat.builder.pipeline import build_artifact
+    from papyrus_chat.builder.source import LocalGitSource
+
+    output = tmp_path_factory.mktemp("corpus") / "papyrus-corpus"
+    result = build_artifact(
+        ["dclp", "translations"],
+        output=output,
+        source=LocalGitSource(fixture_git_repo),
+        source_url="https://github.com/papyri/idp.data.git",
+        requested_ref="master",
+    )
+    return result.output_dir
