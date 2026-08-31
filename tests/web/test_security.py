@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from typing import Any, cast
 
 from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
@@ -37,7 +38,8 @@ def all_pages(client: TestClient) -> list[str]:
 
 
 def _artifact_of(client: TestClient) -> Path:
-    return client.app.state.artifact  # type: ignore[union-attr]
+    app = cast(Any, client.app)
+    return app.state.artifact
 
 
 def test_no_api_key_in_any_response(corpus_artifact: Path) -> None:

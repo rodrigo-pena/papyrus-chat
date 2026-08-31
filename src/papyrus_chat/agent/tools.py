@@ -1,0 +1,110 @@
+"""Read-only Pydantic AI tools backed by structured corpus retrieval."""
+
+from dataclasses import dataclass
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict
+from pydantic_ai import Agent, RunContext
+
+from papyrus_chat.retrieval.structured import (
+    CorpusDescription,
+    CorpusFacetResult,
+    CorpusInspection,
+    CorpusQuery,
+    CorpusSearchResult,
+    FacetField,
+    StructuredCorpusSearch,
+)
+
+
+class CorpusInspectionResult(BaseModel):
+    """Bounded inspection output for selected corpus documents."""
+
+    model_config = ConfigDict(frozen=True)
+
+    inspections: tuple[CorpusInspection, ...]
+
+
+@dataclass(frozen=True)
+class CorpusToolDeps:
+    service: "CorpusToolService"
+
+
+class CorpusToolService:
+    """Application service used by tools and deterministic tests."""
+
+    def __init__(self, search: StructuredCorpusSearch) -> None:
+        self._search = search
+
+    def describe_corpus(self) -> CorpusDescription:
+        return self._search.describe()
+
+    def search_documents(
+        self,
+        query: CorpusQuery,
+        *,
+        assumptions: tuple[str, ...] = (),
+    ) -> CorpusSearchResult:
+        return self._search.query(query, assumptions=assumptions)
+
+    def inspect_documents(
+        self,
+        document_ids: list[str],
+        *,
+        excerpt_limit: int = 3,
+    ) -> CorpusInspectionResult:
+        return CorpusInspectionResult(
+            inspections=self._search.inspect_documents(
+                document_ids,
+                excerpt_limit=excerpt_limit,
+            )
+        )
+
+    def facet_documents(self, query: CorpusQuery, field: FacetField) -> CorpusFacetResult:
+        return self._search.facet_documents(query, field)
+
+
+def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
+    """Describe available collections, counts, languages, and components."""
+    return ctx.deps.service.describe_corpus()
+
+
+def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> CorpusSearchResult:
+    """Search distinct corpus documents with located evidence and provenance."""
+    return ctx.deps.service.search_documents(query)
+
+
+def inspect_documents(
+    ctx: RunContext[CorpusToolDeps],
+    document_ids: list[str],
+    excerpt_limit: int = 3,
+) -> CorpusInspectionResult:
+    """Inspect at most 20 selected documents and a bounded excerpt per document."""
+    return ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
+
+
+def facet_documents(
+    ctx: RunContext[CorpusToolDeps], query: CorpusQuery, field: FacetField
+) -> CorpusFacetResult:
+    """Count distinct candidate documents by a safe corpus facet."""
+    return ctx.deps.service.facet_documents(query, field)
+
+
+def register_corpus_tools(agent: Agent[Any, Any]) -> None:
+    """Register exactly the four read-only corpus tools on an agent."""
+    agent.tool(describe_corpus)
+    agent.tool(search_documents)
+    agent.tool(inspect_documents)
+    agent.tool(facet_documents)
+
+
+__all__ = [
+    "CorpusInspectionResult",
+    "CorpusToolDeps",
+    "CorpusToolService",
+    "describe_corpus",
+    "facet_documents",
+    "inspect_documents",
+    "register_corpus_tools",
+    "search_documents",
+]
