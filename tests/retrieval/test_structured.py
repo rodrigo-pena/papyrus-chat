@@ -154,9 +154,7 @@ def test_inspect_documents_preserves_requested_order_and_bounds_passages(
         ["missing", "ddbdp:DDbDP/27/27093.xml"], excerpt_limit=1
     )
 
-    assert [inspection.document_id for inspection in inspections] == [
-        "ddbdp:DDbDP/27/27093.xml"
-    ]
+    assert [inspection.document_id for inspection in inspections] == ["ddbdp:DDbDP/27/27093.xml"]
     assert len(inspections[0].passages) == 1
     assert inspections[0].passages[0].line_reference == "lines 1-18"
 
