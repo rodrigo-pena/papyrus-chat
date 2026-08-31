@@ -1,6 +1,6 @@
 """Read-only Pydantic AI tools backed by structured corpus retrieval."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -28,6 +28,7 @@ class CorpusInspectionResult(BaseModel):
 @dataclass(frozen=True)
 class CorpusToolDeps:
     service: "CorpusToolService"
+    known_corpus_urls: set[str] = field(default_factory=set)
 
 
 class CorpusToolService:
@@ -71,7 +72,11 @@ def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
 
 def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> CorpusSearchResult:
     """Search distinct corpus documents with located evidence and provenance."""
-    return ctx.deps.service.search_documents(query)
+    result = ctx.deps.service.search_documents(query)
+    ctx.deps.known_corpus_urls.update(
+        hit.canonical_url for hit in result.hits if hit.canonical_url is not None
+    )
+    return result
 
 
 def inspect_documents(
@@ -80,7 +85,13 @@ def inspect_documents(
     excerpt_limit: int = 3,
 ) -> CorpusInspectionResult:
     """Inspect at most 20 selected documents and a bounded excerpt per document."""
-    return ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
+    result = ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
+    ctx.deps.known_corpus_urls.update(
+        inspection.canonical_url
+        for inspection in result.inspections
+        if inspection.canonical_url is not None
+    )
+    return result
 
 
 def facet_documents(
