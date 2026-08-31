@@ -1,5 +1,6 @@
 """Read-only Pydantic AI tools backed by structured corpus retrieval."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -73,9 +74,7 @@ def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
 def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> CorpusSearchResult:
     """Search distinct corpus documents with located evidence and provenance."""
     result = ctx.deps.service.search_documents(query)
-    ctx.deps.known_corpus_urls.update(
-        hit.canonical_url for hit in result.hits if hit.canonical_url is not None
-    )
+    _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
     return result
 
 
@@ -86,11 +85,7 @@ def inspect_documents(
 ) -> CorpusInspectionResult:
     """Inspect at most 20 selected documents and a bounded excerpt per document."""
     result = ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
-    ctx.deps.known_corpus_urls.update(
-        inspection.canonical_url
-        for inspection in result.inspections
-        if inspection.canonical_url is not None
-    )
+    _remember_corpus_urls(ctx.deps, (inspection.canonical_url for inspection in result.inspections))
     return result
 
 
@@ -99,6 +94,10 @@ def facet_documents(
 ) -> CorpusFacetResult:
     """Count distinct candidate documents by a safe corpus facet."""
     return ctx.deps.service.facet_documents(query, field)
+
+
+def _remember_corpus_urls(deps: CorpusToolDeps, urls: Iterable[str | None]) -> None:
+    deps.known_corpus_urls.update(url for url in urls if url is not None)
 
 
 def register_corpus_tools(agent: Agent[Any, Any]) -> None:
