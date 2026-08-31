@@ -29,6 +29,19 @@ def documentary_search(tmp_path: Path, fixture_git_repo: Path) -> StructuredCorp
     return StructuredCorpusSearch(artifact / "corpus.sqlite")
 
 
+@pytest.fixture()
+def literary_search(tmp_path: Path, fixture_git_repo: Path) -> StructuredCorpusSearch:
+    artifact = tmp_path / "corpus"
+    build_artifact(
+        ["dclp"],
+        output=artifact,
+        source=LocalGitSource(fixture_git_repo),
+        source_url="https://github.com/papyri/idp.data.git",
+        requested_ref="master",
+    )
+    return StructuredCorpusSearch(artifact / "corpus.sqlite")
+
+
 def test_query_normalizes_filters_and_preserves_lexical_groups() -> None:
     query = CorpusQuery(
         collections=["DDBDP", "dclp"],
@@ -153,6 +166,70 @@ def test_describe_reports_distinct_corpus_inventory(
     assert description.passages == 1
     assert description.components == 2
     assert description.languages == ("grc",)
+
+
+def test_transcription_languages_use_actual_edition_passages(
+    literary_search: StructuredCorpusSearch,
+) -> None:
+    english = literary_search.query(
+        CorpusQuery(
+            term_groups=[["ἔτους"]],
+            fields=["transcription"],
+            transcription_languages=["en"],
+        )
+    )
+    greek = literary_search.query(
+        CorpusQuery(
+            term_groups=[["ἔτους"]],
+            fields=["transcription"],
+            transcription_languages=["grc"],
+        )
+    )
+    either = literary_search.query(
+        CorpusQuery(
+            term_groups=[["ἔτους"]],
+            fields=["transcription"],
+            transcription_languages=["en", "grc"],
+        )
+    )
+
+    assert english.candidate_count == 0
+    assert greek.candidate_count == 1
+    assert either.candidate_count == 1
+    assert literary_search.describe().languages == ("grc",)
+
+
+@pytest.mark.parametrize(
+    ("not_before", "not_after", "when_value", "query_bounds", "expected"),
+    [
+        ("0101", "0125", None, (110, 110), 1),
+        (None, None, "0110", (110, 110), 1),
+        ("0101", None, None, (300, 350), 1),
+        (None, "0125", None, (-300, -200), 1),
+        ("-0200", "-0100", None, (-150, -150), 1),
+        (None, None, None, (100, 125), 0),
+    ],
+)
+def test_date_filters_preserve_open_ended_and_point_intervals(
+    documentary_search: StructuredCorpusSearch,
+    not_before: str | None,
+    not_after: str | None,
+    when_value: str | None,
+    query_bounds: tuple[int, int],
+    expected: int,
+) -> None:
+    documentary_search._connection.execute(  # noqa: SLF001 - focused database regression
+        "UPDATE dates SET not_before = ?, not_after = ?, when_value = ?",
+        (not_before, not_after, when_value),
+    )
+
+    result = documentary_search.query(
+        CorpusQuery(
+            date_interval=CorpusDateInterval(not_before=query_bounds[0], not_after=query_bounds[1])
+        )
+    )
+
+    assert result.candidate_count == expected
 
 
 def test_inspect_documents_preserves_requested_order_and_bounds_passages(

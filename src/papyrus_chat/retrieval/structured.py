@@ -271,11 +271,12 @@ class StructuredCorpusSearch:
         )
         languages = {
             row["language"]
-            for row in self._connection.execute("SELECT DISTINCT language FROM languages")
+            for row in self._connection.execute(
+                "SELECT DISTINCT pl.language FROM passage_languages pl "
+                "JOIN passages p ON p.passage_id = pl.passage_id "
+                "WHERE p.kind = 'edition'"
+            )
         }
-        if not languages:
-            for row in self._connection.execute("SELECT languages FROM documents"):
-                languages.update(json.loads(row["languages"]))
         return CorpusDescription(
             collections=collections,
             documents=int(self._connection.execute("SELECT count(*) FROM documents").fetchone()[0]),
@@ -364,14 +365,11 @@ class StructuredCorpusSearch:
         if query.transcription_languages:
             placeholders = ", ".join("?" for _ in query.transcription_languages)
             where.append(
-                "(d.languages LIKE ? OR EXISTS ("
-                "SELECT 1 FROM languages lang JOIN components c "
-                "ON c.component_id = lang.component_id "
-                "WHERE c.document_id = d.document_id AND c.kind = 'ddbdp' "
-                f"AND lang.role = 'edition' AND lang.language IN ({placeholders})"
-                "))"
+                "EXISTS (SELECT 1 FROM passages p "
+                "JOIN passage_languages pl ON pl.passage_id = p.passage_id "
+                "WHERE p.document_id = d.document_id AND p.kind = 'edition' "
+                f"AND pl.language IN ({placeholders}))"
             )
-            params.append(f'%"{query.transcription_languages[0]}"%')
             params.extend(query.transcription_languages)
         if query.date_interval is not None:
             where.append(
@@ -381,12 +379,17 @@ class StructuredCorpusSearch:
                 "ON link.ddbdp_component_id = ddc.component_id "
                 "JOIN dates date_row ON date_row.component_id = link.hgv_component_id "
                 "WHERE ddc.document_id = d.document_id AND ddc.kind = 'ddbdp' "
-                "AND CAST(COALESCE(NULLIF(date_row.not_before, ''), "
-                "NULLIF(date_row.when_value, ''), NULLIF(date_row.not_after, '')) AS INTEGER) "
-                "<= ? "
-                "AND CAST(COALESCE(NULLIF(date_row.not_after, ''), "
-                "NULLIF(date_row.when_value, ''), NULLIF(date_row.not_before, '')) AS INTEGER) "
-                ">= ?"
+                "AND (NULLIF(date_row.not_before, '') IS NOT NULL "
+                "OR NULLIF(date_row.not_after, '') IS NOT NULL "
+                "OR NULLIF(date_row.when_value, '') IS NOT NULL) "
+                "AND (COALESCE(NULLIF(date_row.not_before, ''), "
+                "NULLIF(date_row.when_value, '')) IS NULL "
+                "OR CAST(COALESCE(NULLIF(date_row.not_before, ''), "
+                "NULLIF(date_row.when_value, '')) AS INTEGER) <= ?) "
+                "AND (COALESCE(NULLIF(date_row.not_after, ''), "
+                "NULLIF(date_row.when_value, '')) IS NULL "
+                "OR CAST(COALESCE(NULLIF(date_row.not_after, ''), "
+                "NULLIF(date_row.when_value, '')) AS INTEGER) >= ?)"
                 ")"
             )
             params.extend([query.date_interval.not_after, query.date_interval.not_before])
