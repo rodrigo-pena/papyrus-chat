@@ -6,6 +6,7 @@ servers work). The API key stays on the Python server: it is sent only in
 the Authorization header and never appears in error messages or logs.
 """
 
+import logging
 import os
 from collections.abc import Mapping
 
@@ -13,6 +14,8 @@ import httpx
 from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
 
 DEFAULT_TIMEOUT_SECONDS = 60.0
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderError(Exception):
@@ -86,6 +89,12 @@ class ProviderClient:
         if temperature is not None:
             payload["temperature"] = temperature
 
+        logger.debug(
+            "LLM request: POST %s model=%s messages=%d",
+            url,
+            self._config.model,
+            len(messages),
+        )
         try:
             response = self._client.post(url, json=payload, headers=headers)
         except httpx.ConnectError as error:
@@ -110,6 +119,8 @@ class ProviderClient:
                 f"Details: {_brief(response.text)}"
             )
 
+        logger.debug("LLM response: HTTP %d body_len=%d", response.status_code, len(response.text))
+
         try:
             body = response.json()
             content = body["choices"][0]["message"]["content"]
@@ -121,7 +132,14 @@ class ProviderClient:
 
         if not isinstance(content, str):
             raise ProviderError("The LLM endpoint returned an unexpected response format.")
-        return content
+        stripped = content.strip()
+        if not stripped:
+            raise ProviderError(
+                "The model returned an empty answer. "
+                "Check that the model is loaded and supports chat completions."
+            )
+        logger.debug("LLM answer: len=%d", len(stripped))
+        return stripped
 
 
 def _brief(text: str, limit: int = 300) -> str:

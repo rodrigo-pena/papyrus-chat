@@ -8,9 +8,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 class MockProviderServer:
     """Records requests and replies with a configurable completion response."""
 
-    def __init__(self, status: int = 200, content: str = "mock answer") -> None:
+    def __init__(
+        self,
+        status: int = 200,
+        content: str = "mock answer",
+        response_body: dict | None = None,
+    ) -> None:
         self.status = status
         self.content = content
+        self.response_body = response_body
         self.requests: list[dict] = []
         outer = self
 
@@ -25,9 +31,12 @@ class MockProviderServer:
                         "body": body,
                     }
                 )
-                payload = json.dumps(
-                    {"choices": [{"message": {"role": "assistant", "content": outer.content}}]}
-                ).encode()
+                body = (
+                    outer.response_body
+                    if outer.response_body is not None
+                    else {"choices": [{"message": {"role": "assistant", "content": outer.content}}]}
+                )
+                payload = json.dumps(body).encode()
                 self.send_response(outer.status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(payload)))

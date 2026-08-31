@@ -105,3 +105,12 @@ class TestChatPanel:
 
         for page in pages:
             assert secret not in page
+
+    def test_empty_model_answer_renders_error(self, corpus_artifact: Path) -> None:
+        with MockProviderServer(response_body={"choices": [{"message": {"content": ""}}]}) as mock:
+            client = client_for(corpus_artifact, env_with(mock))
+
+            html = client.post("/chat", data={"query": "ἔτους", "document_id": ""}).text
+
+        assert "empty answer" in html.lower()
+        assert '<span class="label">model-generated</span>' not in html

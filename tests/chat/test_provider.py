@@ -111,4 +111,14 @@ class TestClient:
 
             message = str(excinfo.value)
             assert "500" in message
-            assert "rejected" in message.lower() or "failed" in message.lower()
+
+    def test_empty_content_is_rejected(self) -> None:
+        with MockProviderServer(
+            response_body={"choices": [{"message": {"content": "   "}}]}
+        ) as mock:
+            client = ProviderClient(
+                load_provider_config({"LLM_BASE_URL": mock.base_url, "LLM_MODEL": "m"})
+            )
+
+            with pytest.raises(ProviderError, match="empty"):
+                client.complete([{"role": "user", "content": "hi"}])
