@@ -28,11 +28,11 @@ BM25_WEIGHTS = (10.0, 1.0)
 _FTS_SPECIALS = re.compile(r'[()":*^{}[\]\-]')
 
 
-def build_fts_query(user_query: str) -> str:
+def build_fts_query(user_query: str, *, operator: str = "AND") -> str:
     """Convert user text into a safe FTS5 query of quoted prefix tokens."""
     tokens = _FTS_SPECIALS.sub(" ", user_query).split()
     normalized = [normalize_search_text(token) for token in tokens]
-    return " ".join(f'"{token}"*' for token in normalized if token)
+    return f" {operator} ".join(f'"{token}"*' for token in normalized if token)
 
 
 class SearchFilters:
@@ -74,7 +74,16 @@ class CorpusSearch:
         return EvidencePacket(query=query, strategy="full-text", items=tuple(items))
 
     def _full_text(self, query: str, filters: SearchFilters, limit: int) -> list[EvidenceItem]:
-        fts_query = build_fts_query(query)
+        # Questions rarely satisfy all-token AND semantics; fall back to OR,
+        # letting the explicit BM25 ranking order the matches (SPEC 8).
+        items = self._fts_search(build_fts_query(query), filters, limit)
+        if not items:
+            items = self._fts_search(build_fts_query(query, operator="OR"), filters, limit)
+        if filters.collection is None and filters.kind is None:
+            items.extend(self._metadata_only_matches(query, limit))
+        return items
+
+    def _fts_search(self, fts_query: str, filters: SearchFilters, limit: int) -> list[EvidenceItem]:
         if not fts_query:
             return []
 
@@ -104,12 +113,7 @@ class CorpusSearch:
         params.append(limit)
 
         rows = self._connection.execute(sql, params).fetchall()
-        items = [self._passage_item(row) for row in rows]
-
-        if filters.collection is None and filters.kind is None:
-            items.extend(self._metadata_only_matches(query, limit))
-
-        return items
+        return [self._passage_item(row) for row in rows]
 
     def _metadata_only_matches(self, query: str, limit: int) -> list[EvidenceItem]:
         """Find textless documents by title/metadata substring (SPEC 8)."""
