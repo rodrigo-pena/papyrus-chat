@@ -1,6 +1,7 @@
 """Corpus build pipeline: source records → validated artifact (SPEC 6, 7)."""
 
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -82,6 +83,7 @@ def build_artifact(
     source_url: str,
     requested_ref: str,
     resolved_commit: str,
+    force: bool = False,
 ) -> BuildResult:
     started = time.monotonic()
     canonical = sorted({c.lower() for c in collections})
@@ -91,10 +93,10 @@ def build_artifact(
             f"Unknown collection: {', '.join(unknown)}. Supported: "
             + ", ".join(sorted(SUPPORTED_COLLECTIONS))
         )
-    if output.exists():
+    if output.exists() and not force:
         raise BuildError(
             f"Output artifact already exists: {output}. "
-            "Remove it or pass --force to replace it (replacement arrives in a later build)."
+            "Remove it or pass --force to replace exactly this artifact."
         )
     if not source_dir.is_dir():
         raise BuildError(f"Source directory not found: {source_dir}")
@@ -157,7 +159,13 @@ def build_artifact(
 
         validate_artifact(staging)
 
-        os.rename(staging, output)
+        if output.exists():
+            previous = output.with_name(f".{output.name}.old-{os.getpid()}")
+            os.rename(output, previous)
+            os.rename(staging, output)
+            shutil.rmtree(previous, ignore_errors=True)
+        else:
+            os.rename(staging, output)
     except Exception:
         subprocess.run(["rm", "-rf", str(staging)], check=False)
         raise

@@ -37,6 +37,9 @@ def build(
         help="Git URL or local idp.data checkout directory.",
     ),
     ref: str = typer.Option("master", "--ref", help="Branch, tag, or commit to record."),
+    force: bool = typer.Option(
+        False, "--force", help="Explicitly allow replacement of the destination artifact."
+    ),
     list_collections: bool = typer.Option(
         False, "--list-collections", help="Print supported collection names and exit."
     ),
@@ -75,6 +78,7 @@ def build(
             source_url=source,
             requested_ref=ref,
             resolved_commit=resolved_commit,
+            force=force,
         )
     except BuildError as error:
         typer.secho(str(error), err=True, fg=typer.colors.RED)
