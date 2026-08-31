@@ -18,6 +18,7 @@ from papyrus_chat.chat.provider import (
 )
 from papyrus_chat.retrieval.evidence import EvidencePacket
 from papyrus_chat.retrieval.search import CorpusSearch, SearchFilters
+from papyrus_chat.web.links import papyri_info_url
 from papyrus_chat.web.urlsafe import document_url
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -136,6 +137,7 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
                 "passages": passages,
                 "identifiers": identifiers,
                 "citation": citation,
+                "canonical_url": papyri_info_url((i.namespace, i.value) for i in identifiers),
             },
         )
 

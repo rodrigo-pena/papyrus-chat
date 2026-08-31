@@ -49,7 +49,9 @@
             {% endif %}
           </p>
           {% if item.display_text %}<blockquote class="evidence-text">{{ item.display_text | truncate(400) }}</blockquote>{% endif %}
-          <p class="citation">{{ item.citation_label }}</p>
+          <p class="citation">{{ item.citation_label }}
+            {% if item.canonical_url %}<a href="{{ item.canonical_url }}" target="_blank" rel="noopener noreferrer">papyri.info</a>{% endif %}
+          </p>
         </li>
       {% endfor %}
     </ol>

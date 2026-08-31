@@ -149,6 +149,7 @@ class CorpusSearch:
             source_path=row["source_path"],
             locator=row["locator"],
             citation_label=citation,
+            canonical_url=self._canonical_url(row["document_id"]),
         )
 
     def _metadata_items(self, documents: list[DocumentRecord]) -> list[EvidenceItem]:
@@ -163,6 +164,7 @@ class CorpusSearch:
                 citation_label=(
                     f"{doc.collection}:{self._first_identifier(doc.document_id)} ({doc.title})"
                 ),
+                canonical_url=self._canonical_url(doc.document_id),
             )
             for doc in documents
         ]
@@ -186,18 +188,30 @@ class CorpusSearch:
                     source_path=row["source_path"],
                     locator=row["locator"],
                     citation_label=citation,
+                    canonical_url=self._canonical_url(row["document_id"]),
                 )
             )
         return items
 
     def _first_identifier(self, document_id: str) -> str:
-        row = self._connection.execute(
+        row = self._preferred_identifier_row(document_id)
+        if row is None:
+            return document_id
+        preferred = normalize_identifier_value(row["namespace"])
+        return f"{row['namespace']} {row['value']}" if preferred else row["value"]
+
+    def _canonical_url(self, document_id: str) -> str | None:
+        row = self._preferred_identifier_row(document_id)
+        if row is not None and row["namespace"].lower() == "tm":
+            value = row["value"].strip()
+            if value:
+                return f"https://papyri.info/current/{value}"
+        return None
+
+    def _preferred_identifier_row(self, document_id: str) -> sqlite3.Row | None:
+        return self._connection.execute(
             "SELECT namespace, value FROM identifiers WHERE document_id = ?"
             " ORDER BY CASE WHEN LOWER(namespace) = 'tm' THEN 0 ELSE 1 END,"
             " namespace, value LIMIT 1",
             (document_id,),
         ).fetchone()
-        if row is None:
-            return document_id
-        preferred = normalize_identifier_value(row["namespace"])
-        return f"{row['namespace']} {row['value']}" if preferred else row["value"]

@@ -86,3 +86,10 @@ class TestNoLlmOperation:
 
         assert response.status_code == 200
         assert "sovereigns" in response.text
+
+    def test_search_result_links_to_papyri_info(self, corpus_artifact: Path) -> None:
+        client = TestClient(load_app(corpus_artifact, env={}))
+
+        html = client.get("/search", params={"query": "TM 23944"}).text
+
+        assert "papyri.info/current/23944" in html

@@ -21,6 +21,7 @@ class EvidenceItem(BaseModel):
     source_path: str | None = None
     locator: str | None = None
     citation_label: str
+    canonical_url: str | None = None
 
 
 class EvidencePacket(BaseModel):

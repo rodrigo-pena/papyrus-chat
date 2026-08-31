@@ -64,6 +64,14 @@ class TestChatPanel:
         assert "[1]" in html
         assert "TM 23944" in html or "23944" in html
 
+    def test_evidence_links_to_papyri_info(self, corpus_artifact: Path) -> None:
+        with MockProviderServer(content=MOCK_REPLY) as mock:
+            client = client_for(corpus_artifact, env_with(mock))
+
+            html = client.post("/chat", data={"query": "ἔτους", "document_id": ""}).text
+
+        assert "papyri.info/current/23944" in html
+
     def test_document_scope_restricts_evidence(self, corpus_artifact: Path) -> None:
         with MockProviderServer(content=MOCK_REPLY) as mock:
             client = client_for(corpus_artifact, env_with(mock))

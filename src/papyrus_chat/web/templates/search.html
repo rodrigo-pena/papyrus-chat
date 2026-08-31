@@ -37,6 +37,7 @@
             <span class="kind"><strong>metadata only</strong></span>
           {% endif %}
           <span class="citation">{{ item.citation_label }}</span>
+          {% if item.canonical_url %}<a href="{{ item.canonical_url }}" target="_blank" rel="noopener noreferrer">papyri.info</a>{% endif %}
         </p>
         {% if item.snippet %}<p class="snippet">{{ item.snippet }}</p>
         {% elif item.display_text %}<p class="snippet">{{ item.display_text | truncate(200) }}</p>{% endif %}

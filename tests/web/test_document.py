@@ -51,6 +51,12 @@ class TestEditionDocument:
         assert "citation" in html.lower()
         assert "TM 23944" in html
 
+    def test_canonical_papyri_info_link_present(self, corpus_artifact: Path) -> None:
+        html = page(corpus_artifact, EDITION_DOC)
+
+        assert "papyri.info/current/23944" in html
+        assert 'target="_blank"' in html
+
 
 class TestTranslationDocument:
     def test_translation_labelled_as_source_translation(self, corpus_artifact: Path) -> None:
@@ -67,6 +73,11 @@ class TestMetadataOnlyDocument:
         assert response.status_code == 200
         assert "metadata only" in response.text.lower()
         assert "Sb. 20 14258" in response.text
+
+    def test_canonical_link_present_for_metadata_only(self, corpus_artifact: Path) -> None:
+        html = client_for(corpus_artifact).get("/documents/dclp%3ADCLP%2F23%2F23702.xml").text
+
+        assert "papyri.info/current/23702" in html
 
 
 class TestRobustness:

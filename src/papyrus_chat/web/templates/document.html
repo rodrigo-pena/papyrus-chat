@@ -31,6 +31,9 @@
   <section aria-label="Copyable citation">
     <h2>Citation</h2>
     <code class="citation" id="citation">{{ citation }}</code>
+    {% if canonical_url %}
+      <p><a href="{{ canonical_url }}" target="_blank" rel="noopener noreferrer">View canonical record on papyri.info</a></p>
+    {% endif %}
   </section>
 
   {% if passages %}
