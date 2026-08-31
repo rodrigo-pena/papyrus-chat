@@ -34,13 +34,13 @@ def serve(
         typer.secho(str(error), err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2) from None
 
-    fastapi_app = load_app(artifact)
+    chat_app = load_app(artifact)
 
     if not no_open:
         threading.Timer(1.0, lambda: webbrowser.open(f"http://{host}:{port}/")).start()
 
     typer.echo(f"Serving papyrus-chat at http://{host}:{port}/ (Ctrl+C to stop)")
-    uvicorn.run(fastapi_app, host=host, port=port, log_level="warning")
+    uvicorn.run(chat_app, host=host, port=port, log_level="warning")
 
 
 if __name__ == "__main__":
