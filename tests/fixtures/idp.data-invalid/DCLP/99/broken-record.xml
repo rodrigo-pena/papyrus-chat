@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Deliberately malformed XML, created by the papyrus-chat project for failure testing (SPEC 12.1). Not derived from upstream idp.data. -->
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader><fileDesc><titleStmt><title>Broken record</title>
+</teiHeader>
+</TEI>
