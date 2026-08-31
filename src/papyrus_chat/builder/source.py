@@ -166,15 +166,15 @@ class RemoteGitSource:
             )
 
     def ensure_sparse_checkout(self, collections: list[str]) -> None:
-        """Limit the working tree to the selected collections' directories."""
+        """Limit the working tree to the selected collections' directories.
+
+        Uses cone-mode sparse checkout plus a full checkout of the resolved
+        commit: only the selected collections' blobs are fetched from the
+        promisor remote (SPEC 6.2).
+        """
         dirs = sorted(self.COLLECTION_DIRS.get(c, c) for c in {col.lower() for col in collections})
-        _run_git(["sparse-checkout", "init", "--no-cone"], cwd=self.worktree)
-        _run_git(
-            ["sparse-checkout", "set", *dirs],
-            cwd=self.worktree,
-            check=False,
-        )
-        _run_git(["checkout", self._require_commit(), "--", *dirs], cwd=self.worktree)
+        _run_git(["sparse-checkout", "set", "--cone", *dirs], cwd=self.worktree)
+        _run_git(["checkout", self._require_commit()], cwd=self.worktree)
 
     def xml_files(self, upstream_dir: str) -> list[str]:
         commit = self._require_commit()

@@ -86,6 +86,9 @@ def build_artifact(
         documents, passages, identifiers, warnings = _parse_collections(
             canonical, source=source, source_url=source_url, commit=resolved_commit
         )
+        # Upstream records can declare the same idno more than once; keep one,
+        # so the database and the logical hash see identical content.
+        identifiers = list({(i.document_id, i.namespace, i.value): i for i in identifiers}.values())
         for record in documents:
             if not record.languages:
                 warnings.append(
