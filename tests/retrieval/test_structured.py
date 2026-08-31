@@ -1,5 +1,6 @@
 """Structured, distinct-document retrieval over the v2 artifact."""
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,19 @@ def literary_search(tmp_path: Path, fixture_git_repo: Path) -> StructuredCorpusS
     artifact = tmp_path / "corpus"
     build_artifact(
         ["dclp"],
+        output=artifact,
+        source=LocalGitSource(fixture_git_repo),
+        source_url="https://github.com/papyri/idp.data.git",
+        requested_ref="master",
+    )
+    return StructuredCorpusSearch(artifact / "corpus.sqlite")
+
+
+@pytest.fixture()
+def mixed_search(tmp_path: Path, fixture_git_repo: Path) -> StructuredCorpusSearch:
+    artifact = tmp_path / "corpus"
+    build_artifact(
+        ["dclp", "ddbdp"],
         output=artifact,
         source=LocalGitSource(fixture_git_repo),
         source_url="https://github.com/papyri/idp.data.git",
@@ -154,6 +168,37 @@ def test_facets_count_distinct_documents_from_the_normalized_query(
     assert facets.query == CorpusQuery()
     assert facets.field == "subject"
     assert CorpusFacetValue(value="Geld", count=1) in facets.values
+
+
+def test_facets_aggregate_without_binding_every_candidate_document(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    connection = documentary_search._connection  # noqa: SLF001 - SQLite limit regression
+    source = connection.execute("SELECT * FROM documents LIMIT 1").fetchone()
+    for index in range(12):
+        values = list(source)
+        values[0] = f"ddbdp:synthetic-{index}"
+        connection.execute("INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
+    previous_limit = connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 8)
+    try:
+        facets = documentary_search.facet_documents(CorpusQuery(), "collection")
+    finally:
+        connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, previous_limit)
+
+    assert facets.values == (CorpusFacetValue(value="ddbdp", count=13),)
+
+
+def test_facets_count_mixed_collections_and_actual_passage_languages(
+    mixed_search: StructuredCorpusSearch,
+) -> None:
+    collections = mixed_search.facet_documents(CorpusQuery(), "collection")
+    languages = mixed_search.facet_documents(CorpusQuery(collections=["dclp"]), "language")
+
+    assert collections.values == (
+        CorpusFacetValue(value="dclp", count=2),
+        CorpusFacetValue(value="ddbdp", count=1),
+    )
+    assert languages.values == (CorpusFacetValue(value="grc", count=1),)
 
 
 def test_describe_reports_distinct_corpus_inventory(

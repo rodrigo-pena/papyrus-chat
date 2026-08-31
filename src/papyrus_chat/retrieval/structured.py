@@ -251,14 +251,9 @@ class StructuredCorpusSearch:
         normalized = CorpusQuery.model_validate(query)
         where, params = self._where_clause(normalized)
         where_sql = " AND ".join(where)
-        rows = self._connection.execute(
-            f"SELECT d.document_id FROM documents d WHERE {where_sql}", params
-        ).fetchall()
-        document_ids = [row["document_id"] for row in rows]
-        counts = self._facet_counts(field, document_ids)
+        rows = self._facet_rows(field, where_sql, params)
         values = tuple(
-            CorpusFacetValue(value=value, count=count)
-            for value, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+            CorpusFacetValue(value=row["value"], count=int(row["count"])) for row in rows
         )
         return CorpusFacetResult(query=normalized, field=field, values=values)
 
@@ -604,45 +599,49 @@ class StructuredCorpusSearch:
             )
         return {document_id: tuple(values) for document_id, values in by_document.items()}
 
-    def _facet_counts(self, field: FacetField, document_ids: list[str]) -> dict[str, int]:
-        if not document_ids:
-            return {}
-        placeholders = ", ".join("?" for _ in document_ids)
+    def _facet_rows(
+        self, field: FacetField, where_sql: str, params: list[object]
+    ) -> list[sqlite3.Row]:
+        filtered = f"WITH filtered_documents AS (SELECT d.* FROM documents d WHERE {where_sql}) "
         if field == "collection":
             rows = self._connection.execute(
-                "SELECT collection AS value, count(*) AS count FROM documents "
-                f"WHERE document_id IN ({placeholders}) GROUP BY collection",
-                document_ids,
+                filtered + "SELECT collection AS value, count(*) AS count FROM filtered_documents "
+                "GROUP BY collection ORDER BY count DESC, value ASC",
+                params,
             ).fetchall()
         elif field == "language":
             rows = self._connection.execute(
-                "SELECT lang.language AS value, count(DISTINCT c.document_id) AS count "
-                "FROM languages lang JOIN components c ON c.component_id = lang.component_id "
-                f"WHERE c.document_id IN ({placeholders}) GROUP BY lang.language",
-                document_ids,
+                filtered + "SELECT pl.language AS value, count(DISTINCT fd.document_id) AS count "
+                "FROM filtered_documents fd "
+                "JOIN passages p ON p.document_id = fd.document_id "
+                "JOIN passage_languages pl ON pl.passage_id = p.passage_id "
+                "WHERE p.kind = 'edition' GROUP BY pl.language "
+                "ORDER BY count DESC, value ASC",
+                params,
             ).fetchall()
         elif field == "kind":
             rows = self._connection.execute(
-                "SELECT p.kind AS value, count(DISTINCT p.document_id) AS count "
-                "FROM passages p "
-                f"WHERE p.document_id IN ({placeholders}) GROUP BY p.kind",
-                document_ids,
+                filtered + "SELECT p.kind AS value, count(DISTINCT fd.document_id) AS count "
+                "FROM filtered_documents fd "
+                "JOIN passages p ON p.document_id = fd.document_id GROUP BY p.kind "
+                "ORDER BY count DESC, value ASC",
+                params,
             ).fetchall()
         else:
-            key = field
             rows = self._connection.execute(
-                "SELECT value, count(DISTINCT document_id) AS count FROM ("
-                "SELECT m.value, c.document_id FROM metadata m "
-                "JOIN components c ON c.component_id = m.component_id "
-                f"WHERE c.document_id IN ({placeholders}) AND m.key = ? "
-                "UNION ALL SELECT m.value, d.document_id FROM metadata m "
-                "JOIN component_links l ON l.hgv_component_id = m.component_id "
-                "JOIN components d ON d.component_id = l.ddbdp_component_id "
-                f"WHERE d.document_id IN ({placeholders}) AND m.key = ?"
-                ") GROUP BY value",
-                [*document_ids, key, *document_ids, key],
+                filtered + ", component_owners AS ("
+                "SELECT fd.document_id, c.component_id FROM filtered_documents fd "
+                "JOIN components c ON c.document_id = fd.document_id "
+                "UNION SELECT fd.document_id, l.hgv_component_id FROM filtered_documents fd "
+                "JOIN components d ON d.document_id = fd.document_id "
+                "JOIN component_links l ON l.ddbdp_component_id = d.component_id"
+                ") SELECT m.value AS value, count(DISTINCT owners.document_id) AS count "
+                "FROM component_owners owners "
+                "JOIN metadata m ON m.component_id = owners.component_id "
+                "WHERE m.key = ? GROUP BY m.value ORDER BY count DESC, value ASC",
+                [*params, field],
             ).fetchall()
-        return {row["value"]: int(row["count"]) for row in rows}
+        return rows
 
 
 def _column_fts_query(column: str, query: str) -> str:

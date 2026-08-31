@@ -121,6 +121,8 @@ def test_inspect_tool_exposes_shared_hgv_evidence_for_each_linked_document(
         assert "Geld" in hgv.metadata["subject"]
         assert hgv.dates[0].not_before == "0101"
         assert hgv.source.path == "HGV_meta_EpiDoc/HGV28/27093.xml"
+    facets = shared_hgv_tools.facet_documents(CorpusQuery(), "subject")
+    assert any(value.value == "Geld" and value.count == 2 for value in facets.values)
 
 
 def test_facet_tool_returns_typed_counts(corpus_tools: CorpusToolService) -> None:
