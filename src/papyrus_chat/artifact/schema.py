@@ -91,7 +91,7 @@ def _ensure_fts5(connection: sqlite3.Connection) -> None:
 
 class ArtifactWriter:
     def __init__(self, database_path: Path) -> None:
-        self._connection = sqlite3.connect(database_path)
+        self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.execute("PRAGMA foreign_keys = ON")
 
     def create_schema(self) -> None:

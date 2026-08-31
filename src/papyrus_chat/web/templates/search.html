@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Search — Papyrus Chat{% endblock %}
+{% block content %}
+<h1>Search the corpus</h1>
+<form method="get" action="/search" role="search">
+  <label for="query">Search the corpus</label>
+  <input type="search" id="query" name="query" value="{{ query }}"
+         placeholder="Text, title, or identifier (e.g. TM 23944)">
+  <label for="collection">Collection</label>
+  <select id="collection" name="collection">
+    <option value="">All collections</option>
+    <option value="dclp" {% if selected_collection == 'dclp' %}selected{% endif %}>DCLP (literary papyri)</option>
+    <option value="translations" {% if selected_collection == 'translations' %}selected{% endif %}>Translations</option>
+  </select>
+  <label for="kind">Passage kind</label>
+  <select id="kind" name="kind">
+    <option value="">Any kind</option>
+    <option value="edition" {% if selected_kind == 'edition' %}selected{% endif %}>Edition</option>
+    <option value="translation" {% if selected_kind == 'translation' %}selected{% endif %}>Translation</option>
+  </select>
+  <button type="submit">Search</button>
+</form>
+
+{% if packet %}
+  {% if packet.items %}
+  <section aria-label="Search results">
+    <h2>Results <span class="count">({{ packet.items | length }})</span></h2>
+    <ol class="results">
+    {% for item in packet.items %}
+      <li>
+        <a href="{{ doc_url(item.document_id) }}">{{ item.title }}</a>
+        <p class="meta">
+          <span class="collection">{{ item.collection }}</span>
+          {% if item.kind %}
+            <span class="kind">{{ item.kind }}</span>
+          {% else %}
+            <span class="kind"><strong>metadata only</strong></span>
+          {% endif %}
+          <span class="citation">{{ item.citation_label }}</span>
+        </p>
+        {% if item.snippet %}<p class="snippet">{{ item.snippet }}</p>
+        {% elif item.display_text %}<p class="snippet">{{ item.display_text | truncate(200) }}</p>{% endif %}
+      </li>
+    {% endfor %}
+    </ol>
+  </section>
+  {% else %}
+  <section aria-label="Search results">
+    <h2>Results</h2>
+    <p>No results for that search. Try different words, or an identifier such as
+    <code>TM 23944</code>.</p>
+  </section>
+  {% endif %}
+{% endif %}
+{% endblock %}

@@ -11,7 +11,7 @@ class IdentifierLookup:
     """Exact identifier lookup over the artifact's normalized identifier index."""
 
     def __init__(self, database_path: Path) -> None:
-        self._connection = sqlite3.connect(database_path)
+        self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
 
     def lookup(self, query: str) -> list[DocumentRecord]:
