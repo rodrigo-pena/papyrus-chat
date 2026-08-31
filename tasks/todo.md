@@ -1,5 +1,17 @@
 # Papyrus Chat — task list
 
+> **STATUS (2026-08-31): ALL 22 TASKS IMPLEMENTED** via `/build auto` (TDD loop,
+> one commit per task). Full-corpus deviations are recorded in
+> `docs/performance.md`: the ≤ 5 min warm-build target is missed at corpus
+> scale (bottleneck: per-file `git show`), and the DCLP+Translations remote
+> build was not measured end-to-end (only `dclp`, 14,842 documents).
+> Human-review checkpoints C/E/I ran as verification points in auto mode.
+>
+> Commit map: ef16f02 T1 · 1b02e12 T2 · 25169e1 T3 · 8c03072 T4 · 01c12a4 T5 ·
+> 53bd38f T6 · c38a6c5 T7 · fb88b9f T8 · 5cb4068 T9 · a617eef T10 · f22a197 T11 ·
+> 49315d8 T12 · 633d523 T13 · f275f23 T14 · 8f72f1f T15 · 590fd66 T16 ·
+> 57a75f5 T17 · cb35f3b T18 · ec8d65a T19 · 4ecffe3 T20 · ffb32bc T21 · 7e1589d T22
+
 Companion to `tasks/plan.md`. Work tasks in order unless using the parallelization
 notes in the plan. Mark checkboxes as you go; all four quality commands
 (`uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run ty check`)

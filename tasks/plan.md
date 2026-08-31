@@ -1,6 +1,7 @@
 # Implementation Plan: Papyrus Chat proof of concept
 
-Status: Decisions recorded 2026-08-31 — open questions resolved, ready for implementation
+Status: Implemented 2026-08-31 (autonomous /build auto) — all 22 tasks complete;
+see tasks/todo.md for the per-task commit record and docs/performance.md for measurements
 Spec: `SPEC.md` (Accepted, 2026-08-31)
 Task list: `tasks/todo.md`
 
