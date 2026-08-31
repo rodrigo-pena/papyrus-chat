@@ -19,6 +19,18 @@ def env_with(mock: MockProviderServer) -> dict[str, str]:
 
 
 class TestChatPanel:
+    def test_get_chat_renders_empty_form(self, corpus_artifact: Path) -> None:
+        client = client_for(
+            corpus_artifact, {"LLM_BASE_URL": "http://127.0.0.1:9", "LLM_MODEL": "m"}
+        )
+
+        response = client.get("/chat")
+        html = response.text
+
+        assert response.status_code == 200
+        assert '<form method="post" action="/chat"' in html
+        assert "Ask about the corpus" in html
+
     def test_answer_renders_with_evidence_used(self, corpus_artifact: Path) -> None:
         with MockProviderServer(content=MOCK_REPLY) as mock:
             client = client_for(corpus_artifact, env_with(mock))

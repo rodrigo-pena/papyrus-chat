@@ -39,6 +39,21 @@ class TestLoadApp:
         assert "<label" in html
         assert 'for="query"' in html
 
+    def test_index_links_to_chat(self, corpus_artifact: Path) -> None:
+        client = TestClient(load_app(corpus_artifact, env=TEST_ENV))
+
+        html = client.get("/").text
+
+        assert 'href="/chat"' in html
+        assert "Ask a question" in html
+
+    def test_navigation_always_links_to_chat(self, corpus_artifact: Path) -> None:
+        client = TestClient(load_app(corpus_artifact, env=TEST_ENV))
+
+        for path in ("/", "/search", "/documents/does-not-exist"):
+            html = client.get(path).text
+            assert 'href="/chat"' in html, f"missing chat link on {path}"
+
     def test_incompatible_schema_is_rejected(self, tmp_path: Path, corpus_artifact: Path) -> None:
         broken = tmp_path / "broken-artifact"
         shutil.copytree(corpus_artifact, broken)

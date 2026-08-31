@@ -139,6 +139,7 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/chat", response_class=HTMLResponse)
     @app.post("/chat", response_class=HTMLResponse)
     async def chat(
         request: Request,
