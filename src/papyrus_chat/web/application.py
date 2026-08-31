@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -10,7 +10,12 @@ from fastapi.templating import Jinja2Templates
 from papyrus_chat.artifact.manifest import load_manifest
 from papyrus_chat.artifact.schema import ArtifactReader
 from papyrus_chat.artifact.validation import validate_artifact
-from papyrus_chat.chat.provider import load_provider_config
+from papyrus_chat.chat.conversation import Conversation
+from papyrus_chat.chat.provider import (
+    ProviderClient,
+    ProviderError,
+    load_provider_config,
+)
 from papyrus_chat.retrieval.evidence import EvidencePacket
 from papyrus_chat.retrieval.search import CorpusSearch, SearchFilters
 from papyrus_chat.web.urlsafe import document_url
@@ -55,6 +60,7 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
     app.state.artifact = artifact
     app.state.manifest = manifest
     app.state.search = CorpusSearch(artifact / "corpus.sqlite")
+    app.state.provider_config = load_provider_config(env, required=False)
     app.state.templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     app.mount(
         "/static",
@@ -62,13 +68,14 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
         name="static",
     )
 
+    def render(request: Request, name: str, context: dict, status: int = 200):
+        return app.state.templates.TemplateResponse(
+            request=request, name=name, status_code=status, context=context
+        )
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
-        return app.state.templates.TemplateResponse(
-            request=request,
-            name="index.html",
-            context={"manifest": app.state.manifest},
-        )
+        return render(request, "index.html", {"manifest": app.state.manifest})
 
     @app.get("/search", response_class=HTMLResponse)
     async def search(
@@ -82,10 +89,10 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
             filters = SearchFilters(collection=collection or None, kind=kind or None)
             packet = app.state.search.search(query, filters, limit=25)
 
-        return app.state.templates.TemplateResponse(
-            request=request,
-            name="search.html",
-            context={
+        return render(
+            request,
+            "search.html",
+            {
                 "query": query,
                 "packet": packet,
                 "selected_collection": collection,
@@ -96,16 +103,15 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
 
     @app.get("/documents/{document_id:path}", response_class=HTMLResponse)
     async def document(request: Request, document_id: str) -> HTMLResponse:
-        templates = app.state.templates
         reader = ArtifactReader(app.state.artifact / "corpus.sqlite")
         record = reader.get_document(document_id)
         if record is None:
             reader.close()
-            return templates.TemplateResponse(
-                request=request,
-                name="not_found.html",
-                status_code=404,
-                context={"message": "No document with that identifier in this corpus."},
+            return render(
+                request,
+                "not_found.html",
+                {"message": "No document with that identifier in this corpus."},
+                status=404,
             )
 
         passages = reader.get_passages(document_id)
@@ -122,14 +128,51 @@ def load_app(artifact: Path, env: dict[str, str] | None = None) -> FastAPI:
             else record.title
         )
 
-        return templates.TemplateResponse(
-            request=request,
-            name="document.html",
-            context={
+        return render(
+            request,
+            "document.html",
+            {
                 "doc": record,
                 "passages": passages,
                 "identifiers": identifiers,
                 "citation": citation,
+            },
+        )
+
+    @app.post("/chat", response_class=HTMLResponse)
+    async def chat(
+        request: Request,
+        query: str = Form(""),
+        document_id: str = Form(""),
+    ) -> HTMLResponse:
+        answer = None
+        error: str | None = None
+        if query.strip():
+            try:
+                if app.state.provider_config.base_url:
+                    conversation = Conversation(
+                        app.state.search,
+                        ProviderClient(app.state.provider_config),
+                    )
+                    answer = conversation.ask(query, document_id=document_id or None)
+                else:
+                    error = (
+                        "LLM configuration incomplete. Set LLM_BASE_URL and "
+                        "LLM_MODEL (and optionally LLM_API_KEY) before asking "
+                        "questions. Searching still works."
+                    )
+            except ProviderError as provider_error:
+                error = str(provider_error)
+
+        return render(
+            request,
+            "chat.html",
+            {
+                "query": query,
+                "document_id": document_id,
+                "answer": answer,
+                "error": error,
+                "doc_url": document_url,
             },
         )
 

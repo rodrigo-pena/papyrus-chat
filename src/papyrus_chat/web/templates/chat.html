@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Answer — Papyrus Chat{% endblock %}
+{% block content %}
+<h1>Answer</h1>
+
+<section aria-label="Your question">
+  <p class="question"><strong>Question:</strong> {{ query }}</p>
+</section>
+
+{% if error %}
+<section class="error" role="alert">
+  <h2>The answer could not be produced</h2>
+  <p>{{ error }}</p>
+</section>
+{% endif %}
+
+{% if answer %}
+<section aria-label="Answer">
+  <h2>Answer <span class="label">model-generated</span></h2>
+  <p class="answer">{{ answer.answer_text }}</p>
+  {% if answer.insufficient_evidence %}
+    <p>No answer was produced from the corpus.</p>
+  {% endif %}
+</section>
+
+<section aria-label="Evidence used">
+  <details open>
+    <summary><h2 class="inline">Evidence used</h2></summary>
+    {% if answer.citations_display %}
+      <p class="citations"><strong>Citations:</strong>
+      {% for line in answer.citations_display.split('\n') %}
+        <span class="citation-line">{{ line }}</span>
+      {% endfor %}
+      </p>
+    {% endif %}
+    <ol class="evidence">
+      {% for item in answer.evidence.items %}
+        <li id="evidence-{{ loop.index }}">
+          <p class="meta">
+            <span class="marker">[{{ loop.index }}]</span>
+            <a href="{{ doc_url(item.document_id) }}">{{ item.title }}</a>
+            <span class="collection">{{ item.collection }}</span>
+            {% if item.kind == 'translation' %}
+              <span class="kind">source translation</span>
+            {% elif item.kind == 'edition' %}
+              <span class="kind">edition</span>
+            {% else %}
+              <span class="kind"><strong>metadata only</strong></span>
+            {% endif %}
+          </p>
+          {% if item.display_text %}<blockquote class="evidence-text">{{ item.display_text | truncate(400) }}</blockquote>{% endif %}
+          <p class="citation">{{ item.citation_label }}</p>
+        </li>
+      {% endfor %}
+    </ol>
+  </details>
+</section>
+{% endif %}
+
+<section aria-label="Ask another question">
+  <h2>Ask about the corpus</h2>
+  <form method="post" action="/chat">
+    <label for="chat-query">Your question</label>
+    <input type="text" id="chat-query" name="query" value="{{ query }}" required>
+    <input type="hidden" name="document_id" value="{{ document_id or '' }}">
+    <button type="submit">Ask</button>
+  </form>
+</section>
+{% endblock %}
