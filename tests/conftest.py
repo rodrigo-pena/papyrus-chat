@@ -1,11 +1,34 @@
 import shutil
 import subprocess
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, NoReturn
 
 import pytest
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 
 FIXTURES = Path(__file__).parent / "fixtures" / "idp.data"
 INVALID_FIXTURES = Path(__file__).parent / "fixtures" / "idp.data-invalid"
+
+
+@pytest.fixture(autouse=True)
+def block_real_model_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the default suite fail fast instead of contacting an LLM provider."""
+
+    async def blocked_request(*args: Any, **kwargs: Any) -> NoReturn:
+        del args, kwargs
+        raise AssertionError("real model requests are disabled in the test suite")
+
+    @asynccontextmanager
+    async def blocked_request_stream(*args: Any, **kwargs: Any) -> AsyncIterator[None]:
+        del args, kwargs
+        raise AssertionError("real model requests are disabled in the test suite")
+        yield
+
+    for model_type in (OpenAIChatModel, OpenAIResponsesModel):
+        monkeypatch.setattr(model_type, "request", blocked_request)
+        monkeypatch.setattr(model_type, "request_stream", blocked_request_stream)
 
 
 def git(*args: str, cwd: Path) -> None:

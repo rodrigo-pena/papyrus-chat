@@ -27,6 +27,10 @@ results as a replacement for local corpus evidence.
 """.strip()
 
 _PAPYRI_URL = re.compile(r"https://papyri\.info/[^\s)\]>]+")
+_NO_CORPUS_EVIDENCE = re.compile(
+    r"\b(?:no|none|not any|without|insufficient)\b.{0,40}\bcorpus evidence\b",
+    re.IGNORECASE,
+)
 
 
 def model_supports_native_web_search(model_name: str) -> bool:
@@ -43,7 +47,11 @@ def validate_research_output(output: str, known_corpus_urls: set[str]) -> str:
             "Use only a known corpus citation returned by a corpus tool; "
             f"unknown corpus citation: {unknown[0]}"
         )
-    if "corpus evidence" in output.casefold() and not urls:
+    if (
+        "corpus evidence" in output.casefold()
+        and not urls
+        and not _NO_CORPUS_EVIDENCE.search(output)
+    ):
         raise ModelRetry(
             "Corpus evidence must include a known corpus citation returned by a corpus tool."
         )

@@ -86,3 +86,9 @@ def test_output_validator_allows_memory_background_without_corpus_citation() -> 
     answer = "Model-supplied background: Egyptian month names varied by period."
 
     assert validate_research_output(answer, set()) == answer
+
+
+def test_output_validator_allows_a_clear_no_evidence_answer() -> None:
+    answer = "Scope and method: the displayed filters returned no corpus evidence."
+
+    assert validate_research_output(answer, set()) == answer
