@@ -34,6 +34,55 @@ class IdentifierRecord(BaseModel):
     value: str
 
 
+class ComponentIdentifierRecord(BaseModel):
+    """An identifier attached to one source component."""
+
+    model_config = ConfigDict(frozen=True)
+
+    component_id: str
+    namespace: str
+    value: str
+
+
+class ComponentDateRecord(BaseModel):
+    """A source-preserved date interval attached to one component."""
+
+    model_config = ConfigDict(frozen=True)
+
+    component_id: str
+    sequence: int
+    not_before: str | None = None
+    not_after: str | None = None
+    when: str | None = None
+    text: str | None = None
+
+
+class ComponentRecord(BaseModel):
+    """Normalized component data persisted in artifact schema v2."""
+
+    model_config = ConfigDict(frozen=True)
+
+    component_id: str
+    document_id: str | None
+    kind: str
+    title: str
+    languages: tuple[str, ...] = ()
+    metadata: dict[str, tuple[str, ...]] = Field(default_factory=dict)
+    dates: tuple[ComponentDateRecord, ...] = ()
+    identifiers: tuple[ComponentIdentifierRecord, ...] = ()
+    source: SourceReference
+    canonical_url: str | None = None
+
+
+class ComponentLinkRecord(BaseModel):
+    """A deterministic edge between two persisted source components."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ddbdp_component_id: str
+    hgv_component_id: str
+
+
 class PassageRecord(BaseModel):
     model_config = ConfigDict(frozen=True)
 

@@ -50,6 +50,7 @@ def parse_record(
             for identifier in parsed.identifiers
         ),
         title=parsed.document.title,
+        metadata=parsed.document.metadata,
         edition_languages=tuple(parsed.document.languages),
         passages=tuple(parsed.passages),
         canonical_url=parsed.document.canonical_url,

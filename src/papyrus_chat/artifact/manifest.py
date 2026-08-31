@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 MANIFEST_FILENAME = "manifest.json"
-ARTIFACT_SCHEMA_VERSION = 1
+ARTIFACT_SCHEMA_VERSION = 2
 
 
 class ArtifactInvalid(Exception):
@@ -34,6 +34,8 @@ class Statistics(BaseModel):
 
     documents: int
     passages: int
+    components: int = 0
+    links: int = 0
     parse_errors: int
 
 

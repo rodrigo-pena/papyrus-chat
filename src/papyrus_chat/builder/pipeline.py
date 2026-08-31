@@ -19,24 +19,52 @@ from papyrus_chat.artifact.manifest import (
     Statistics,
     save_manifest,
 )
-from papyrus_chat.artifact.records import DocumentRecord, IdentifierRecord, PassageRecord
+from papyrus_chat.artifact.records import ComponentDateRecord as ArtifactDateRecord
+from papyrus_chat.artifact.records import ComponentIdentifierRecord as ArtifactIdentifierRecord
+from papyrus_chat.artifact.records import (
+    ComponentLinkRecord,
+    DocumentRecord,
+    IdentifierRecord,
+    PassageRecord,
+)
+from papyrus_chat.artifact.records import ComponentRecord as ArtifactComponentRecord
 from papyrus_chat.artifact.schema import ArtifactWriter
 from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.builder.collections.dclp import parse_record as parse_dclp
+from papyrus_chat.builder.collections.ddbdp import ParsedDDbDP
+from papyrus_chat.builder.collections.ddbdp import parse_record as parse_ddbdp
 from papyrus_chat.builder.collections.epidoc import ParsedRecord
+from papyrus_chat.builder.collections.hgv import parse_record as parse_hgv
 from papyrus_chat.builder.collections.translations import parse_record as parse_translations
+from papyrus_chat.builder.components import (
+    DDbDPComponent,
+    HGVComponent,
+    LinkedDDbDPComponent,
+    link_hgv_metadata,
+)
 from papyrus_chat.builder.errors import BuildError
 from papyrus_chat.builder.source import CorpusSource
 
 BUILDER_NAME = "papyrus-corpus-build"
-BUILDER_VERSION = "0.1.0"
+BUILDER_VERSION = "0.2.0"
 
-CollectionParser = Callable[..., ParsedRecord]
+CollectionParser = Callable[..., ParsedRecord | ParsedDDbDP]
 
 SUPPORTED_COLLECTIONS: dict[str, tuple[str, CollectionParser]] = {
     "dclp": ("DCLP", parse_dclp),
+    "ddbdp": ("DDbDP", parse_ddbdp),
     "translations": ("Translations", parse_translations),
 }
+
+
+@dataclass(frozen=True)
+class ParsedCorpus:
+    documents: list[DocumentRecord]
+    passages: list[PassageRecord]
+    identifiers: list[IdentifierRecord]
+    components: list[ArtifactComponentRecord]
+    links: list[ComponentLinkRecord]
+    warnings: list[str]
 
 
 @dataclass(frozen=True)
@@ -47,6 +75,8 @@ class BuildResult:
     logical_content_hash: str
     documents: int
     passages: int
+    components: int
+    links: int
     parse_errors: int
     warnings: tuple[str, ...]
     size_bytes: int
@@ -78,14 +108,20 @@ def build_artifact(
     resolved_commit = source.resolve_commit(requested_ref)
     sparse = getattr(source, "ensure_sparse_checkout", None)
     if callable(sparse):
-        sparse(canonical)
+        sparse([*canonical, "hgv"] if "ddbdp" in canonical else canonical)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.tmp-", dir=output.parent))
     try:
-        documents, passages, identifiers, warnings = _parse_collections(
+        parsed_corpus = _parse_collections(
             canonical, source=source, source_url=source_url, commit=resolved_commit
         )
+        documents = parsed_corpus.documents
+        passages = parsed_corpus.passages
+        identifiers = parsed_corpus.identifiers
+        components = parsed_corpus.components
+        links = parsed_corpus.links
+        warnings = parsed_corpus.warnings
         # Upstream records can declare the same idno more than once; keep one,
         # so the database and the logical hash see identical content.
         identifiers = list({(i.document_id, i.namespace, i.value): i for i in identifiers}.values())
@@ -104,6 +140,13 @@ def build_artifact(
         writer.insert_identifiers(
             sorted(identifiers, key=lambda i: (i.document_id, i.namespace, i.value))
         )
+        writer.insert_components(
+            sorted(components, key=lambda component: component.component_id),
+            sorted(
+                links,
+                key=lambda link: (link.ddbdp_component_id, link.hgv_component_id),
+            ),
+        )
         writer.commit()
         writer.close()
 
@@ -116,6 +159,8 @@ def build_artifact(
             documents=documents,
             passages=passages,
             identifiers=identifiers,
+            components=components,
+            links=links,
         )
 
         manifest = ArtifactManifest(
@@ -129,6 +174,8 @@ def build_artifact(
             statistics=Statistics(
                 documents=len(documents),
                 passages=len(passages),
+                components=len(components),
+                links=len(links),
                 parse_errors=0,
             ),
             logical_content_hash=logical_hash,
@@ -160,6 +207,8 @@ def build_artifact(
         logical_content_hash=logical_hash,
         documents=len(documents),
         passages=len(passages),
+        components=len(components),
+        links=len(links),
         parse_errors=0,
         warnings=tuple(warnings),
         size_bytes=size,
@@ -169,15 +218,11 @@ def build_artifact(
 
 def _parse_collections(
     canonical: list[str], *, source: CorpusSource, source_url: str, commit: str
-) -> tuple[
-    list[DocumentRecord],
-    list[PassageRecord],
-    list[IdentifierRecord],
-    list[str],
-]:
+) -> ParsedCorpus:
     documents = []
     passages: list[PassageRecord] = []
     identifiers: list[IdentifierRecord] = []
+    ddbdp_components: list[DDbDPComponent] = []
     warnings: list[str] = []
 
     for collection in canonical:
@@ -208,8 +253,134 @@ def _parse_collections(
             passages.extend(parsed.passages)
             identifiers.extend(parsed.identifiers)
             warnings.extend(parsed.warnings)
+            if isinstance(parsed, ParsedDDbDP):
+                ddbdp_components.append(parsed.component)
 
-    return documents, passages, identifiers, warnings
+    components: list[ArtifactComponentRecord] = []
+    links: list[ComponentLinkRecord] = []
+    if ddbdp_components:
+        hgv_paths = source.xml_files("HGV_meta_EpiDoc")
+        if not hgv_paths:
+            warnings.append(
+                f"No HGV metadata files found at commit {commit[:12]}; "
+                "DDbDP records were retained without linked descriptive metadata"
+            )
+        hgv_components: list[HGVComponent] = []
+        for source_path in hgv_paths:
+            try:
+                hgv_components.append(
+                    parse_hgv(
+                        source.read_bytes(source_path),
+                        source_path=source_path,
+                        repository_url=source_url,
+                        commit=commit,
+                    )
+                )
+            except Exception as error:
+                raise BuildError(f"Failed to parse hgv record {source_path}: {error}") from error
+        linked = link_hgv_metadata(ddbdp_components, hgv_components)
+        components, links = _artifact_components(linked)
+
+    return ParsedCorpus(
+        documents=documents,
+        passages=passages,
+        identifiers=identifiers,
+        components=components,
+        links=links,
+        warnings=warnings,
+    )
+
+
+def _artifact_components(
+    linked: tuple[LinkedDDbDPComponent, ...],
+) -> tuple[list[ArtifactComponentRecord], list[ComponentLinkRecord]]:
+    components: list[ArtifactComponentRecord] = []
+    links: list[ComponentLinkRecord] = []
+    seen_hgv: set[str] = set()
+    for item in linked:
+        ddbdp = item.component
+        components.append(
+            ArtifactComponentRecord(
+                component_id=ddbdp.component_id,
+                document_id=_document_id_from_component(ddbdp),
+                kind=ddbdp.kind,
+                title=ddbdp.title,
+                languages=ddbdp.edition_languages,
+                metadata=_single_value_metadata(ddbdp.metadata),
+                identifiers=tuple(
+                    ArtifactIdentifierRecord(
+                        component_id=ddbdp.component_id,
+                        namespace=identifier.namespace,
+                        value=identifier.value,
+                    )
+                    for identifier in ddbdp.identifiers
+                ),
+                source=ddbdp.source,
+                canonical_url=ddbdp.canonical_url,
+            )
+        )
+        ddbdp_document_id = _document_id_from_component(ddbdp)
+        for hgv in item.hgv_components:
+            links.append(
+                ComponentLinkRecord(
+                    ddbdp_component_id=ddbdp.component_id,
+                    hgv_component_id=hgv.component_id,
+                )
+            )
+            if hgv.component_id in seen_hgv:
+                continue
+            seen_hgv.add(hgv.component_id)
+            components.append(_hgv_artifact_component(hgv, ddbdp_document_id))
+    return components, links
+
+
+def _document_id_from_component(component: DDbDPComponent) -> str:
+    if component.passages:
+        return component.passages[0].document_id
+    return component.component_id.removeprefix("ddbdp:")
+
+
+def _hgv_artifact_component(component: HGVComponent, document_id: str) -> ArtifactComponentRecord:
+    metadata: dict[str, tuple[str, ...]] = {}
+    if component.subjects:
+        metadata["subject"] = component.subjects
+    if component.commentary:
+        metadata["commentary"] = component.commentary
+    if component.material:
+        metadata["material"] = (component.material,)
+    if component.origins:
+        metadata["origin"] = component.origins
+    return ArtifactComponentRecord(
+        component_id=component.component_id,
+        document_id=document_id,
+        kind=component.kind,
+        title=component.title,
+        metadata=metadata,
+        dates=tuple(
+            ArtifactDateRecord(
+                component_id=component.component_id,
+                sequence=sequence,
+                not_before=date.not_before,
+                not_after=date.not_after,
+                when=date.when,
+                text=date.text,
+            )
+            for sequence, date in enumerate(component.dates)
+        ),
+        identifiers=tuple(
+            ArtifactIdentifierRecord(
+                component_id=component.component_id,
+                namespace=identifier.namespace,
+                value=identifier.value,
+            )
+            for identifier in component.identifiers
+        ),
+        source=component.source,
+    )
+
+
+def _single_value_metadata(metadata: dict[str, str]) -> dict[str, tuple[str, ...]]:
+    return {key: (value,) for key, value in metadata.items()}
 
 
 def _attribution_text(source_url: str, commit: str) -> str:

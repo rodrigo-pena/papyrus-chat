@@ -58,7 +58,7 @@ class TestLoadApp:
         broken = tmp_path / "broken-artifact"
         shutil.copytree(corpus_artifact, broken)
         manifest = json.loads((broken / "manifest.json").read_text())
-        manifest["artifact_schema_version"] = 2
+        manifest["artifact_schema_version"] = 1
         (broken / "manifest.json").write_text(json.dumps(manifest))
 
         with pytest.raises(Exception, match="[Ss]chema"):

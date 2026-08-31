@@ -20,6 +20,8 @@ import json
 from collections.abc import Iterable
 
 from papyrus_chat.artifact.records import (
+    ComponentLinkRecord,
+    ComponentRecord,
     DocumentRecord,
     IdentifierRecord,
     PassageRecord,
@@ -40,12 +42,19 @@ def logical_content_hash(
     documents: Iterable[DocumentRecord],
     passages: Iterable[PassageRecord],
     identifiers: Iterable[IdentifierRecord],
+    components: Iterable[ComponentRecord] = (),
+    links: Iterable[ComponentLinkRecord] = (),
 ) -> str:
     documents = sorted(documents, key=lambda d: d.document_id)
     passages = sorted(passages, key=lambda p: p.passage_id)
     identifiers = sorted(identifiers, key=lambda i: (i.document_id, i.namespace, i.value))
+    components = sorted(components, key=lambda component: component.component_id)
+    links = sorted(
+        links,
+        key=lambda link: (link.ddbdp_component_id, link.hgv_component_id),
+    )
 
-    payload = {
+    payload: dict[str, object] = {
         "artifact_schema_version": schema_version,
         "builder_version": builder_version,
         "source_url": source_url,
@@ -55,5 +64,9 @@ def logical_content_hash(
         "passages": [p.model_dump(mode="json") for p in passages],
         "identifiers": [i.model_dump(mode="json") for i in identifiers],
     }
+    if components:
+        payload["components"] = [component.model_dump(mode="json") for component in components]
+    if links:
+        payload["links"] = [link.model_dump(mode="json") for link in links]
     digest = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
     return f"sha256:{digest}"

@@ -11,7 +11,7 @@ class TestCorpusBuildCli:
         result = runner.invoke(build_app, ["--list-collections"])
 
         assert result.exit_code == 0
-        assert result.output.splitlines() == ["dclp", "translations"]
+        assert result.output.splitlines() == ["dclp", "ddbdp", "translations"]
 
     def test_no_collection_fails_naming_supported_collections(self) -> None:
         result = runner.invoke(build_app, [])

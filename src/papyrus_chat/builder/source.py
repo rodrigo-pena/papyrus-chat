@@ -111,7 +111,12 @@ class RemoteGitSource:
     built artifact stays usable after the cache is removed.
     """
 
-    COLLECTION_DIRS = {"dclp": "DCLP", "translations": "Translations"}
+    COLLECTION_DIRS = {
+        "dclp": "DCLP",
+        "ddbdp": "DDbDP",
+        "hgv": "HGV_meta_EpiDoc",
+        "translations": "Translations",
+    }
 
     def __init__(self, url: str, cache_dir: Path | None = None) -> None:
         self.url = url

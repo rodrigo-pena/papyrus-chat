@@ -1,9 +1,9 @@
 """SQLite logical schema for corpus artifacts.
 
-Schema version 1 exposes: documents, identifiers, passages, and an FTS5
-index over passage search text and document titles. Stable IDs derive from
-collection, source identity (path), and structural location — never from
-insertion order.
+Schema version 2 adds source components and their linked metadata while
+retaining the document, identifier, and passage tables used by retrieval.
+Stable IDs derive from collection, source identity (path), and structural
+location — never from insertion order.
 """
 
 import json
@@ -12,13 +12,17 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from papyrus_chat.artifact.records import (
+    ComponentDateRecord,
+    ComponentIdentifierRecord,
+    ComponentLinkRecord,
+    ComponentRecord,
     DocumentRecord,
     IdentifierRecord,
     PassageRecord,
 )
 from papyrus_chat.textnorm import normalize_identifier_value
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE documents (
@@ -66,6 +70,88 @@ CREATE VIRTUAL TABLE passages_fts USING fts5(
     search_text,
     title,
     passage_id UNINDEXED
+);
+
+CREATE TABLE components (
+    component_id  TEXT PRIMARY KEY,
+    document_id   TEXT REFERENCES documents(document_id),
+    kind          TEXT NOT NULL,
+    title         TEXT NOT NULL,
+    canonical_url TEXT,
+    source_url    TEXT NOT NULL,
+    source_commit TEXT NOT NULL,
+    source_path   TEXT NOT NULL,
+    locator       TEXT
+);
+CREATE INDEX components_by_document ON components(document_id, kind);
+
+CREATE TABLE component_identifiers (
+    component_id   TEXT NOT NULL REFERENCES components(component_id),
+    namespace      TEXT NOT NULL,
+    value          TEXT NOT NULL,
+    namespace_norm TEXT NOT NULL,
+    value_norm     TEXT NOT NULL,
+    source_url     TEXT NOT NULL,
+    source_commit  TEXT NOT NULL,
+    source_path    TEXT NOT NULL,
+    locator        TEXT,
+    PRIMARY KEY (component_id, namespace, value)
+);
+CREATE INDEX component_identifiers_lookup
+    ON component_identifiers(namespace, value);
+CREATE INDEX component_identifiers_norm_lookup
+    ON component_identifiers(namespace_norm, value_norm);
+
+CREATE TABLE metadata (
+    component_id  TEXT NOT NULL REFERENCES components(component_id),
+    key           TEXT NOT NULL,
+    value         TEXT NOT NULL,
+    source_url    TEXT NOT NULL,
+    source_commit TEXT NOT NULL,
+    source_path   TEXT NOT NULL,
+    locator       TEXT,
+    PRIMARY KEY (component_id, key, value)
+);
+CREATE INDEX metadata_lookup ON metadata(key, value);
+
+CREATE TABLE dates (
+    component_id  TEXT NOT NULL REFERENCES components(component_id),
+    sequence      INTEGER NOT NULL,
+    not_before    TEXT,
+    not_after     TEXT,
+    when_value    TEXT,
+    text          TEXT,
+    source_url    TEXT NOT NULL,
+    source_commit TEXT NOT NULL,
+    source_path   TEXT NOT NULL,
+    locator       TEXT,
+    PRIMARY KEY (component_id, sequence)
+);
+CREATE INDEX dates_by_bounds ON dates(not_before, not_after);
+
+CREATE TABLE languages (
+    component_id  TEXT NOT NULL REFERENCES components(component_id),
+    language      TEXT NOT NULL,
+    role          TEXT NOT NULL,
+    source_url    TEXT NOT NULL,
+    source_commit TEXT NOT NULL,
+    source_path   TEXT NOT NULL,
+    locator       TEXT,
+    PRIMARY KEY (component_id, language, role)
+);
+CREATE INDEX languages_lookup ON languages(language, role);
+
+CREATE TABLE component_links (
+    ddbdp_component_id TEXT NOT NULL REFERENCES components(component_id),
+    hgv_component_id   TEXT NOT NULL REFERENCES components(component_id),
+    PRIMARY KEY (ddbdp_component_id, hgv_component_id)
+);
+CREATE INDEX component_links_hgv ON component_links(hgv_component_id);
+
+CREATE VIRTUAL TABLE documents_fts USING fts5(
+    document_id UNINDEXED,
+    title,
+    metadata
 );
 """
 
@@ -120,6 +206,7 @@ class ArtifactWriter:
                 record.canonical_url,
             ),
         )
+        self._refresh_document_fts(record.document_id)
 
     def insert_passages(self, records: Sequence[PassageRecord]) -> None:
         self._connection.executemany(
@@ -170,6 +257,135 @@ class ArtifactWriter:
                 )
                 for record in records
             ],
+        )
+
+    def insert_components(
+        self,
+        records: Sequence[ComponentRecord],
+        links: Sequence[ComponentLinkRecord] = (),
+    ) -> None:
+        """Persist components and all source-attributed child records."""
+        self._connection.executemany(
+            "INSERT INTO components VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    record.component_id,
+                    record.document_id,
+                    record.kind,
+                    record.title,
+                    record.canonical_url,
+                    record.source.repository_url,
+                    record.source.commit,
+                    record.source.path,
+                    record.source.locator,
+                )
+                for record in records
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO component_identifiers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    identifier.component_id,
+                    identifier.namespace,
+                    identifier.value,
+                    normalize_identifier_value(identifier.namespace),
+                    normalize_identifier_value(identifier.value),
+                    record.source.repository_url,
+                    record.source.commit,
+                    record.source.path,
+                    record.source.locator,
+                )
+                for record in records
+                for identifier in record.identifiers
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO metadata VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    record.component_id,
+                    key,
+                    value,
+                    record.source.repository_url,
+                    record.source.commit,
+                    record.source.path,
+                    record.source.locator,
+                )
+                for record in records
+                for key, values in sorted(record.metadata.items())
+                for value in values
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO dates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    date.component_id,
+                    date.sequence,
+                    date.not_before,
+                    date.not_after,
+                    date.when,
+                    date.text,
+                    record.source.repository_url,
+                    record.source.commit,
+                    record.source.path,
+                    record.source.locator,
+                )
+                for record in records
+                for date in record.dates
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO languages VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    record.component_id,
+                    language,
+                    "edition",
+                    record.source.repository_url,
+                    record.source.commit,
+                    record.source.path,
+                    record.source.locator,
+                )
+                for record in records
+                for language in record.languages
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO component_links VALUES (?, ?)",
+            [(link.ddbdp_component_id, link.hgv_component_id) for link in links],
+        )
+        for document_id in self._document_ids():
+            self._refresh_document_fts(document_id)
+
+    def _document_ids(self) -> list[str]:
+        return [row[0] for row in self._connection.execute("SELECT document_id FROM documents")]
+
+    def _refresh_document_fts(self, document_id: str) -> None:
+        document = self._connection.execute(
+            "SELECT title, metadata FROM documents WHERE document_id = ?", (document_id,)
+        ).fetchone()
+        if document is None:
+            return
+        component_rows = self._connection.execute(
+            "SELECT title FROM components WHERE document_id = ? ORDER BY component_id",
+            (document_id,),
+        ).fetchall()
+        title = " ".join([document[0], *(row[0] for row in component_rows)])
+        metadata = document[1]
+        component_metadata = self._connection.execute(
+            "SELECT value FROM metadata WHERE component_id IN "
+            "(SELECT component_id FROM components WHERE document_id = ?) "
+            "ORDER BY component_id, key, value",
+            (document_id,),
+        ).fetchall()
+        if component_metadata:
+            metadata += " " + " ".join(row[0] for row in component_metadata)
+        self._connection.execute("DELETE FROM documents_fts WHERE document_id = ?", (document_id,))
+        self._connection.execute(
+            "INSERT INTO documents_fts (document_id, title, metadata) VALUES (?, ?, ?)",
+            (document_id, title, metadata),
         )
 
     def commit(self) -> None:
@@ -237,8 +453,87 @@ class ArtifactReader:
             for row in rows
         ]
 
+    def get_components(self, document_id: str) -> list[ComponentRecord]:
+        rows = self._connection.execute(
+            "SELECT * FROM components WHERE document_id = ? ORDER BY component_id",
+            (document_id,),
+        ).fetchall()
+        components: list[ComponentRecord] = []
+        for row in rows:
+            identifiers = self._connection.execute(
+                "SELECT component_id, namespace, value FROM component_identifiers "
+                "WHERE component_id = ? ORDER BY namespace, value",
+                (row["component_id"],),
+            ).fetchall()
+            metadata_rows = self._connection.execute(
+                "SELECT key, value FROM metadata WHERE component_id = ? ORDER BY key, value",
+                (row["component_id"],),
+            ).fetchall()
+            metadata: dict[str, list[str]] = {}
+            for metadata_row in metadata_rows:
+                metadata.setdefault(metadata_row["key"], []).append(metadata_row["value"])
+            date_rows = self._connection.execute(
+                "SELECT * FROM dates WHERE component_id = ? ORDER BY sequence",
+                (row["component_id"],),
+            ).fetchall()
+            language_rows = self._connection.execute(
+                "SELECT language FROM languages WHERE component_id = ? ORDER BY language",
+                (row["component_id"],),
+            ).fetchall()
+            components.append(
+                ComponentRecord(
+                    component_id=row["component_id"],
+                    document_id=row["document_id"],
+                    kind=row["kind"],
+                    title=row["title"],
+                    languages=tuple(language_row["language"] for language_row in language_rows),
+                    metadata={key: tuple(values) for key, values in metadata.items()},
+                    dates=tuple(
+                        ComponentDateRecord(
+                            component_id=date_row["component_id"],
+                            sequence=date_row["sequence"],
+                            not_before=date_row["not_before"],
+                            not_after=date_row["not_after"],
+                            when=date_row["when_value"],
+                            text=date_row["text"],
+                        )
+                        for date_row in date_rows
+                    ),
+                    identifiers=tuple(
+                        ComponentIdentifierRecord(
+                            component_id=identifier_row["component_id"],
+                            namespace=identifier_row["namespace"],
+                            value=identifier_row["value"],
+                        )
+                        for identifier_row in identifiers
+                    ),
+                    source=SourceRefFor(row),
+                    canonical_url=row["canonical_url"],
+                )
+            )
+        return components
+
+    def get_component_links(self, document_id: str) -> list[ComponentLinkRecord]:
+        rows = self._connection.execute(
+            "SELECT l.ddbdp_component_id, l.hgv_component_id FROM component_links l "
+            "JOIN components c ON c.component_id = l.ddbdp_component_id "
+            "WHERE c.document_id = ? ORDER BY l.ddbdp_component_id, l.hgv_component_id",
+            (document_id,),
+        ).fetchall()
+        return [
+            ComponentLinkRecord(
+                ddbdp_component_id=row["ddbdp_component_id"],
+                hgv_component_id=row["hgv_component_id"],
+            )
+            for row in rows
+        ]
+
     def fts_count(self) -> int:
         row = self._connection.execute("SELECT count(*) FROM passages_fts").fetchone()
+        return int(row[0])
+
+    def document_fts_count(self) -> int:
+        row = self._connection.execute("SELECT count(*) FROM documents_fts").fetchone()
         return int(row[0])
 
     def close(self) -> None:
@@ -252,4 +547,5 @@ def SourceRefFor(row: sqlite3.Row):  # noqa: N802 - internal row mapper
         repository_url=row["source_url"],
         commit=row["source_commit"],
         path=row["source_path"],
+        locator=row["locator"],
     )

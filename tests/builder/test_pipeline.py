@@ -52,7 +52,7 @@ class TestPipeline:
         result = build_fixture(tmp_path, repo=fixture_git_repo)
         manifest = json.loads((result.output_dir / "manifest.json").read_text())
 
-        assert manifest["artifact_schema_version"] == 1
+        assert manifest["artifact_schema_version"] == 2
         assert manifest["source"]["resolved_commit"] == repo_sha(fixture_git_repo)
         assert manifest["source"]["requested_ref"] == "master"
         assert manifest["collections"] == ["dclp"]

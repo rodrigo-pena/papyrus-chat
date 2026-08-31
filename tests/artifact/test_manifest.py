@@ -12,12 +12,13 @@ from papyrus_chat.artifact.manifest import (
     load_manifest,
     save_manifest,
 )
+from papyrus_chat.artifact.schema import ArtifactWriter
 from papyrus_chat.artifact.validation import ArtifactInvalid, validate_artifact
 
 
 def make_manifest() -> ArtifactManifest:
     return ArtifactManifest(
-        builder=BuilderInfo(name="papyrus-corpus-build", version="0.1.0"),
+        builder=BuilderInfo(name="papyrus-corpus-build", version="0.2.0"),
         source=ManifestSource(
             url="https://github.com/papyri/idp.data.git",
             requested_ref="master",
@@ -33,7 +34,10 @@ def make_manifest() -> ArtifactManifest:
 def write_artifact(root: Path, manifest: ArtifactManifest) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     save_manifest(root / MANIFEST_FILENAME, manifest)
-    (root / "corpus.sqlite").write_bytes(b"")
+    writer = ArtifactWriter(root / "corpus.sqlite")
+    writer.create_schema()
+    writer.commit()
+    writer.close()
     (root / "ATTRIBUTION.md").write_text("attribution", encoding="utf-8")
     return root
 
@@ -61,7 +65,7 @@ class TestSchemaCompatibility:
     def test_unsupported_major_version_is_rejected(self, tmp_path: Path) -> None:
         path = tmp_path / "manifest.json"
         data = make_manifest().model_dump(mode="json")
-        data["artifact_schema_version"] = 2
+        data["artifact_schema_version"] = 1
         path.write_text(json.dumps(data), encoding="utf-8")
 
         with pytest.raises(ArtifactInvalid) as excinfo:

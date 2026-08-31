@@ -43,6 +43,7 @@ class DDbDPComponent(ComponentRecord):
 
     kind: Literal["ddbdp"] = "ddbdp"
     title: str
+    metadata: dict[str, str] = Field(default_factory=dict)
     edition_languages: tuple[str, ...]
     passages: tuple[PassageRecord, ...]
     canonical_url: str | None = None
