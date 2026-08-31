@@ -79,21 +79,13 @@ def create_research_agent(
         else:
             selected_model = OpenAIChatModel(config.model, provider=provider)
 
-    if capabilities:
-        agent = Agent[CorpusToolDeps, str](
-            selected_model,
-            deps_type=CorpusToolDeps,
-            output_type=str,
-            instructions=RESEARCH_INSTRUCTIONS,
-            capabilities=capabilities,
-        )
-    else:
-        agent = Agent[CorpusToolDeps, str](
-            selected_model,
-            deps_type=CorpusToolDeps,
-            output_type=str,
-            instructions=RESEARCH_INSTRUCTIONS,
-        )
+    agent = Agent[CorpusToolDeps, str](
+        selected_model,
+        deps_type=CorpusToolDeps,
+        output_type=str,
+        instructions=RESEARCH_INSTRUCTIONS,
+        capabilities=capabilities or None,
+    )
     register_corpus_tools(agent)
 
     @agent.output_validator
