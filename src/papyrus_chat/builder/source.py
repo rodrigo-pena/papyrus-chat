@@ -6,11 +6,15 @@ dirty checkouts cannot alter a build. The artifact remains usable after the
 source disappears: files are copied into the artifact at build time.
 """
 
+import logging
 import subprocess
+import time
 from pathlib import Path
 from typing import Protocol
 
 from papyrus_chat.builder.errors import BuildError
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _run_git(args: list[str], *, cwd: Path | None = None, check: bool = True) -> str:
@@ -149,8 +153,18 @@ class RemoteGitSource:
 
     def _ensure_clone(self) -> None:
         if (self.worktree / ".git").exists():
+            LOGGER.debug(
+                "Reusing cached source repository at %s",
+                self.worktree,
+                extra={"event": "source_cache_reused", "path": str(self.worktree)},
+            )
             return
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        started = time.monotonic()
+        LOGGER.info(
+            "Cloning source repository into the local cache (first build only)",
+            extra={"event": "source_clone_started"},
+        )
         completed = subprocess.run(
             [
                 "git",
@@ -169,6 +183,14 @@ class RemoteGitSource:
                 f"Cannot clone {self.url} into the local cache: {detail}. "
                 "Check the URL and your network connection."
             )
+        LOGGER.info(
+            "Source repository cached in %.1fs",
+            time.monotonic() - started,
+            extra={
+                "event": "source_clone_completed",
+                "elapsed_seconds": time.monotonic() - started,
+            },
+        )
 
     def ensure_sparse_checkout(self, collections: list[str]) -> None:
         """Limit the working tree to the selected collections' directories.

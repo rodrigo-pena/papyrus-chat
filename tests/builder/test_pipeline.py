@@ -146,6 +146,20 @@ class TestBuildCli:
         assert "size" in result.output.lower()
         assert "elapsed" in result.output.lower()
 
+    def test_reports_build_stages_and_parsing_progress(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        result = self.cli_build(tmp_path, fixture_git_repo)
+
+        assert result.exit_code == 0, result.output
+        assert "Starting corpus build" in result.output
+        assert "Resolving source ref" in result.output
+        assert "Parsing dclp collection (2 XML records)" in result.output
+        assert "Parsed dclp records: 1/2 (50%)" in result.output
+        assert "Writing corpus database" in result.output
+        assert "Validating staged artifact" in result.output
+        assert "Corpus build completed" in result.output
+
 
 class TestMultiCollectionCli:
     def test_mixed_case_collections_are_canonicalized(

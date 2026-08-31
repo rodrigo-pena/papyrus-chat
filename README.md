@@ -32,6 +32,10 @@ export LLM_API_KEY="..."   # optional for local, unauthenticated servers
 uv run papyrus-chat --artifact ./papyrus-corpus
 ```
 
+Both commands write timestamped stage logs to the terminal. Corpus builds also
+report bounded per-collection XML parsing progress, so long builds remain visibly
+active. Pass `--verbose` (`-v`) to either command for diagnostic logging.
+
 Selecting `ddbdp` automatically fetches both `DDbDP/` and the linked
 `HGV_meta_EpiDoc/` records. HGV is stored as documentary metadata, not as a
 separate user-facing collection. The artifact is schema v2; an older artifact
@@ -78,6 +82,7 @@ uv run papyrus-corpus-build COLLECTION... [OPTIONS]
 # --ref           branch, tag, or commit to build from (default master)
 # --force         replace an existing artifact at exactly the given path
 # --list-collections
+# -v, --verbose   include detailed diagnostic logging
 ```
 
 Remote builds use a Git partial clone and sparse checkout, so only the
@@ -90,15 +95,15 @@ in [docs/performance.md](docs/performance.md).
 
 After starting the app, use one thread for this four-query smoke run:
 
-1. “Find Greek documentary evidence about a Claudius-era money dispute. Show
+1. "Find Greek documentary evidence about a Claudius-era money dispute. Show
    the date interpretation, generated Greek/German terms, exact candidate
-   count, and linked papyri.”
-2. “Narrow that prior candidate set to the linked date interval. Which
-   Egyptian month names are relevant?”
-3. “Group the tax or payment categories in the results and give one linked
-   papyrus example for each.”
-4. “Which statements are directly attested in the transcription, and which
-   are broader historical inference or model background?”
+   count, and linked papyri."
+2. "Narrow that prior candidate set to the linked date interval. Which
+   Egyptian month names are relevant?"
+3. "Group the tax or payment categories in the results and give one linked
+   papyrus example for each."
+4. "Which statements are directly attested in the transcription, and which
+   are broader historical inference or model background?"
 
 Check that the first answer explains its scope, follow-up turns reuse and
 refine the prior query, and every named corpus record opens at papyri.info.

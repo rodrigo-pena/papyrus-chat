@@ -1,10 +1,16 @@
 """Command-line interface for building corpus artifacts."""
 
+import logging
+from pathlib import Path
+
 import typer
 
 from papyrus_chat.builder.errors import BuildError
 from papyrus_chat.builder.pipeline import BUILDER_VERSION, SUPPORTED_COLLECTIONS, build_artifact
 from papyrus_chat.builder.source import LocalGitSource, RemoteGitSource
+from papyrus_chat.cli_logging import configure_cli_logging
+
+LOGGER = logging.getLogger(__name__)
 
 app = typer.Typer(
     add_completion=False,
@@ -16,6 +22,7 @@ DEFAULT_SOURCE = "https://github.com/papyri/idp.data.git"
 
 @app.command()
 def build(
+    context: typer.Context,
     collections: list[str] | None = typer.Argument(
         None,
         metavar="COLLECTION...",
@@ -38,6 +45,12 @@ def build(
     ),
     list_collections: bool = typer.Option(
         False, "--list-collections", help="Print supported collection names and exit."
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Include detailed diagnostic logging.",
     ),
 ) -> None:
     if list_collections:
@@ -64,6 +77,7 @@ def build(
         )
         raise typer.Exit(code=2)
 
+    context.call_on_close(configure_cli_logging(verbose=verbose))
     try:
         result = build_artifact(
             collections,
@@ -74,7 +88,7 @@ def build(
             force=force,
         )
     except BuildError as error:
-        typer.secho(str(error), err=True, fg=typer.colors.RED)
+        LOGGER.error("Corpus build failed: %s", error)
         raise typer.Exit(code=2) from None
 
     typer.echo(f"papyrus-corpus-build {BUILDER_VERSION}: artifact created")
@@ -91,15 +105,11 @@ def build(
     typer.echo(f"Elapsed: {result.elapsed_seconds:.2f}s")
 
 
-def _output_path(output: str):
-    from pathlib import Path
-
+def _output_path(output: str) -> Path:
     return Path(output).expanduser()
 
 
-def _source(source: str):
-    from pathlib import Path
-
+def _source(source: str) -> LocalGitSource | RemoteGitSource:
     path = Path(source).expanduser()
     if path.exists():
         return LocalGitSource(path)

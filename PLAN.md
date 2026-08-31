@@ -50,7 +50,7 @@ Every answer must:
 
 5. `feat(agent): expose read-only corpus research tools`
 
-    Wrap retrieval in the four typed Pydantic AI tools. Return the complete normalized query with each result so follow-up turns can reuse and refine “this corpus.” Enforce limits on groups, terms, text length, result count, inspected documents, and excerpts.
+    Wrap retrieval in the four typed Pydantic AI tools. Return the complete normalized query with each result so follow-up turns can reuse and refine "this corpus." Enforce limits on groups, terms, text length, result count, inspected documents, and excerpts.
 
 6. `feat(agent): adopt the Pydantic AI runtime`
 

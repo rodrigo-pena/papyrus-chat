@@ -1,5 +1,6 @@
 """Corpus build pipeline: source records → validated artifact."""
 
+import logging
 import os
 import shutil
 import subprocess
@@ -48,6 +49,8 @@ from papyrus_chat.builder.source import CorpusSource
 BUILDER_NAME = "papyrus-corpus-build"
 BUILDER_VERSION = "0.2.0"
 
+LOGGER = logging.getLogger(__name__)
+
 CollectionParser = Callable[..., ParsedRecord | ParsedDDbDP]
 
 SUPPORTED_COLLECTIONS: dict[str, tuple[str, CollectionParser]] = {
@@ -94,6 +97,18 @@ def build_artifact(
 ) -> BuildResult:
     started = time.monotonic()
     canonical = sorted({c.lower() for c in collections})
+    LOGGER.info(
+        "Starting corpus build: collections=%s output=%s source=%s",
+        ",".join(canonical),
+        output,
+        type(source).__name__,
+        extra={
+            "event": "corpus_build_started",
+            "collections": canonical,
+            "output": str(output),
+            "source_type": type(source).__name__,
+        },
+    )
     unknown = [c for c in canonical if c not in SUPPORTED_COLLECTIONS]
     if unknown:
         raise BuildError(
@@ -105,10 +120,33 @@ def build_artifact(
             f"Output artifact already exists: {output}. "
             "Remove it or pass --force to replace exactly this artifact."
         )
+    LOGGER.info(
+        "Resolving source ref %r",
+        requested_ref,
+        extra={"event": "source_ref_resolving", "ref": requested_ref},
+    )
     resolved_commit = source.resolve_commit(requested_ref)
+    LOGGER.info(
+        "Resolved source commit %s",
+        resolved_commit[:12],
+        extra={"event": "source_ref_resolved", "commit": resolved_commit},
+    )
     sparse = getattr(source, "ensure_sparse_checkout", None)
     if callable(sparse):
-        sparse([*canonical, "hgv"] if "ddbdp" in canonical else canonical)
+        sparse_collections = [*canonical, "hgv"] if "ddbdp" in canonical else canonical
+        LOGGER.info(
+            "Preparing source checkout for collections=%s",
+            ",".join(sparse_collections),
+            extra={
+                "event": "source_checkout_started",
+                "collections": sparse_collections,
+            },
+        )
+        sparse(sparse_collections)
+        LOGGER.info(
+            "Source checkout ready",
+            extra={"event": "source_checkout_completed"},
+        )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.tmp-", dir=output.parent))
@@ -132,6 +170,20 @@ def build_artifact(
                 )
 
         database = staging / "corpus.sqlite"
+        LOGGER.info(
+            "Writing corpus database: documents=%d passages=%d identifiers=%d components=%d",
+            len(documents),
+            len(passages),
+            len(identifiers),
+            len(components),
+            extra={
+                "event": "artifact_database_write_started",
+                "documents": len(documents),
+                "passages": len(passages),
+                "identifiers": len(identifiers),
+                "components": len(components),
+            },
+        )
         writer = ArtifactWriter(database)
         writer.create_schema()
         for record in sorted(documents, key=lambda d: d.document_id):
@@ -150,6 +202,10 @@ def build_artifact(
         writer.commit()
         writer.close()
 
+        LOGGER.info(
+            "Computing logical content hash",
+            extra={"event": "artifact_hash_started"},
+        )
         logical_hash = logical_content_hash(
             schema_version=ARTIFACT_SCHEMA_VERSION,
             builder_version=BUILDER_VERSION,
@@ -163,6 +219,10 @@ def build_artifact(
             links=links,
         )
 
+        LOGGER.info(
+            "Writing artifact manifest and attribution",
+            extra={"event": "artifact_metadata_write_started"},
+        )
         manifest = ArtifactManifest(
             builder=BuilderInfo(name=BUILDER_NAME, version=BUILDER_VERSION),
             source=ManifestSource(
@@ -186,8 +246,17 @@ def build_artifact(
             _attribution_text(source_url, resolved_commit), encoding="utf-8"
         )
 
+        LOGGER.info(
+            "Validating staged artifact",
+            extra={"event": "artifact_validation_started"},
+        )
         validate_artifact(staging)
 
+        LOGGER.info(
+            "Publishing artifact to %s",
+            output,
+            extra={"event": "artifact_publish_started", "output": str(output)},
+        )
         if output.exists():
             previous = output.with_name(f".{output.name}.old-{os.getpid()}")
             os.rename(output, previous)
@@ -200,7 +269,7 @@ def build_artifact(
         raise
 
     size = sum(path.stat().st_size for path in output.rglob("*") if path.is_file())
-    return BuildResult(
+    result = BuildResult(
         output_dir=output,
         collections=canonical,
         resolved_commit=resolved_commit,
@@ -214,6 +283,21 @@ def build_artifact(
         size_bytes=size,
         elapsed_seconds=time.monotonic() - started,
     )
+    LOGGER.info(
+        "Corpus build completed: documents=%d passages=%d size=%d bytes elapsed=%.2fs",
+        result.documents,
+        result.passages,
+        result.size_bytes,
+        result.elapsed_seconds,
+        extra={
+            "event": "corpus_build_completed",
+            "documents": result.documents,
+            "passages": result.passages,
+            "size_bytes": result.size_bytes,
+            "elapsed_seconds": result.elapsed_seconds,
+        },
+    )
+    return result
 
 
 def _parse_collections(
@@ -234,7 +318,22 @@ def _parse_collections(
                 f"No XML records found for collection '{collection}' at commit "
                 f"{commit[:12]} (looked in {upstream_dir_name}/)"
             )
-        for source_path in files:
+        collection_started = time.monotonic()
+        documents_before = len(documents)
+        passages_before = len(passages)
+        warnings_before = len(warnings)
+        LOGGER.info(
+            "Parsing %s collection (%d XML records)",
+            collection,
+            len(files),
+            extra={
+                "event": "collection_parse_started",
+                "collection": collection,
+                "records": len(files),
+            },
+        )
+        next_progress_percent = 10
+        for processed, source_path in enumerate(files, start=1):
             try:
                 parsed = parser(
                     source.read_bytes(source_path),
@@ -255,6 +354,39 @@ def _parse_collections(
             warnings.extend(parsed.warnings)
             if isinstance(parsed, ParsedDDbDP):
                 ddbdp_components.append(parsed.component)
+            percent = processed * 100 // len(files)
+            if percent >= next_progress_percent or processed == len(files):
+                LOGGER.info(
+                    "Parsed %s records: %d/%d (%d%%) elapsed=%.1fs",
+                    collection,
+                    processed,
+                    len(files),
+                    percent,
+                    time.monotonic() - collection_started,
+                    extra={
+                        "event": "collection_parse_progress",
+                        "collection": collection,
+                        "processed": processed,
+                        "total": len(files),
+                        "percent": percent,
+                    },
+                )
+                next_progress_percent = (percent // 10 + 1) * 10
+        LOGGER.info(
+            "Finished %s collection: documents=%d passages=%d warnings=%d elapsed=%.1fs",
+            collection,
+            len(documents) - documents_before,
+            len(passages) - passages_before,
+            len(warnings) - warnings_before,
+            time.monotonic() - collection_started,
+            extra={
+                "event": "collection_parse_completed",
+                "collection": collection,
+                "documents": len(documents) - documents_before,
+                "passages": len(passages) - passages_before,
+                "warnings": len(warnings) - warnings_before,
+            },
+        )
 
     components: list[ArtifactComponentRecord] = []
     links: list[ComponentLinkRecord] = []
@@ -266,7 +398,18 @@ def _parse_collections(
                 "DDbDP records were retained without linked descriptive metadata"
             )
         hgv_components: list[HGVComponent] = []
-        for source_path in hgv_paths:
+        hgv_started = time.monotonic()
+        if hgv_paths:
+            LOGGER.info(
+                "Parsing linked HGV metadata (%d XML records)",
+                len(hgv_paths),
+                extra={
+                    "event": "hgv_parse_started",
+                    "records": len(hgv_paths),
+                },
+            )
+        next_progress_percent = 10
+        for processed, source_path in enumerate(hgv_paths, start=1):
             try:
                 hgv_components.append(
                     parse_hgv(
@@ -278,8 +421,37 @@ def _parse_collections(
                 )
             except Exception as error:
                 raise BuildError(f"Failed to parse hgv record {source_path}: {error}") from error
+            percent = processed * 100 // len(hgv_paths)
+            if percent >= next_progress_percent or processed == len(hgv_paths):
+                LOGGER.info(
+                    "Parsed hgv records: %d/%d (%d%%) elapsed=%.1fs",
+                    processed,
+                    len(hgv_paths),
+                    percent,
+                    time.monotonic() - hgv_started,
+                    extra={
+                        "event": "hgv_parse_progress",
+                        "processed": processed,
+                        "total": len(hgv_paths),
+                        "percent": percent,
+                    },
+                )
+                next_progress_percent = (percent // 10 + 1) * 10
         linked = link_hgv_metadata(ddbdp_components, hgv_components)
         components, links = _artifact_components(linked)
+        LOGGER.info(
+            "Linked DDbDP and HGV metadata: ddbdp=%d hgv=%d links=%d elapsed=%.1fs",
+            len(ddbdp_components),
+            len(hgv_components),
+            len(links),
+            time.monotonic() - hgv_started,
+            extra={
+                "event": "hgv_link_completed",
+                "ddbdp_components": len(ddbdp_components),
+                "hgv_components": len(hgv_components),
+                "links": len(links),
+            },
+        )
 
     return ParsedCorpus(
         documents=documents,
