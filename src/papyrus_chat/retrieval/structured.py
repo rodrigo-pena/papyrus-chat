@@ -8,7 +8,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from papyrus_chat.artifact.records import SourceReference
+from papyrus_chat.artifact.records import (
+    ComponentDateRecord,
+    ComponentIdentifierRecord,
+    ComponentRecord,
+    SourceReference,
+)
 from papyrus_chat.retrieval.evidence import snippet_for
 from papyrus_chat.retrieval.search import build_fts_query
 
@@ -124,9 +129,11 @@ class CorpusHit(BaseModel):
     metadata: dict[str, str]
     passage_id: str | None = None
     passage_kind: Literal["edition", "translation"] | None = None
+    passage_language: str | None = None
     passage_text: str | None = None
     snippet: str | None = None
     line_reference: str | None = None
+    components: tuple[ComponentRecord, ...] = ()
     source: SourceReference
     canonical_url: str | None = None
 
@@ -172,6 +179,7 @@ class CorpusInspection(BaseModel):
     metadata: dict[str, str]
     source: SourceReference
     canonical_url: str | None
+    components: tuple[ComponentRecord, ...] = ()
     passages: tuple[CorpusHit, ...]
 
 
@@ -216,7 +224,15 @@ class StructuredCorpusSearch:
             "ORDER BY d.collection, d.document_id LIMIT ?",
             [*params, normalized.limit],
         ).fetchall()
-        hits = tuple(self._hit(row, normalized) for row in rows)
+        components = self._components_by_document(row["document_id"] for row in rows)
+        hits = tuple(
+            self._hit(
+                row,
+                normalized,
+                components=components.get(row["document_id"], ()),
+            )
+            for row in rows
+        )
         return CorpusSearchResult(
             query=normalized,
             assumptions=tuple(assumptions),
@@ -288,6 +304,7 @@ class StructuredCorpusSearch:
             f"SELECT * FROM documents WHERE document_id IN ({placeholders})", ids
         ).fetchall()
         by_id = {row["document_id"]: row for row in rows}
+        components = self._components_by_document(by_id)
         query = CorpusQuery(fields=("transcription", "translation"))
         inspections: list[CorpusInspection] = []
         for document_id in ids:
@@ -295,7 +312,9 @@ class StructuredCorpusSearch:
             if row is None:
                 continue
             passages = self._connection.execute(
-                "SELECT * FROM passages WHERE document_id = ? ORDER BY sequence LIMIT ?",
+                "SELECT p.*, pl.language FROM passages p "
+                "LEFT JOIN passage_languages pl ON pl.passage_id = p.passage_id "
+                "WHERE p.document_id = ? ORDER BY p.sequence LIMIT ?",
                 (document_id, excerpt_limit),
             ).fetchall()
             source = SourceReference(
@@ -313,7 +332,16 @@ class StructuredCorpusSearch:
                     metadata=json.loads(row["metadata"]),
                     source=source,
                     canonical_url=row["canonical_url"],
-                    passages=tuple(self._hit(row, query, passage=passage) for passage in passages),
+                    components=components.get(document_id, ()),
+                    passages=tuple(
+                        self._hit(
+                            row,
+                            query,
+                            passage=passage,
+                            components=components.get(document_id, ()),
+                        )
+                        for passage in passages
+                    ),
                 )
             )
         return tuple(inspections)
@@ -403,6 +431,7 @@ class StructuredCorpusSearch:
         query: CorpusQuery,
         *,
         passage: sqlite3.Row | None = None,
+        components: tuple[ComponentRecord, ...] = (),
     ) -> CorpusHit:
         if passage is None:
             passage = self._matched_passage(row["document_id"], query)
@@ -419,6 +448,7 @@ class StructuredCorpusSearch:
                 collection=row["collection"],
                 languages=tuple(json.loads(row["languages"])),
                 metadata=json.loads(row["metadata"]),
+                components=components,
                 source=source,
                 canonical_url=row["canonical_url"],
             )
@@ -436,9 +466,11 @@ class StructuredCorpusSearch:
             metadata=json.loads(row["metadata"]),
             passage_id=passage["passage_id"],
             passage_kind=passage["kind"],
+            passage_language=passage["language"],
             passage_text=passage["display_text"],
             snippet=snippet_for(passage["display_text"]),
             line_reference=passage["line_reference"],
+            components=components,
             source=source,
             canonical_url=row["canonical_url"],
         )
@@ -458,8 +490,9 @@ class StructuredCorpusSearch:
                     continue
                 placeholders = ", ".join("?" for _ in kinds)
                 row = self._connection.execute(
-                    "SELECT p.* FROM passages_fts pf JOIN passages p "
+                    "SELECT p.*, pl.language FROM passages_fts pf JOIN passages p "
                     "ON p.passage_id = pf.passage_id "
+                    "LEFT JOIN passage_languages pl ON pl.passage_id = p.passage_id "
                     f"WHERE p.document_id = ? AND p.kind IN ({placeholders}) "
                     "AND passages_fts MATCH ? "
                     "ORDER BY p.sequence LIMIT 1",
@@ -468,6 +501,105 @@ class StructuredCorpusSearch:
                 if row is not None:
                     return row
         return None
+
+    def _components_by_document(
+        self, document_ids: Iterable[str]
+    ) -> dict[str, tuple[ComponentRecord, ...]]:
+        ids = tuple(dict.fromkeys(document_ids))
+        if not ids:
+            return {}
+        placeholders = ", ".join("?" for _ in ids)
+        rows = self._connection.execute(
+            "SELECT c.*, c.document_id AS owner_document_id FROM components c "
+            f"WHERE c.document_id IN ({placeholders}) "
+            "UNION ALL "
+            "SELECT h.*, d.document_id AS owner_document_id FROM components h "
+            "JOIN component_links l ON l.hgv_component_id = h.component_id "
+            "JOIN components d ON d.component_id = l.ddbdp_component_id "
+            f"WHERE d.document_id IN ({placeholders}) "
+            "ORDER BY owner_document_id, component_id",
+            [*ids, *ids],
+        ).fetchall()
+        component_ids = tuple(dict.fromkeys(row["component_id"] for row in rows))
+        if not component_ids:
+            return {document_id: () for document_id in ids}
+        component_placeholders = ", ".join("?" for _ in component_ids)
+        identifier_rows = self._connection.execute(
+            "SELECT component_id, namespace, value FROM component_identifiers "
+            f"WHERE component_id IN ({component_placeholders}) ORDER BY namespace, value",
+            component_ids,
+        ).fetchall()
+        metadata_rows = self._connection.execute(
+            "SELECT component_id, key, value FROM metadata "
+            f"WHERE component_id IN ({component_placeholders}) ORDER BY key, value",
+            component_ids,
+        ).fetchall()
+        date_rows = self._connection.execute(
+            "SELECT * FROM dates "
+            f"WHERE component_id IN ({component_placeholders}) ORDER BY sequence",
+            component_ids,
+        ).fetchall()
+        language_rows = self._connection.execute(
+            "SELECT component_id, language FROM languages "
+            f"WHERE component_id IN ({component_placeholders}) ORDER BY language",
+            component_ids,
+        ).fetchall()
+
+        identifiers: dict[str, list[ComponentIdentifierRecord]] = {}
+        for child in identifier_rows:
+            identifiers.setdefault(child["component_id"], []).append(
+                ComponentIdentifierRecord(
+                    component_id=child["component_id"],
+                    namespace=child["namespace"],
+                    value=child["value"],
+                )
+            )
+        metadata: dict[str, dict[str, list[str]]] = {}
+        for child in metadata_rows:
+            metadata.setdefault(child["component_id"], {}).setdefault(child["key"], []).append(
+                child["value"]
+            )
+        dates: dict[str, list[ComponentDateRecord]] = {}
+        for child in date_rows:
+            dates.setdefault(child["component_id"], []).append(
+                ComponentDateRecord(
+                    component_id=child["component_id"],
+                    sequence=child["sequence"],
+                    not_before=child["not_before"],
+                    not_after=child["not_after"],
+                    when=child["when_value"],
+                    text=child["text"],
+                )
+            )
+        languages: dict[str, list[str]] = {}
+        for child in language_rows:
+            languages.setdefault(child["component_id"], []).append(child["language"])
+
+        by_document: dict[str, list[ComponentRecord]] = {document_id: [] for document_id in ids}
+        for row in rows:
+            component_id = row["component_id"]
+            by_document[row["owner_document_id"]].append(
+                ComponentRecord(
+                    component_id=component_id,
+                    document_id=row["document_id"],
+                    kind=row["kind"],
+                    title=row["title"],
+                    languages=tuple(languages.get(component_id, ())),
+                    metadata={
+                        key: tuple(values) for key, values in metadata.get(component_id, {}).items()
+                    },
+                    dates=tuple(dates.get(component_id, ())),
+                    identifiers=tuple(identifiers.get(component_id, ())),
+                    source=SourceReference(
+                        repository_url=row["source_url"],
+                        commit=row["source_commit"],
+                        path=row["source_path"],
+                        locator=row["locator"],
+                    ),
+                    canonical_url=row["canonical_url"],
+                )
+            )
+        return {document_id: tuple(values) for document_id, values in by_document.items()}
 
     def _facet_counts(self, field: FacetField, document_ids: list[str]) -> dict[str, int]:
         if not document_ids:
@@ -496,10 +628,16 @@ class StructuredCorpusSearch:
         else:
             key = field
             rows = self._connection.execute(
-                "SELECT m.value AS value, count(DISTINCT c.document_id) AS count "
-                "FROM metadata m JOIN components c ON c.component_id = m.component_id "
-                f"WHERE c.document_id IN ({placeholders}) AND m.key = ? GROUP BY m.value",
-                [*document_ids, key],
+                "SELECT value, count(DISTINCT document_id) AS count FROM ("
+                "SELECT m.value, c.document_id FROM metadata m "
+                "JOIN components c ON c.component_id = m.component_id "
+                f"WHERE c.document_id IN ({placeholders}) AND m.key = ? "
+                "UNION ALL SELECT m.value, d.document_id FROM metadata m "
+                "JOIN component_links l ON l.hgv_component_id = m.component_id "
+                "JOIN components d ON d.component_id = l.ddbdp_component_id "
+                f"WHERE d.document_id IN ({placeholders}) AND m.key = ?"
+                ") GROUP BY value",
+                [*document_ids, key, *document_ids, key],
             ).fetchall()
         return {row["value"]: int(row["count"]) for row in rows}
 

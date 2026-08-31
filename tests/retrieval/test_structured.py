@@ -77,6 +77,7 @@ def test_transcription_query_returns_exact_distinct_candidates_and_evidence(
     hit = result.hits[0]
     assert hit.document_id == "ddbdp:DDbDP/27/27093.xml"
     assert hit.passage_kind == "edition"
+    assert hit.passage_language == "grc"
     assert hit.passage_text
     assert hit.line_reference == "lines 1-18"
     assert hit.source.path == "DDbDP/27/27093.xml"
@@ -91,6 +92,13 @@ def test_metadata_and_date_filters_use_linked_hgv_data(
     )
     assert metadata_result.candidate_count == 1
     assert metadata_result.hits[0].document_id == "ddbdp:DDbDP/27/27093.xml"
+    hgv = next(
+        component for component in metadata_result.hits[0].components if component.kind == "hgv"
+    )
+    assert {"Geld", "erneute Petition"} <= set(hgv.metadata["subject"])
+    assert hgv.dates[0].not_before == "0101"
+    assert hgv.dates[0].not_after == "0125"
+    assert hgv.source.path == "HGV_meta_EpiDoc/HGV28/27093.xml"
 
     title_only = documentary_search.query(CorpusQuery(term_groups=[["Geld"]], fields=["title"]))
     assert title_only.candidate_count == 0
@@ -157,6 +165,7 @@ def test_inspect_documents_preserves_requested_order_and_bounds_passages(
     assert [inspection.document_id for inspection in inspections] == ["ddbdp:DDbDP/27/27093.xml"]
     assert len(inspections[0].passages) == 1
     assert inspections[0].passages[0].line_reference == "lines 1-18"
+    assert {component.kind for component in inspections[0].components} == {"ddbdp", "hgv"}
 
 
 def test_query_is_safe_for_fts_injection_and_reports_truncation(
