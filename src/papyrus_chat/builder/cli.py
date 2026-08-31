@@ -2,13 +2,9 @@
 
 import typer
 
-from papyrus_chat.builder.pipeline import (
-    BUILDER_VERSION,
-    SUPPORTED_COLLECTIONS,
-    BuildError,
-    build_artifact,
-    resolve_commit,
-)
+from papyrus_chat.builder.errors import BuildError
+from papyrus_chat.builder.pipeline import BUILDER_VERSION, SUPPORTED_COLLECTIONS, build_artifact
+from papyrus_chat.builder.source import LocalGitSource
 
 app = typer.Typer(
     add_completion=False,
@@ -69,15 +65,12 @@ def build(
         raise typer.Exit(code=2)
 
     try:
-        source_dir = _local_source_dir(source)
-        resolved_commit = resolve_commit(source_dir, ref)
         result = build_artifact(
             collections,
             output=_output_path(output),
-            source_dir=source_dir,
+            source=_local_source(source),
             source_url=source,
             requested_ref=ref,
-            resolved_commit=resolved_commit,
             force=force,
         )
     except BuildError as error:
@@ -104,18 +97,16 @@ def _output_path(output: str):
     return Path(output).expanduser()
 
 
-def _local_source_dir(source: str):
+def _local_source(source: str):
     from pathlib import Path
 
-    path = Path(source).expanduser()
     if source.startswith(("http://", "https://", "git@")):
         raise BuildError(
             "Remote source acquisition is not implemented in this build. "
-            "Pass --source pointing to a local idp.data checkout or fixture directory."
+            "Pass --source pointing to a local idp.data Git checkout."
         )
-    if not path.is_dir():
-        raise BuildError(f"Source directory not found: {path}")
-    return path
+    path = Path(source).expanduser()
+    return LocalGitSource(path)
 
 
 if __name__ == "__main__":

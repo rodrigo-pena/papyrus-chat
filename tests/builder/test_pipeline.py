@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import subprocess
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -9,27 +10,33 @@ from typer.testing import CliRunner
 from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.builder.cli import app
 from papyrus_chat.builder.pipeline import BuildResult, build_artifact
-
-FIXTURES = Path(__file__).parent.parent / "fixtures" / "idp.data"
-PINNED_COMMIT = "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88"
+from papyrus_chat.builder.source import LocalGitSource
 
 runner = CliRunner()
 
 
-def build_fixture(tmp_path: Path, output: str = "corpus") -> BuildResult:
+def repo_sha(repo: Path) -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "master"], cwd=repo, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def build_fixture(tmp_path: Path, output: str = "corpus", repo: Path | None = None) -> BuildResult:
+    assert repo is not None, "pass the fixture_git_repo fixture"
     return build_artifact(
         collections=["dclp"],
         output=tmp_path / output,
-        source_dir=FIXTURES,
+        source=LocalGitSource(repo),
         source_url="https://github.com/papyri/idp.data.git",
         requested_ref="master",
-        resolved_commit=PINNED_COMMIT,
     )
 
 
 class TestPipeline:
-    def test_builds_valid_artifact_with_documented_files(self, tmp_path: Path) -> None:
-        result = build_fixture(tmp_path)
+    def test_builds_valid_artifact_with_documented_files(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        result = build_fixture(tmp_path, repo=fixture_git_repo)
 
         assert result.output_dir.is_dir()
         assert sorted(p.name for p in result.output_dir.iterdir()) == [
@@ -39,12 +46,14 @@ class TestPipeline:
         ]
         validate_artifact(result.output_dir)
 
-    def test_manifest_records_provenance_and_statistics(self, tmp_path: Path) -> None:
-        result = build_fixture(tmp_path)
+    def test_manifest_records_provenance_and_statistics(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        result = build_fixture(tmp_path, repo=fixture_git_repo)
         manifest = json.loads((result.output_dir / "manifest.json").read_text())
 
         assert manifest["artifact_schema_version"] == 1
-        assert manifest["source"]["resolved_commit"] == PINNED_COMMIT
+        assert manifest["source"]["resolved_commit"] == repo_sha(fixture_git_repo)
         assert manifest["source"]["requested_ref"] == "master"
         assert manifest["collections"] == ["dclp"]
         assert manifest["statistics"]["documents"] == 2
@@ -53,8 +62,10 @@ class TestPipeline:
         assert manifest["logical_content_hash"].startswith("sha256:")
         assert manifest["builder"]["name"] == "papyrus-corpus-build"
 
-    def test_documents_and_passages_are_queryable(self, tmp_path: Path) -> None:
-        result = build_fixture(tmp_path)
+    def test_documents_and_passages_are_queryable(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        result = build_fixture(tmp_path, repo=fixture_git_repo)
 
         connection = sqlite3.connect(result.output_dir / "corpus.sqlite")
         documents = connection.execute(
@@ -74,8 +85,10 @@ class TestPipeline:
         assert any(row[0] == "edition" for row in passages)
         assert ("TM", "23702") in identifiers or ("TM", "23944") in identifiers
 
-    def test_metadata_only_record_has_no_passages(self, tmp_path: Path) -> None:
-        result = build_fixture(tmp_path)
+    def test_metadata_only_record_has_no_passages(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        result = build_fixture(tmp_path, repo=fixture_git_repo)
 
         connection = sqlite3.connect(result.output_dir / "corpus.sqlite")
         counts = connection.execute(
@@ -88,49 +101,46 @@ class TestPipeline:
         by_title = dict(counts)
         assert by_title["Sb. 20 14258"] == 0
 
-    def test_attribution_states_license_and_disclaimer(self, tmp_path: Path) -> None:
-        result = build_fixture(tmp_path)
+    def test_attribution_states_license_and_disclaimer(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        result = build_fixture(tmp_path, repo=fixture_git_repo)
         attribution = (result.output_dir / "ATTRIBUTION.md").read_text(encoding="utf-8")
 
         assert "CC BY 3.0" in attribution
         assert "github.com/papyri/idp.data" in attribution
-        assert PINNED_COMMIT in attribution
+        assert repo_sha(fixture_git_repo) in attribution
         assert "model-generated" in attribution.lower() or "model generated" in attribution.lower()
 
 
 class TestBuildCli:
-    def test_build_from_fixture_source_end_to_end(self, tmp_path: Path) -> None:
-        result = runner.invoke(
+    def cli_build(self, tmp_path: Path, repo: Path, *extra: str):
+        return runner.invoke(
             app,
             [
                 "dclp",
                 "--output",
                 str(tmp_path / "corpus"),
                 "--source",
-                str(FIXTURES),
+                str(repo),
                 "--ref",
-                PINNED_COMMIT,
+                "master",
+                *extra,
             ],
         )
+
+    def test_build_from_git_source_end_to_end(self, tmp_path: Path, fixture_git_repo: Path) -> None:
+        result = self.cli_build(tmp_path, fixture_git_repo)
 
         assert result.exit_code == 0, result.output
         assert (tmp_path / "corpus" / "manifest.json").is_file()
         assert "papyrus-corpus" in result.output
         assert "documents" in result.output.lower()
 
-    def test_report_includes_counts_size_and_elapsed(self, tmp_path: Path) -> None:
-        result = runner.invoke(
-            app,
-            [
-                "dclp",
-                "--output",
-                str(tmp_path / "corpus"),
-                "--source",
-                str(FIXTURES),
-                "--ref",
-                PINNED_COMMIT,
-            ],
-        )
+    def test_report_includes_counts_size_and_elapsed(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        result = self.cli_build(tmp_path, fixture_git_repo)
 
         assert "documents: 2" in result.output
         assert "size" in result.output.lower()
@@ -138,7 +148,9 @@ class TestBuildCli:
 
 
 class TestMultiCollectionCli:
-    def test_mixed_case_collections_are_canonicalized(self, tmp_path: Path) -> None:
+    def test_mixed_case_collections_are_canonicalized(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
         result = runner.invoke(
             app,
             [
@@ -147,9 +159,9 @@ class TestMultiCollectionCli:
                 "--output",
                 str(tmp_path / "corpus"),
                 "--source",
-                str(FIXTURES),
+                str(fixture_git_repo),
                 "--ref",
-                PINNED_COMMIT,
+                "master",
             ],
         )
 
