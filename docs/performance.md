@@ -1,45 +1,44 @@
 # Performance measurements
 
-Reference machine (SPEC 13): local development machine — Apple M5 Max,
-128 GB RAM, macOS, Python 3.13 (uv-managed), broadband connection.
-Measured: 2026-08-31, papyrus-chat 0.1.0.
+These measurements were recorded on 2026-08-31 on an Apple M5 Max with 128
+GB RAM, macOS, Python 3.13, and a broadband connection. The full-corpus
+baseline below predates the schema-v2 DDbDP/HGV implementation and is retained
+as a reference; it is not presented as a fresh v2 benchmark.
 
-## Corpus builds
+## Full-corpus baseline
 
-| Measurement | Result | SPEC 13 target | Status |
-|-------------|--------|----------------|--------|
-| Real remote build, `dclp` only (cold cache; partial clone + sparse checkout + parse + index) | 565–608 s across two runs | first remote build ≤ 15 min (SHOULD) | pass |
-| Real remote rebuild, `dclp` only (warm cache: no re-clone; parse + index again) | 545 s | warm build ≤ 5 min | **miss** |
-| Fixture-scale build (4 documents, 2 collections, warm) | ~0.1 s | — | — |
-| Rebuild determinism at corpus scale (14,842 documents) | identical logical content hash on rebuild | identical hash required | pass |
+The measured baseline built the real `dclp` collection with the v0.1.0
+builder. It covered 14,842 documents and produced a 73.4 MB schema-v1
+artifact.
 
-### Warm-build bottleneck (documented per SPEC 13)
+| Measurement | Result | Target | Status |
+|-------------|--------|--------|--------|
+| Remote `dclp` build, cold cache | 565–608 s across two runs | ≤ 15 min | pass |
+| Remote `dclp` rebuild, warm cache | 545 s | ≤ 5 min | miss |
+| Artifact startup and validation | 864 ms | ≤ 5 s | pass |
+| Identifier lookup (`TM 23944`, average of 50) | 0.027 ms | ≤ 100 ms | pass |
+| FTS search, polytonic Greek `ἔτους` (average of 50) | 16.4 ms | ≤ 500 ms | pass |
+| FTS search, English `horoscope` (average of 50) | 14.9 ms | ≤ 500 ms | pass |
+| First search without an LLM call | Search never contacts the LLM | required | pass |
 
-The warm rebuild still takes ~9 minutes because `LocalGitSource.read_bytes`
-runs one `git show` subprocess per file — ~14,800 process spawns dominate
-the runtime. The parse+index work itself is seconds at this scale. The fix
-(batch reads via `git archive` or a persistent git cat-file process) is a
-known optimization, deliberately deferred out of the proof of concept.
-The ≤ 5 min warm target is therefore **not met** at corpus scale; the
-measured result and bottleneck are recorded here as SPEC 13 requires.
-DCLP plus Translations together would take roughly twice as long over the
-network (~2× blobs) and was not measured end-to-end in this session.
+The warm rebuild bottleneck was one `git show` subprocess per file in
+`LocalGitSource.read_bytes` (about 14,800 process spawns). Batch reads through
+`git archive` or a persistent `git cat-file` process remain a future
+optimization. DDbDP plus HGV and the v2 full-corpus rebuild were not measured
+end-to-end in this implementation session.
 
-## Application and search
+## v2 validation
 
-| Measurement | Result | SPEC 13 target | Status |
-|-------------|--------|----------------|--------|
-| App startup + artifact validation (14,842 docs, 73.4 MB artifact) | 864 ms | ≤ 5 s | pass |
-| Identifier lookup (`TM 23944`, avg of 50) | 0.027 ms | ≤ 100 ms | pass |
-| FTS search, polytonic Greek `ἔτους` (avg of 50, BM25 + filters) | 16.4 ms | ≤ 500 ms | pass |
-| FTS search, English `horoscope` (avg of 50) | 14.9 ms | ≤ 500 ms | pass |
-| First search results without any LLM call | search never contacts the LLM | required | pass |
-| Entire SQLite database loaded into memory | no (per-query SQL only) | forbidden | pass |
+The committed automated coverage builds the paired real-source DDbDP/HGV
+fixture, validates schema-v2 tables and links, and exercises distinct-document
+FTS, date overlap, language filters, facets, and bounded evidence. A full
+68,000-document DDbDP/67,000-record HGV benchmark remains an explicit follow-up
+when a pinned upstream checkout and measurement window are available.
 
-## Artifact (real `dclp` corpus)
+## Acceptance feedback
 
-- documents: 14,842
-- passages: 13,644
-- artifact size: 73.4 MB
-- only `DCLP/` blobs were fetched (sparse checkout); the other ~2.8 GB of
-  upstream repository content stayed on the server
+No live collaborator conversation or feedback session was available during
+this implementation run. The four-query walkthrough is documented in the
+README and covered at the contract level by deterministic `FunctionModel`
+dialogue evaluations; it still needs a human smoke run against a configured
+tool-calling provider.
