@@ -80,7 +80,7 @@ class ResearchDialogue:
             [
                 TextPart(
                     "Scope and method: ddbdp, Greek transcription, and German metadata "
-                    "terms Κλαύδιος/Claudius plus Geld/δραχμή were searched for 101–125. "
+                    "terms Κλαύδιος/Claudius plus Geld/δραχμή were searched for 101-125. "
                     "Corpus evidence: https://papyri.info/ddbdp/p.mich;8;480. "
                     "Transcription evidence is separated from model-supplied background."
                 )

@@ -13,7 +13,7 @@ artifact.
 
 | Measurement | Result | Target | Status |
 |-------------|--------|--------|--------|
-| Remote `dclp` build, cold cache | 565–608 s across two runs | ≤ 15 min | pass |
+| Remote `dclp` build, cold cache | 565-608 s across two runs | ≤ 15 min | pass |
 | Remote `dclp` rebuild, warm cache | 545 s | ≤ 5 min | miss |
 | Artifact startup and validation | 864 ms | ≤ 5 s | pass |
 | Identifier lookup (`TM 23944`, average of 50) | 0.027 ms | ≤ 100 ms | pass |
