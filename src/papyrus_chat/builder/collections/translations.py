@@ -1,4 +1,4 @@
-"""DCLP collection adapter (literary papyri metadata and editions, SPEC 3.1)."""
+"""Translations collection adapter (published translation records, SPEC 3.1)."""
 
 from papyrus_chat.builder.collections.epidoc import ParsedRecord, parse_epidoc_record
 

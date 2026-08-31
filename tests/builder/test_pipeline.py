@@ -135,3 +135,24 @@ class TestBuildCli:
         assert "documents: 2" in result.output
         assert "size" in result.output.lower()
         assert "elapsed" in result.output.lower()
+
+
+class TestMultiCollectionCli:
+    def test_mixed_case_collections_are_canonicalized(self, tmp_path: Path) -> None:
+        result = runner.invoke(
+            app,
+            [
+                "DCLP",
+                "Translations",
+                "--output",
+                str(tmp_path / "corpus"),
+                "--source",
+                str(FIXTURES),
+                "--ref",
+                PINNED_COMMIT,
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        manifest = json.loads((tmp_path / "corpus" / "manifest.json").read_text())
+        assert manifest["collections"] == ["dclp", "translations"]

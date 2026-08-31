@@ -22,17 +22,18 @@ from papyrus_chat.artifact.manifest import (
 from papyrus_chat.artifact.records import IdentifierRecord, PassageRecord
 from papyrus_chat.artifact.schema import ArtifactWriter
 from papyrus_chat.artifact.validation import validate_artifact
-from papyrus_chat.builder.collections.dclp import ParsedRecord
 from papyrus_chat.builder.collections.dclp import parse_record as parse_dclp
+from papyrus_chat.builder.collections.epidoc import ParsedRecord
+from papyrus_chat.builder.collections.translations import parse_record as parse_translations
 
 BUILDER_NAME = "papyrus-corpus-build"
 BUILDER_VERSION = "0.1.0"
 
 CollectionParser = Callable[..., ParsedRecord]
 
-SUPPORTED_COLLECTIONS: dict[str, tuple[str, CollectionParser | None]] = {
+SUPPORTED_COLLECTIONS: dict[str, tuple[str, CollectionParser]] = {
     "dclp": ("DCLP", parse_dclp),
-    "translations": ("Translations", None),
+    "translations": ("Translations", parse_translations),
 }
 
 
@@ -206,8 +207,6 @@ def _parse_collections(
 
     for collection in canonical:
         upstream_dir_name, parser = SUPPORTED_COLLECTIONS[collection]
-        if parser is None:
-            raise BuildError(f"Collection '{collection}' is not implemented yet")
         collection_dir = source_dir / upstream_dir_name
         if not collection_dir.is_dir():
             raise BuildError(f"Collection directory not found in source: {collection_dir}")
