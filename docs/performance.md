@@ -11,15 +11,15 @@ The measured baseline built the real `dclp` collection with the v0.1.0
 builder. It covered 14,842 documents and produced a 73.4 MB schema-v1
 artifact.
 
-| Measurement | Result | Target | Status |
-|-------------|--------|--------|--------|
-| Remote `dclp` build, cold cache | 565-608 s across two runs | ≤ 15 min | pass |
-| Remote `dclp` rebuild, warm cache | 545 s | ≤ 5 min | miss |
-| Artifact startup and validation | 864 ms | ≤ 5 s | pass |
-| Identifier lookup (`TM 23944`, average of 50) | 0.027 ms | ≤ 100 ms | pass |
-| FTS search, polytonic Greek `ἔτους` (average of 50) | 16.4 ms | ≤ 500 ms | pass |
-| FTS search, English `horoscope` (average of 50) | 14.9 ms | ≤ 500 ms | pass |
-| First search without an LLM call | Search never contacts the LLM | required | pass |
+| Measurement                                         | Result                        | Target   | Status |
+| --------------------------------------------------- | ----------------------------- | -------- | ------ |
+| Remote `dclp` build, cold cache                     | 565-608 s across two runs     | ≤ 15 min | pass   |
+| Remote `dclp` rebuild, warm cache                   | 545 s                         | ≤ 5 min  | miss   |
+| Artifact startup and validation                     | 864 ms                        | ≤ 5 s    | pass   |
+| Identifier lookup (`TM 23944`, average of 50)       | 0.027 ms                      | ≤ 100 ms | pass   |
+| FTS search, polytonic Greek `ἔτους` (average of 50) | 16.4 ms                       | ≤ 500 ms | pass   |
+| FTS search, English `horoscope` (average of 50)     | 14.9 ms                       | ≤ 500 ms | pass   |
+| First search without an LLM call                    | Search never contacts the LLM | required | pass   |
 
 The warm rebuild bottleneck was one `git show` subprocess per file in
 `LocalGitSource.read_bytes` (about 14,800 process spawns). Batch reads through

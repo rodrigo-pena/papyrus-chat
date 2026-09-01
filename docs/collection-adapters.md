@@ -12,6 +12,8 @@ describes the user-visible boundary.
 
 ## How a record reaches the artifact
 
+Source acquisition establishes reproducible bytes and provenance, adapters interpret one upstream format, and the artifact layer owns storage:
+
 1. The CLI validates a lowercase collection name against
    [`SUPPORTED_COLLECTIONS`](../src/papyrus_chat/builder/pipeline.py).
 2. A remote build maps that name to an upstream directory through
@@ -25,10 +27,6 @@ describes the user-visible boundary.
 5. The pipeline sorts and persists those values, computes the logical content
    hash, writes the manifest, and validates the staged artifact before it is
    published.
-
-This separation is intentional: source acquisition establishes reproducible
-bytes and provenance, adapters interpret one upstream format, and the artifact
-layer owns storage.
 
 ## Choose the adapter shape
 

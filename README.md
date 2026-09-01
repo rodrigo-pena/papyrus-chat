@@ -1,4 +1,4 @@
-# papyrus-chat
+# Papyrus Chat
 
 Build a searchable, provenance-preserving corpus from
 [papyri/idp.data](https://github.com/papyri/idp.data), then investigate it in
@@ -22,20 +22,18 @@ The upstream [papyri/idp.data](https://github.com/papyri/idp.data) repository
 contains data from several projects. Papyrus Chat currently supports exactly
 three user-selectable collections:
 
-| CLI name | Upstream directory | Content added to the artifact |
-|----------|--------------------|-------------------------------|
-| `dclp` | [`DCLP/`](https://github.com/papyri/idp.data/tree/master/DCLP) | Literary-papyrus metadata plus edition and embedded translation passages |
-| `ddbdp` | [`DDbDP/`](https://github.com/papyri/idp.data/tree/master/DDbDP) | Documentary transcriptions, identifiers, and metadata |
-| `translations` | [`Translations/`](https://github.com/papyri/idp.data/tree/master/Translations) | Published translation passages and their record metadata |
+| CLI name       | Upstream directory                                                             | Content added to the artifact                                            |
+| -------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `dclp`         | [`DCLP/`](https://github.com/papyri/idp.data/tree/master/DCLP)                 | Literary-papyrus metadata plus edition and embedded translation passages |
+| `ddbdp`        | [`DDbDP/`](https://github.com/papyri/idp.data/tree/master/DDbDP)               | Documentary transcriptions, identifiers, and metadata                    |
+| `translations` | [`Translations/`](https://github.com/papyri/idp.data/tree/master/Translations) | Published translation passages and their record metadata                 |
 
 Selecting `ddbdp` also reads [`HGV_meta_EpiDoc/`](https://github.com/papyri/idp.data/tree/master/HGV_meta_EpiDoc)
 and links matching HGV dates and descriptive metadata to DDbDP documents. HGV
 is an auxiliary source, not a fourth selectable collection. No other upstream
-directory is currently ingested; `papyrus-corpus-build --list-collections` is
-the authoritative runtime list.
+directory is currently ingested. The authoritative runtime list is `papyrus-corpus-build --list-collections`.
 
-See the [collection adapter guide](docs/collection-adapters.md) to add another
-upstream collection or an auxiliary linked source.
+See the [collection adapter guide](docs/collection-adapters.md) for hints on how to add another upstream collection or an auxiliary linked source.
 
 ## Quick start
 
