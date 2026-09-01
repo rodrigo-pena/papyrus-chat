@@ -16,13 +16,12 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from papyrus_chat.agent.runtime import create_research_agent
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
+from papyrus_chat.agent.tools import CorpusSearchSummary, CorpusToolDeps, CorpusToolService
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.chat.provider import ProviderConfig
 from papyrus_chat.retrieval.structured import (
     CorpusDateInterval,
-    CorpusSearchResult,
     StructuredCorpusSearch,
 )
 
@@ -466,7 +465,7 @@ def test_swallowed_search_arguments_execute_with_their_members_recovered(
         for part in message.parts
         if isinstance(part, ToolReturnPart) and part.tool_name == "search_documents"
     )
-    assert isinstance(search_return.content, CorpusSearchResult)
+    assert isinstance(search_return.content, CorpusSearchSummary)
     assert search_return.content.query.term_groups == (
         ("Κλαύδιος", "Claudius"),
         ("Geld", "δραχμή"),

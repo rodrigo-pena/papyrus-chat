@@ -2,20 +2,25 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, RunContext
 
+from papyrus_chat.artifact.records import ComponentRecord
+from papyrus_chat.retrieval.evidence import snippet_for
 from papyrus_chat.retrieval.structured import (
     CorpusDescription,
     CorpusFacetResult,
+    CorpusHit,
     CorpusInspection,
     CorpusQuery,
     CorpusSearchResult,
     FacetField,
     StructuredCorpusSearch,
 )
+
+INSPECT_EXCERPT_CHARS = 500
 
 
 class CorpusInspectionResult(BaseModel):
@@ -24,6 +29,69 @@ class CorpusInspectionResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     inspections: tuple[CorpusInspection, ...]
+
+
+class CorpusHitSummary(BaseModel):
+    """A distinct candidate document with located evidence and its citation URL."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document_id: str
+    title: str
+    collection: str
+    languages: tuple[str, ...]
+    passage_kind: Literal["edition", "translation"] | None = None
+    passage_language: str | None = None
+    snippet: str | None = None
+    line_reference: str | None = None
+    canonical_url: str | None = None
+
+
+class CorpusSearchSummary(BaseModel):
+    """Complete normalized query, exact candidate count, and lean located hits."""
+
+    model_config = ConfigDict(frozen=True)
+
+    query: CorpusQuery
+    assumptions: tuple[str, ...] = ()
+    candidate_count: int
+    truncated: bool
+    hits: tuple[CorpusHitSummary, ...]
+
+
+class CorpusHgvContext(BaseModel):
+    """Summarized HGV metadata and date texts for one inspected document."""
+
+    model_config = ConfigDict(frozen=True)
+
+    title: str
+    metadata: dict[str, tuple[str, ...]] = Field(default_factory=dict)
+    date_texts: tuple[str, ...] = ()
+
+
+class CorpusExcerpt(BaseModel):
+    """A located passage with a bounded excerpt and its line reference."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["edition", "translation"] | None = None
+    language: str | None = None
+    line_reference: str | None = None
+    excerpt: str | None = None
+
+
+class CorpusInspectionSummary(BaseModel):
+    """Identity, citation URL, HGV context, and bounded excerpts for one document."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document_id: str
+    title: str
+    collection: str
+    languages: tuple[str, ...]
+    canonical_url: str | None = None
+    hgv: CorpusHgvContext | None = None
+    passages: tuple[CorpusExcerpt, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -71,11 +139,11 @@ def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
     return ctx.deps.service.describe_corpus()
 
 
-def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> CorpusSearchResult:
-    """Search distinct corpus documents with located evidence and provenance."""
+def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> CorpusSearchSummary:
+    """Search distinct corpus documents for lean hits with located snippets and citation URLs."""
     result = ctx.deps.service.search_documents(query)
     _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
-    return result
+    return _search_summary(result)
 
 
 def inspect_documents(
@@ -91,11 +159,11 @@ def inspect_documents(
         int,
         Field(ge=1, le=10, description="Located passages shown per document, from 1 to 10."),
     ] = 3,
-) -> CorpusInspectionResult:
-    """Inspect at most 20 selected documents and a bounded excerpt per document."""
+) -> tuple[CorpusInspectionSummary, ...]:
+    """Inspect at most 20 selected documents with bounded excerpts and HGV context."""
     result = ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
     _remember_corpus_urls(ctx.deps, (inspection.canonical_url for inspection in result.inspections))
-    return result
+    return _inspection_summaries(result.inspections)
 
 
 def facet_documents(
@@ -120,6 +188,72 @@ def _remember_corpus_urls(deps: CorpusToolDeps, urls: Iterable[str | None]) -> N
     deps.known_corpus_urls.update(url for url in urls if url is not None)
 
 
+def _search_summary(result: CorpusSearchResult) -> CorpusSearchSummary:
+    return CorpusSearchSummary(
+        query=result.query,
+        assumptions=result.assumptions,
+        candidate_count=result.candidate_count,
+        truncated=result.truncated,
+        hits=tuple(_hit_summary(hit) for hit in result.hits),
+    )
+
+
+def _hit_summary(hit: CorpusHit) -> CorpusHitSummary:
+    return CorpusHitSummary(
+        document_id=hit.document_id,
+        title=hit.title,
+        collection=hit.collection,
+        languages=hit.languages,
+        passage_kind=hit.passage_kind,
+        passage_language=hit.passage_language,
+        snippet=hit.snippet,
+        line_reference=hit.line_reference,
+        canonical_url=hit.canonical_url,
+    )
+
+
+def _inspection_summaries(
+    inspections: Iterable[CorpusInspection],
+) -> tuple[CorpusInspectionSummary, ...]:
+    return tuple(
+        CorpusInspectionSummary(
+            document_id=inspection.document_id,
+            title=inspection.title,
+            collection=inspection.collection,
+            languages=inspection.languages,
+            canonical_url=inspection.canonical_url,
+            hgv=_hgv_context(inspection.components),
+            passages=tuple(_excerpt(passage) for passage in inspection.passages),
+        )
+        for inspection in inspections
+    )
+
+
+def _hgv_context(components: Iterable[ComponentRecord]) -> CorpusHgvContext | None:
+    for component in components:
+        if component.kind == "hgv":
+            return CorpusHgvContext(
+                title=component.title,
+                metadata=component.metadata,
+                date_texts=tuple(date.text for date in component.dates if date.text),
+            )
+    return None
+
+
+def _excerpt(passage: CorpusHit) -> CorpusExcerpt:
+    excerpt = (
+        snippet_for(passage.passage_text, length=INSPECT_EXCERPT_CHARS)
+        if passage.passage_text is not None
+        else None
+    )
+    return CorpusExcerpt(
+        kind=passage.passage_kind,
+        language=passage.passage_language,
+        line_reference=passage.line_reference,
+        excerpt=excerpt,
+    )
+
+
 def register_corpus_tools(agent: Agent[Any, Any]) -> None:
     """Register exactly the four read-only corpus tools on an agent."""
     agent.tool(describe_corpus)
@@ -129,7 +263,12 @@ def register_corpus_tools(agent: Agent[Any, Any]) -> None:
 
 
 __all__ = [
+    "CorpusExcerpt",
+    "CorpusHgvContext",
+    "CorpusHitSummary",
     "CorpusInspectionResult",
+    "CorpusInspectionSummary",
+    "CorpusSearchSummary",
     "CorpusToolDeps",
     "CorpusToolService",
     "describe_corpus",

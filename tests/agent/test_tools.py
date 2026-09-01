@@ -11,11 +11,151 @@ from pydantic_ai.models.test import TestModel
 from papyrus_chat.agent.tools import (
     CorpusToolDeps,
     CorpusToolService,
+    _hit_summary,  # noqa: PLC2701 - projection unit test
+    _inspection_summaries,  # noqa: PLC2701 - projection unit test
+    _search_summary,  # noqa: PLC2701 - projection unit test
     register_corpus_tools,
+)
+from papyrus_chat.artifact.records import (
+    ComponentDateRecord,
+    ComponentIdentifierRecord,
+    ComponentRecord,
+    SourceReference,
 )
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
-from papyrus_chat.retrieval.structured import CorpusQuery, StructuredCorpusSearch
+from papyrus_chat.retrieval.structured import (
+    CorpusHit,
+    CorpusInspection,
+    CorpusQuery,
+    CorpusSearchResult,
+    StructuredCorpusSearch,
+)
+
+
+def _source() -> SourceReference:
+    return SourceReference(
+        repository_url="https://github.com/papyri/idp.data.git",
+        commit="ffc23d0",
+        path="DDbDP/41/41819.xml",
+    )
+
+
+def _hit(*, text: str) -> CorpusHit:
+    return CorpusHit(
+        document_id="ddbdp:DDbDP/41/41819.xml",
+        title="psi.congr.xvii.22",
+        collection="ddbdp",
+        languages=("grc",),
+        metadata={"authority": "Duke Collaboratory for Classics Computing (DC3)"},
+        passage_id="ddbdp:DDbDP/41/41819.xml#edition:2:r,1",
+        passage_kind="edition",
+        passage_language="grc",
+        passage_text=text,
+        snippet=text[:200],
+        line_reference="lines 1-13",
+        components=(
+            ComponentRecord(
+                component_id="ddbdp:DDbDP/41/41819.xml",
+                document_id="ddbdp:DDbDP/41/41819.xml",
+                kind="ddbdp",
+                title="psi.congr.xvii.22",
+                identifiers=(
+                    ComponentIdentifierRecord(
+                        component_id="ddbdp:DDbDP/41/41819.xml",
+                        namespace="HGV",
+                        value="41819",
+                    ),
+                ),
+                source=_source(),
+            ),
+            ComponentRecord(
+                component_id="hgv:41819",
+                document_id=None,
+                kind="hgv",
+                title="Conto privato",
+                metadata={"subject": ("Abrechnung", "privat"), "material": ("Papyrus",)},
+                dates=(
+                    ComponentDateRecord(
+                        component_id="hgv:41819",
+                        sequence=0,
+                        text="nach 19. Jan. 114 v.Chr.",
+                    ),
+                ),
+                source=_source(),
+            ),
+        ),
+        source=_source(),
+        canonical_url="https://papyri.info/ddbdp/psi.congr.xvii;;22",
+    )
+
+
+def test_search_summary_keeps_identity_evidence_and_drops_heavy_fields() -> None:
+    result = CorpusSearchResult(
+        query=CorpusQuery(term_groups=[["χρέος"]]),
+        candidate_count=1,
+        truncated=False,
+        hits=(_hit(text="λόγος " * 30),),
+    )
+
+    dumped = _search_summary(result).model_dump()
+
+    hit = dumped["hits"][0]
+    assert hit["snippet"].startswith("λόγος")
+    assert hit["canonical_url"] == "https://papyri.info/ddbdp/psi.congr.xvii;;22"
+    assert hit["line_reference"] == "lines 1-13"
+    assert "passage_text" not in hit
+    assert "components" not in hit
+    assert "source" not in hit
+    assert "identifiers" not in str(dumped)
+    assert "passage_id" not in hit
+
+
+def test_inspection_summary_truncates_excerpt_and_keeps_hgv_context() -> None:
+    inspection = CorpusInspection(
+        document_id="ddbdp:DDbDP/41/41819.xml",
+        title="psi.congr.xvii.22",
+        collection="ddbdp",
+        languages=("grc",),
+        metadata={"authority": "Duke Collaboratory for Classics Computing (DC3)"},
+        source=_source(),
+        canonical_url="https://papyri.info/ddbdp/psi.congr.xvii;;22",
+        components=_hit(text="").components,
+        passages=(_hit(text="ὀφείλω " * 200),),
+    )
+
+    (summary,) = _inspection_summaries((inspection,))
+
+    assert summary.hgv is not None
+    assert summary.hgv.metadata["subject"] == ("Abrechnung", "privat")
+    assert summary.hgv.date_texts == ("nach 19. Jan. 114 v.Chr.",)
+    assert summary.passages[0].excerpt is not None
+    assert summary.passages[0].excerpt.endswith("…")
+    assert len(summary.passages[0].excerpt) <= 501
+    dumped = summary.model_dump()
+    assert "identifiers" not in str(dumped)
+    assert "repository_url" not in str(dumped)
+
+
+def test_short_excerpt_is_not_truncated() -> None:
+    assert _hit_summary(_hit(text="βραχύ"))  # sanity: summary built
+    excerpt_text = "ἀργύριον τὸ δοσόν"
+    inspection = CorpusInspection(
+        document_id="ddbdp:DDbDP/2/2914.xml",
+        title="p.petr.3.43_2",
+        collection="ddbdp",
+        languages=("grc",),
+        metadata={},
+        source=_source(),
+        canonical_url="https://papyri.info/ddbdp/p.petr;3;43_2",
+        components=(),
+        passages=(_hit(text=excerpt_text),),
+    )
+
+    (summary,) = _inspection_summaries((inspection,))
+
+    assert summary.passages[0].excerpt == excerpt_text
+    assert summary.hgv is None
 
 
 @pytest.fixture()
