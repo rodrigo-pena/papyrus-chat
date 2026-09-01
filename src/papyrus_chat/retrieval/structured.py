@@ -470,9 +470,10 @@ class StructuredCorpusSearch:
             placeholders = ", ".join("?" for _ in query.transcription_languages)
             where.append(
                 "EXISTS (SELECT 1 FROM passages p "
-                "JOIN passage_languages pl ON pl.passage_id = p.passage_id "
                 "WHERE p.document_id = d.document_id AND p.kind = 'edition' "
-                f"AND pl.language IN ({placeholders}))"
+                "AND EXISTS (SELECT 1 FROM passage_languages pl "
+                "WHERE pl.passage_id = p.passage_id "
+                f"AND pl.language IN ({placeholders})))"
             )
             params.extend(query.transcription_languages)
         if query.date_interval is not None:
@@ -795,7 +796,12 @@ class StructuredCorpusSearch:
     def _facet_rows(
         self, field: FacetField, where_sql: str, params: list[object]
     ) -> list[sqlite3.Row]:
-        filtered = f"WITH filtered_documents AS (SELECT d.* FROM documents d WHERE {where_sql}) "
+        # MATERIALIZED: component_owners references filtered_documents in both UNION
+        # legs, and without it each leg re-evaluates the whole filter.
+        filtered = (
+            f"WITH filtered_documents AS MATERIALIZED "
+            f"(SELECT d.* FROM documents d WHERE {where_sql}) "
+        )
         if field == "collection":
             rows = self._connection.execute(
                 filtered + "SELECT collection AS value, count(*) AS count FROM filtered_documents "

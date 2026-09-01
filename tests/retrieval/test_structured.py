@@ -190,6 +190,25 @@ def test_term_matching_does_not_rescan_full_text_indexes_per_document(
     assert not any(has_correlated_ancestor(node) for node in fts_scans)
 
 
+def test_language_filter_probes_documents_instead_of_scanning_languages(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    query = CorpusQuery(term_groups=[["Κλαύδιος"]], transcription_languages=["grc"])
+    where, params = documentary_search._where_clause(query)  # noqa: SLF001 - plan fixture
+    plan = documentary_search._connection.execute(  # noqa: SLF001 - plan fixture
+        f"EXPLAIN QUERY PLAN SELECT count(*) FROM documents d WHERE {' AND '.join(where)}",
+        params,
+    ).fetchall()
+    details = [row[3] for row in plan]
+
+    # 'grc' matches nearly every passage language row, so driving the correlated
+    # filter from the language index re-probes that table per candidate document.
+    assert any(
+        "SEARCH p USING INDEX passages_by_document (document_id=?)" in detail for detail in details
+    )
+    assert not any("passage_languages_lookup (language" in detail for detail in details)
+
+
 def test_transcription_query_returns_exact_distinct_candidates_and_evidence(
     documentary_search: StructuredCorpusSearch,
 ) -> None:
