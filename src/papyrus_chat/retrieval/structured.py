@@ -21,10 +21,33 @@ CorpusField = Literal["title", "metadata", "transcription", "translation"]
 FacetField = Literal["collection", "language", "subject", "material", "origin", "kind"]
 
 
+def _loads_json_text(text: str) -> object:
+    try:
+        return json.loads(text)
+    except ValueError:
+        return text
+
+
+def _recover_swallowed_members(text: str, *, field: str) -> dict[str, object] | None:
+    """Recover argument members a model swallowed into one field's string value.
+
+    The malformed text leads with this field's JSON value and ends with the
+    arguments object's closing brace; wrapping the text minus that brace parses
+    the field's value together with the members that followed it.
+    """
+    if not text.rstrip().endswith("}"):
+        return None
+    try:
+        recovered = json.loads('{"' + field + '": ' + text.rstrip()[:-1] + "}")
+    except ValueError:
+        return None
+    return recovered if isinstance(recovered, dict) else None
+
+
 class CorpusDateInterval(BaseModel):
     """Inclusive numeric bounds used to overlap linked HGV intervals."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     not_before: int = Field(
         description="Inclusive lower bound as a proleptic year; BCE years are negative (e.g. -300)."
@@ -33,6 +56,13 @@ class CorpusDateInterval(BaseModel):
         description="Inclusive upper bound as a proleptic year; BCE years are negative; "
         "must be greater than or equal to not_before."
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def unwrap_json_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            return _loads_json_text(value)
+        return value
 
     @model_validator(mode="after")
     def bounds_are_ordered(self) -> "CorpusDateInterval":
@@ -46,7 +76,7 @@ class CorpusDateInterval(BaseModel):
 class CorpusQuery(BaseModel):
     """A bounded query with OR semantics inside groups and AND between groups."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     collections: tuple[str, ...] = Field(
         default=(),
@@ -77,13 +107,32 @@ class CorpusQuery(BaseModel):
         default=20, ge=1, le=100, description="Maximum documents returned, 1 to 100."
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def unwrap_json_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            return _loads_json_text(value)
+        if isinstance(value, dict):
+            repaired: dict[str, object] = dict(value)
+            known_fields = set(cls.model_fields)
+            for key, item in value.items():
+                if not isinstance(item, str):
+                    continue
+                if recovered := _recover_swallowed_members(item, field=key):
+                    for name, member in recovered.items():
+                        if name in known_fields:
+                            repaired[name] = member
+            return repaired
+        return value
+
     @field_validator("collections", "transcription_languages", mode="before")
     @classmethod
     def normalize_values(cls, value: object) -> tuple[str, ...]:
         if value is None:
             return ()
         if isinstance(value, str):
-            value = [value]
+            decoded = _loads_json_text(value)
+            value = decoded if isinstance(decoded, (list, tuple)) else [decoded]
         if not isinstance(value, (list, tuple)):
             raise ValueError("expected a list of strings")
         normalized: list[str] = []
@@ -99,7 +148,8 @@ class CorpusQuery(BaseModel):
     @classmethod
     def normalize_fields(cls, value: object) -> tuple[str, ...]:
         if isinstance(value, str):
-            value = [value]
+            decoded = _loads_json_text(value)
+            value = decoded if isinstance(decoded, (list, tuple)) else [decoded]
         if not isinstance(value, (list, tuple)) or not value:
             raise ValueError("fields must contain at least one field")
         normalized: list[str] = []
@@ -116,6 +166,10 @@ class CorpusQuery(BaseModel):
     def normalize_term_groups(cls, value: object) -> tuple[tuple[str, ...], ...]:
         if value is None:
             return ()
+        if isinstance(value, str):
+            decoded = _loads_json_text(value)
+            if isinstance(decoded, (list, tuple)):
+                value = decoded
         if not isinstance(value, (list, tuple)):
             raise ValueError("term_groups must be a list of term lists")
         if len(value) > 8:

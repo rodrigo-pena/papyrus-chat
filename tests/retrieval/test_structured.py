@@ -114,6 +114,56 @@ def test_query_rejects_unbounded_or_empty_groups() -> None:
         CorpusQuery(limit=101)
 
 
+def test_query_accepts_the_whole_query_as_json_text() -> None:
+    query = CorpusQuery.model_validate(
+        '{"collections": ["ddbdp"], "term_groups": [["Κλαύδιος"]], '
+        '"transcription_languages": ["grc"], '
+        '"date_interval": {"not_before": 100, "not_after": 125}, "limit": 5}'
+    )
+
+    assert query.collections == ("ddbdp",)
+    assert query.term_groups == (("Κλαύδιος",),)
+    assert query.transcription_languages == ("grc",)
+    assert query.date_interval == CorpusDateInterval(not_before=100, not_after=125)
+    assert query.limit == 5
+
+
+def test_query_decodes_stringified_nested_arguments() -> None:
+    query = CorpusQuery.model_validate(
+        {
+            "term_groups": '[["Κλαύδιος", "Claudius"], ["Geld"]]',
+            "fields": '["transcription", "metadata"]',
+            "transcription_languages": '"grc"',
+            "date_interval": '{"not_before": 100, "not_after": 125}',
+        }
+    )
+
+    assert query.term_groups == (("Κλαύδιος", "Claudius"), ("Geld",))
+    assert query.fields == ("transcription", "metadata")
+    assert query.transcription_languages == ("grc",)
+    assert query.date_interval == CorpusDateInterval(not_before=100, not_after=125)
+
+
+def test_query_recovers_members_swallowed_into_a_term_groups_string() -> None:
+    swallowed = (
+        '[["Κλαύδιος", "Claudius"], ["Geld", "δραχμή"]],\n'
+        ' "transcription_languages": ["grc"], '
+        '"date_interval": {"not_before": 100, "not_after": 125}}'
+    )
+
+    query = CorpusQuery.model_validate({"term_groups": swallowed, "fields": ["transcription"]})
+
+    assert query.term_groups == (("Κλαύδιος", "Claudius"), ("Geld", "δραχμή"))
+    assert query.fields == ("transcription",)
+    assert query.transcription_languages == ("grc",)
+    assert query.date_interval == CorpusDateInterval(not_before=100, not_after=125)
+
+
+def test_query_rejects_unknown_argument_keys() -> None:
+    with pytest.raises(ValidationError):
+        CorpusQuery.model_validate({"term_groups": [["Κλαύδιος"]], "query": "Claudius"})
+
+
 def test_transcription_query_returns_exact_distinct_candidates_and_evidence(
     documentary_search: StructuredCorpusSearch,
 ) -> None:

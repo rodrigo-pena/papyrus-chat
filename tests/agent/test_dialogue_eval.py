@@ -20,7 +20,11 @@ from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.chat.provider import ProviderConfig
-from papyrus_chat.retrieval.structured import StructuredCorpusSearch
+from papyrus_chat.retrieval.structured import (
+    CorpusDateInterval,
+    CorpusSearchResult,
+    StructuredCorpusSearch,
+)
 
 
 @pytest.fixture()
@@ -362,6 +366,154 @@ def test_oversized_inspection_requests_are_corrected_within_the_retry_budget(
     assert len(retry_parts) == 1
     assert "at most 20" in str(retry_parts[0].content)
     assert result.output.startswith("Scope and method:")
+    assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
+
+
+_FINAL_ANSWER = (
+    "Scope and method: ddbdp, Greek transcription, and German metadata "
+    "terms Κλαύδιος/Claudius plus Geld/δραχμή were searched for 101-125. "
+    "Corpus evidence: https://papyri.info/ddbdp/p.mich;8;480. "
+    "Transcription evidence is separated from model-supplied background."
+)
+
+
+def _retry_parts(messages: list[ModelMessage]) -> list[RetryPromptPart]:
+    return [
+        part
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, RetryPromptPart)
+    ]
+
+
+class StringifiedSearchDialogue:
+    """Nested search arguments arrive as JSON text where objects or arrays are expected."""
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        if "search_documents" not in _returned_tool_names(messages):
+            arguments = {
+                "term_groups": '[["Κλαύδιος", "Claudius"], ["Geld", "δραχμή"]]',
+                "fields": '["transcription", "metadata"]',
+                "transcription_languages": '"grc"',
+                "date_interval": '{"not_before": 101, "not_after": 125}',
+                "limit": 10,
+            }
+            return ModelResponse(
+                [ToolCallPart("search_documents", arguments, tool_call_id="stringified-search")]
+            )
+        return ModelResponse([TextPart(_FINAL_ANSWER)])
+
+
+def test_stringified_search_arguments_execute_without_retry_prompts(
+    tool_service: CorpusToolService,
+) -> None:
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(StringifiedSearchDialogue()),
+    )
+    deps = CorpusToolDeps(service=tool_service)
+
+    result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
+
+    assert _retry_parts(result.all_messages()) == []
+    assert result.output == _FINAL_ANSWER
+    assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
+
+
+class SwallowedSearchDialogue:
+    """term_groups arrives as a string that swallowed the remaining argument members."""
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        if "search_documents" not in _returned_tool_names(messages):
+            swallowed = (
+                '[["Κλαύδιος", "Claudius"], ["Geld", "δραχμή"]],\n'
+                ' "transcription_languages": ["grc"], '
+                '"date_interval": {"not_before": 101, "not_after": 125}}'
+            )
+            return ModelResponse(
+                [
+                    ToolCallPart(
+                        "search_documents",
+                        {"term_groups": swallowed, "fields": '["transcription", "metadata"]'},
+                        tool_call_id="swallowed-search",
+                    )
+                ]
+            )
+        return ModelResponse([TextPart(_FINAL_ANSWER)])
+
+
+def test_swallowed_search_arguments_execute_with_their_members_recovered(
+    tool_service: CorpusToolService,
+) -> None:
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(SwallowedSearchDialogue()),
+    )
+    deps = CorpusToolDeps(service=tool_service)
+
+    result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
+
+    assert _retry_parts(result.all_messages()) == []
+    search_return = next(
+        part
+        for message in result.all_messages()
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, ToolReturnPart) and part.tool_name == "search_documents"
+    )
+    assert isinstance(search_return.content, CorpusSearchResult)
+    assert search_return.content.query.term_groups == (
+        ("Κλαύδιος", "Claudius"),
+        ("Geld", "δραχμή"),
+    )
+    assert search_return.content.query.transcription_languages == ("grc",)
+    assert search_return.content.query.date_interval == CorpusDateInterval(
+        not_before=101, not_after=125
+    )
+    assert result.output == _FINAL_ANSWER
+    assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
+
+
+class EnvelopeSearchDialogue:
+    """The whole query arrives as JSON text inside a query envelope."""
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        if "search_documents" not in _returned_tool_names(messages):
+            arguments = {
+                "query": (
+                    '{"collections": ["ddbdp"], '
+                    '"term_groups": [["Κλαύδιος", "Claudius"], ["Geld", "δραχμή"]], '
+                    '"fields": ["transcription", "metadata"], '
+                    '"transcription_languages": ["grc"], '
+                    '"date_interval": {"not_before": 101, "not_after": 125}, "limit": 10}'
+                )
+            }
+            return ModelResponse(
+                [ToolCallPart("search_documents", arguments, tool_call_id="envelope-search")]
+            )
+        return ModelResponse([TextPart(_FINAL_ANSWER)])
+
+
+def test_enveloped_json_text_search_arguments_execute_without_retry_prompts(
+    tool_service: CorpusToolService,
+) -> None:
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(EnvelopeSearchDialogue()),
+    )
+    deps = CorpusToolDeps(service=tool_service)
+
+    result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
+
+    assert _retry_parts(result.all_messages()) == []
+    assert result.output == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
