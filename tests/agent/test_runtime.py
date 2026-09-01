@@ -16,7 +16,15 @@ from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.chat.provider import ProviderConfig
-from papyrus_chat.retrieval.structured import StructuredCorpusSearch
+from papyrus_chat.retrieval.structured import CorpusDocumentMatch, StructuredCorpusSearch
+
+
+def _match(url: str, mapping: dict[str, tuple[str, str, str]]) -> CorpusDocumentMatch | None:
+    record = mapping.get(url)
+    if record is None:
+        return None
+    document_id, title, collection = record
+    return CorpusDocumentMatch(document_id=document_id, title=title, collection=collection)
 
 
 @pytest.fixture()
@@ -92,3 +100,61 @@ def test_output_validator_allows_a_clear_no_evidence_answer() -> None:
     answer = "Scope and method: the displayed filters returned no corpus evidence."
 
     assert validate_research_output(answer, set()) == answer
+
+
+def test_output_validator_teaches_a_real_but_unreturned_citation() -> None:
+    known = {"https://papyri.info/ddbdp/p.mich;8;480"}
+    unseen = "https://papyri.info/ddbdp/c.pap.gr;1;19"
+    lookup = lambda url: _match(  # noqa: E731 - small stub
+        url, {unseen: ("ddbdp:DDbDP/20/20699.xml", "c.pap.gr.1.19", "ddbdp")}
+    )
+
+    with pytest.raises(ModelRetry) as error:
+        validate_research_output(f"Corpus evidence: {unseen}.", known, citation_lookup=lookup)
+
+    assert "c.pap.gr.1.19" in error.value.message
+    assert "no corpus tool returned it" in error.value.message
+    assert "Search or inspect that document first" in error.value.message
+
+
+def test_output_validator_teaches_a_constructed_citation_with_series_suggestions() -> None:
+    known = {
+        "https://papyri.info/ddbdp/c.pap.gr;1;7",
+        "https://papyri.info/ddbdp/c.pap.gr;1;10",
+    }
+    constructed = "https://papyri.info/ddbdp/c.pap.gr;1;999"
+
+    with pytest.raises(ModelRetry) as error:
+        validate_research_output(
+            f"Corpus evidence: {constructed}.", known, citation_lookup=lambda url: None
+        )
+
+    message = error.value.message
+    assert "not a corpus document URL" in message
+    assert "never construct" in message
+    assert "Known citations for this series" in message
+    assert "c.pap.gr;1;7" in message
+
+
+def test_output_validator_lists_every_unknown_citation() -> None:
+    with pytest.raises(ModelRetry) as error:
+        validate_research_output(
+            "Corpus evidence: https://papyri.info/ddbdp/a;1;1 and https://papyri.info/ddbdp/b;2;2.",
+            set(),
+            citation_lookup=lambda url: None,
+        )
+
+    message = error.value.message
+    assert "a;1;1" in message
+    assert "b;2;2" in message
+
+
+def test_output_validator_tolerates_attached_punctuation_and_invisible_characters() -> None:
+    known = {"https://papyri.info/ddbdp/p.mich;8;480"}
+    answer = (
+        "Corpus evidence: https://papyri.info/ddbdp/p.mich;8;480; then "
+        "“https://papyri.info/ddbdp/p.mich;8;480” and "
+        "https://papyri.info/ddbdp/p.mich;8;480\u200b done."
+    )
+
+    assert validate_research_output(answer, known) == answer

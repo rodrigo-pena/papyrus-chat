@@ -12,6 +12,7 @@ from papyrus_chat.agent.tools import (
     CorpusToolDeps,
     CorpusToolService,
     _hit_summary,  # noqa: PLC2701 - projection unit test
+    _inspection_outcome,  # noqa: PLC2701 - projection unit test
     _inspection_summaries,  # noqa: PLC2701 - projection unit test
     _search_summary,  # noqa: PLC2701 - projection unit test
     register_corpus_tools,
@@ -156,6 +157,30 @@ def test_short_excerpt_is_not_truncated() -> None:
 
     assert summary.passages[0].excerpt == excerpt_text
     assert summary.hgv is None
+
+
+def test_inspection_outcome_reports_missing_document_ids() -> None:
+    inspection = CorpusInspection(
+        document_id="ddbdp:DDbDP/27/27093.xml",
+        title="p.mich.8.480",
+        collection="ddbdp",
+        languages=("grc",),
+        metadata={},
+        source=_source(),
+        canonical_url="https://papyri.info/ddbdp/p.mich;8;480",
+        components=(),
+        passages=(),
+    )
+    requested = [
+        "ddbdp:DDbDP/27/27093.xml",
+        "ddbdp:DDbDP/99/99999.xml",
+        "ddbdp:DDbDP/99/99999.xml",
+    ]
+
+    outcome = _inspection_outcome((inspection,), requested)
+
+    assert [summary.document_id for summary in outcome.inspections] == ["ddbdp:DDbDP/27/27093.xml"]
+    assert outcome.missing == ("ddbdp:DDbDP/99/99999.xml",)
 
 
 @pytest.fixture()

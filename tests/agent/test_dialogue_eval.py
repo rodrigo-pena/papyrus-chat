@@ -516,6 +516,58 @@ def test_enveloped_json_text_search_arguments_execute_without_retry_prompts(
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
+class FabricatedCitationDialogue:
+    """The first answer cites a constructed URL; the retry guidance recovers it."""
+
+    def __init__(self) -> None:
+        self.answers = 0
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        if not _returned_tool_names(messages):
+            return ModelResponse(
+                [
+                    ToolCallPart(
+                        "search_documents",
+                        {"term_groups": [["Κλαύδιος"]], "fields": ["transcription"], "limit": 20},
+                        tool_call_id="fabricated-search",
+                    )
+                ]
+            )
+        self.answers += 1
+        if self.answers == 1:
+            return ModelResponse(
+                [
+                    TextPart(
+                        "Scope and method: ddbdp Greek transcriptions were searched. "
+                        "Corpus evidence: https://papyri.info/ddbdp/c.pap.gr;1;19."
+                    )
+                ]
+            )
+        return ModelResponse([TextPart(_FINAL_ANSWER)])
+
+
+def test_fabricated_citation_is_rejected_then_corrected_in_budget(
+    tool_service: CorpusToolService,
+) -> None:
+    dialogue = FabricatedCitationDialogue()
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(dialogue),
+    )
+    deps = CorpusToolDeps(service=tool_service)
+
+    result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
+
+    retries = _retry_parts(result.all_messages())
+    assert len(retries) == 1
+    assert "never construct" in str(retries[0].content)
+    assert dialogue.answers == 2
+    assert result.output == _FINAL_ANSWER
+    assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
+
+
 def test_dialogue_labels_insufficient_evidence_and_background(
     tool_service: CorpusToolService,
 ) -> None:

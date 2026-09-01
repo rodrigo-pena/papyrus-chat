@@ -11,6 +11,7 @@ from papyrus_chat.artifact.records import ComponentRecord
 from papyrus_chat.retrieval.evidence import snippet_for
 from papyrus_chat.retrieval.structured import (
     CorpusDescription,
+    CorpusDocumentMatch,
     CorpusFacetResult,
     CorpusHit,
     CorpusInspection,
@@ -94,6 +95,15 @@ class CorpusInspectionSummary(BaseModel):
     passages: tuple[CorpusExcerpt, ...] = ()
 
 
+class CorpusInspectionOutcome(BaseModel):
+    """Inspection summaries plus any requested ids the corpus does not contain."""
+
+    model_config = ConfigDict(frozen=True)
+
+    inspections: tuple[CorpusInspectionSummary, ...] = ()
+    missing: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True)
 class CorpusToolDeps:
     service: "CorpusToolService"
@@ -133,6 +143,9 @@ class CorpusToolService:
     def facet_documents(self, query: CorpusQuery, field: FacetField) -> CorpusFacetResult:
         return self._search.facet_documents(query, field)
 
+    def document_for_citation(self, canonical_url: str) -> CorpusDocumentMatch | None:
+        return self._search.document_for_citation(canonical_url)
+
 
 def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
     """Describe available collections, counts, languages, and components."""
@@ -159,11 +172,11 @@ def inspect_documents(
         int,
         Field(ge=1, le=10, description="Located passages shown per document, from 1 to 10."),
     ] = 3,
-) -> tuple[CorpusInspectionSummary, ...]:
+) -> CorpusInspectionOutcome:
     """Inspect at most 20 selected documents with bounded excerpts and HGV context."""
     result = ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
     _remember_corpus_urls(ctx.deps, (inspection.canonical_url for inspection in result.inspections))
-    return _inspection_summaries(result.inspections)
+    return _inspection_outcome(result.inspections, document_ids)
 
 
 def facet_documents(
@@ -229,6 +242,18 @@ def _inspection_summaries(
     )
 
 
+def _inspection_outcome(
+    inspections: tuple[CorpusInspection, ...],
+    requested_ids: list[str],
+) -> CorpusInspectionOutcome:
+    found = {inspection.document_id for inspection in inspections}
+    missing = tuple(dict.fromkeys(id for id in requested_ids if id not in found))
+    return CorpusInspectionOutcome(
+        inspections=_inspection_summaries(inspections),
+        missing=missing,
+    )
+
+
 def _hgv_context(components: Iterable[ComponentRecord]) -> CorpusHgvContext | None:
     for component in components:
         if component.kind == "hgv":
@@ -266,6 +291,7 @@ __all__ = [
     "CorpusExcerpt",
     "CorpusHgvContext",
     "CorpusHitSummary",
+    "CorpusInspectionOutcome",
     "CorpusInspectionResult",
     "CorpusInspectionSummary",
     "CorpusSearchSummary",

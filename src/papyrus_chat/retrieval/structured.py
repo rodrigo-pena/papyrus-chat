@@ -276,6 +276,16 @@ class CorpusFacetResult(BaseModel):
     values: tuple[CorpusFacetValue, ...]
 
 
+class CorpusDocumentMatch(BaseModel):
+    """A corpus document identified by its canonical citation URL."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document_id: str
+    title: str
+    collection: str
+
+
 class StructuredCorpusSearch:
     """Read-only structured query service for an artifact SQLite database."""
 
@@ -422,6 +432,26 @@ class StructuredCorpusSearch:
                 )
             )
         return tuple(inspections)
+
+    def document_for_citation(self, canonical_url: str) -> CorpusDocumentMatch | None:
+        """Resolve a citation URL to its corpus document, if one exists.
+
+        Used by the output validator to distinguish a citation the model
+        invented from one that names a real document no tool returned in
+        this conversation. The documents table has no index on
+        canonical_url, so this scans; it only runs on validation failure.
+        """
+        row = self._connection.execute(
+            "SELECT document_id, title, collection FROM documents WHERE canonical_url = ?",
+            (canonical_url,),
+        ).fetchone()
+        if row is None:
+            return None
+        return CorpusDocumentMatch(
+            document_id=row["document_id"],
+            title=row["title"],
+            collection=row["collection"],
+        )
 
     def close(self) -> None:
         self._connection.close()
