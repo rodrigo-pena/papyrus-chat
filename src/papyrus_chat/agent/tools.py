@@ -58,6 +58,7 @@ class CorpusSearchSummary(BaseModel):
     candidate_count: int
     truncated: bool
     hits: tuple[CorpusHitSummary, ...]
+    group_candidate_counts: tuple[int, ...] | None = None
 
 
 class CorpusHgvContext(BaseModel):
@@ -208,6 +209,7 @@ def _search_summary(result: CorpusSearchResult) -> CorpusSearchSummary:
         candidate_count=result.candidate_count,
         truncated=result.truncated,
         hits=tuple(_hit_summary(hit) for hit in result.hits),
+        group_candidate_counts=result.group_candidate_counts,
     )
 
 

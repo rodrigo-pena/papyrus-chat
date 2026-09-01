@@ -86,8 +86,10 @@ class CorpusQuery(BaseModel):
     term_groups: tuple[tuple[str, ...], ...] = Field(
         default=(),
         description="Up to 8 groups (AND between groups) of at most 16 alternative terms each "
-        "(OR within a group); each term is at most 200 characters. A flat list of strings is "
-        "not accepted: every group must itself be a list of terms.",
+        "(OR within a group); each term is at most 200 characters. Terms are prefix-matched "
+        "against diacritic-folded word tokens: include inflected variants, since different "
+        "stems (e.g. Greek augmented διεσ- vs unaugmented δια-) do not match. A flat list of "
+        "strings is not accepted: every group must itself be a list of terms.",
     )
     fields: tuple[CorpusField, ...] = Field(
         default=("transcription", "translation", "title", "metadata"),
@@ -227,6 +229,12 @@ class CorpusSearchResult(BaseModel):
     candidate_count: int
     truncated: bool
     hits: tuple[CorpusHit, ...]
+    group_candidate_counts: tuple[int, ...] | None = None
+    """Per-term-group candidate counts when the full conjunction matched nothing.
+
+    Counts each group alone under the same non-term filters, so an empty result
+    shows which group eliminated every document.
+    """
 
     @property
     def normalized_query(self) -> CorpusQuery:
@@ -308,6 +316,7 @@ class StructuredCorpusSearch:
                 f"SELECT count(*) FROM documents d WHERE {where_sql}", params
             ).fetchone()[0]
         )
+        group_counts = self._group_candidate_counts(normalized) if count == 0 else None
         if normalized.term_groups:
             rows = self._ranked_rows(normalized, where_sql, params)
         else:
@@ -331,7 +340,25 @@ class StructuredCorpusSearch:
             candidate_count=count,
             truncated=count > normalized.limit,
             hits=hits,
+            group_candidate_counts=group_counts,
         )
+
+    def _group_candidate_counts(self, query: CorpusQuery) -> tuple[int, ...] | None:
+        if len(query.term_groups) < 2:
+            return None
+        counts: list[int] = []
+        for group in query.term_groups:
+            solo = query.model_copy(update={"term_groups": (group,)})
+            where, params = self._where_clause(solo)
+            counts.append(
+                int(
+                    self._connection.execute(
+                        f"SELECT count(*) FROM documents d WHERE {' AND '.join(where)}",
+                        params,
+                    ).fetchone()[0]
+                )
+            )
+        return tuple(counts)
 
     def facet_documents(
         self,

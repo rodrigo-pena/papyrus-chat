@@ -112,6 +112,20 @@ def test_search_summary_keeps_identity_evidence_and_drops_heavy_fields() -> None
     assert "passage_id" not in hit
 
 
+def test_search_summary_carries_group_candidate_counts() -> None:
+    result = CorpusSearchResult(
+        query=CorpusQuery(term_groups=[["Geld"], ["zzz-absent"]]),
+        candidate_count=0,
+        truncated=False,
+        hits=(),
+        group_candidate_counts=(1, 0),
+    )
+
+    summary = _search_summary(result)
+
+    assert summary.group_candidate_counts == (1, 0)
+
+
 def test_inspection_summary_truncates_excerpt_and_keeps_hgv_context() -> None:
     inspection = CorpusInspection(
         document_id="ddbdp:DDbDP/41/41819.xml",

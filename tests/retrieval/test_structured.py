@@ -309,6 +309,29 @@ def test_open_ended_dates_clamp_to_their_known_bound(
     assert ad_window.candidate_count == 0
 
 
+def test_empty_multi_group_result_reports_per_group_candidate_counts(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    empty = documentary_search.query(
+        CorpusQuery(term_groups=[["Geld"], ["zzz-absent-term"]], fields=["metadata"])
+    )
+
+    assert empty.candidate_count == 0
+    assert empty.group_candidate_counts == (1, 0)
+
+    matched = documentary_search.query(
+        CorpusQuery(term_groups=[["Geld"], ["erneute"]], fields=["metadata"])
+    )
+    assert matched.candidate_count == 1
+    assert matched.group_candidate_counts is None
+
+    single_empty = documentary_search.query(
+        CorpusQuery(term_groups=[["zzz-absent-term"]], fields=["metadata"])
+    )
+    assert single_empty.candidate_count == 0
+    assert single_empty.group_candidate_counts is None
+
+
 def test_facets_count_distinct_documents_from_the_normalized_query(
     documentary_search: StructuredCorpusSearch,
 ) -> None:
