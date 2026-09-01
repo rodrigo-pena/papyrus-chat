@@ -115,22 +115,13 @@ are deterministic: identical inputs produce the same logical content hash in
 `manifest.json` and the completion report. Reference measurements and known
 bottlenecks are recorded in [docs/performance.md](docs/performance.md).
 
-### Sample walkthrough
+### Sample questions
 
-After starting the app, use one thread for this four-query smoke run:
+- How many Greek texts are lists related to tax payments from the Islamic period (from the Arab conquest of Egypt)?
+- Within this corpus, can you find lists structured by month? Make sure you know the names of Egyptian months used in this period.
+- Can you summarize the kinds/categories of taxes attested in these documents?
+- How were taxes collected in the Early Arab period in Egypt, based on the Greek papyri in the corpus?
 
-1. "Find Greek documentary evidence about a Claudius-era money dispute. Show
-   the date interpretation, generated Greek/German terms, exact candidate
-   count, and linked papyri."
-2. "Narrow that prior candidate set to the linked date interval. Which
-   Egyptian month names are relevant?"
-3. "Group the tax or payment categories in the results and give one linked
-   papyrus example for each."
-4. "Which statements are directly attested in the transcription, and which
-   are broader historical inference or model background?"
-
-Check that the first answer explains its scope, follow-up turns reuse and
-refine the prior query, and every named corpus record opens at papyri.info.
 
 ## Development
 
