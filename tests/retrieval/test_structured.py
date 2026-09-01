@@ -164,6 +164,32 @@ def test_query_rejects_unknown_argument_keys() -> None:
         CorpusQuery.model_validate({"term_groups": [["Κλαύδιος"]], "query": "Claudius"})
 
 
+def test_term_matching_does_not_rescan_full_text_indexes_per_document(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    query = CorpusQuery(
+        term_groups=[["Κλαύδιος", "Claudius"], ["Geld"]], fields=["transcription", "metadata"]
+    )
+    where, params = documentary_search._where_clause(query)  # noqa: SLF001 - plan fixture
+    plan = documentary_search._connection.execute(  # noqa: SLF001 - plan fixture
+        f"EXPLAIN QUERY PLAN SELECT count(*) FROM documents d WHERE {' AND '.join(where)}",
+        params,
+    ).fetchall()
+    parents = {row[0]: row[1] for row in plan}
+    details = {row[0]: row[3] for row in plan}
+
+    def has_correlated_ancestor(node: int) -> bool:
+        while (parent := parents.get(node)) is not None:
+            if details.get(parent, "").startswith("CORRELATED"):
+                return True
+            node = parent
+        return False
+
+    fts_scans = [row[0] for row in plan if "VIRTUAL TABLE" in row[3]]
+    assert fts_scans
+    assert not any(has_correlated_ancestor(node) for node in fts_scans)
+
+
 def test_transcription_query_returns_exact_distinct_candidates_and_evidence(
     documentary_search: StructuredCorpusSearch,
 ) -> None:

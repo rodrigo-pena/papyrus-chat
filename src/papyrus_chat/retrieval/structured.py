@@ -434,10 +434,8 @@ class StructuredCorpusSearch:
             where.append(f"d.collection IN ({placeholders})")
             params.extend(query.collections)
         for group in query.term_groups:
-            alternatives: list[str] = []
-            for term in group:
-                alternatives.extend(self._term_conditions(term, query.fields, params))
-            where.append("(" + " OR ".join(alternatives) + ")")
+            alternatives = self._term_group_conditions(group, query.fields, params)
+            where.append("(" + " OR ".join(alternatives) + ")" if alternatives else "0 = 1")
         if query.transcription_languages:
             placeholders = ", ".join("?" for _ in query.transcription_languages)
             where.append(
@@ -471,38 +469,54 @@ class StructuredCorpusSearch:
             params.extend([query.date_interval.not_after, query.date_interval.not_before])
         return where, params
 
-    def _term_conditions(
+    def _term_group_conditions(
         self,
-        term: str,
+        group: tuple[str, ...],
         fields: tuple[CorpusField, ...],
         params: list[object],
     ) -> list[str]:
-        fts_query = build_fts_query(term)
-        if not fts_query:
-            return ["0 = 1"]
+        """Match one term group with uncorrelated full-text subqueries.
+
+        Each FTS table is probed once per group with the OR of its terms instead
+        of once per document row: FTS5 cannot constrain a MATCH by the outer
+        document_id, so a correlated EXISTS re-scans the posting list for every
+        row of the documents table.
+        """
+        fts_queries = tuple(
+            dict.fromkeys(fts_query for term in group if (fts_query := build_fts_query(term)))
+        )
+        if not fts_queries:
+            return []
         conditions: list[str] = []
-        if "title" in fields:
-            conditions.append(
-                "EXISTS (SELECT 1 FROM documents_fts df "
-                "WHERE df.document_id = d.document_id AND documents_fts MATCH ?)"
+        document_columns = [
+            column
+            for field, column in (("title", "title"), ("metadata", "metadata"))
+            if field in fields
+        ]
+        if document_columns:
+            match_query = " OR ".join(
+                f"({_column_fts_query(column, fts_query)})"
+                for fts_query in fts_queries
+                for column in document_columns
             )
-            params.append(_column_fts_query("title", fts_query))
-        if "metadata" in fields:
             conditions.append(
-                "EXISTS (SELECT 1 FROM documents_fts df "
-                "WHERE df.document_id = d.document_id AND documents_fts MATCH ?)"
+                "d.document_id IN (SELECT df.document_id FROM documents_fts df "
+                "WHERE documents_fts MATCH ?)"
             )
-            params.append(_column_fts_query("metadata", fts_query))
+            params.append(match_query)
         for kind, field in (("edition", "transcription"), ("translation", "translation")):
             if field not in fields:
                 continue
-            conditions.append(
-                "EXISTS (SELECT 1 FROM passages_fts pf JOIN passages p "
-                "ON p.passage_id = pf.passage_id "
-                "WHERE p.document_id = d.document_id AND p.kind = ? AND passages_fts MATCH ?)"
+            match_query = " OR ".join(
+                f"({_column_fts_query('search_text', fts_query)})" for fts_query in fts_queries
             )
-            params.extend([kind, _column_fts_query("search_text", fts_query)])
-        return conditions or ["0 = 1"]
+            conditions.append(
+                "d.document_id IN (SELECT p.document_id FROM passages_fts pf "
+                "JOIN passages p ON p.passage_id = pf.passage_id "
+                "WHERE p.kind = ? AND passages_fts MATCH ?)"
+            )
+            params.extend([kind, match_query])
+        return conditions
 
     def _ranked_rows(
         self, query: CorpusQuery, where_sql: str, params: list[object]
@@ -625,24 +639,29 @@ class StructuredCorpusSearch:
         ]
         if not kinds:
             return None
-        for group in query.term_groups:
-            for term in group:
-                fts_query = build_fts_query(term)
-                if not fts_query:
-                    continue
-                placeholders = ", ".join("?" for _ in kinds)
-                row = self._connection.execute(
-                    "SELECT p.*, pl.language FROM passages_fts pf JOIN passages p "
-                    "ON p.passage_id = pf.passage_id "
-                    "LEFT JOIN passage_languages pl ON pl.passage_id = p.passage_id "
-                    f"WHERE p.document_id = ? AND p.kind IN ({placeholders}) "
-                    "AND passages_fts MATCH ? "
-                    "ORDER BY p.sequence LIMIT 1",
-                    [document_id, *kinds, _column_fts_query("search_text", fts_query)],
-                ).fetchone()
-                if row is not None:
-                    return row
-        return None
+        fts_queries = tuple(
+            dict.fromkeys(
+                fts_query
+                for group in query.term_groups
+                for term in group
+                if (fts_query := build_fts_query(term))
+            )
+        )
+        if not fts_queries:
+            return None
+        match_query = " OR ".join(
+            f"({_column_fts_query('search_text', fts_query)})" for fts_query in fts_queries
+        )
+        placeholders = ", ".join("?" for _ in kinds)
+        return self._connection.execute(
+            "SELECT p.*, pl.language FROM passages p "
+            "LEFT JOIN passage_languages pl ON pl.passage_id = p.passage_id "
+            f"WHERE p.document_id = ? AND p.kind IN ({placeholders}) "
+            "AND p.passage_id IN (SELECT pf.passage_id FROM passages_fts pf "
+            "WHERE passages_fts MATCH ?) "
+            "ORDER BY p.sequence LIMIT 1",
+            [document_id, *kinds, match_query],
+        ).fetchone()
 
     def _components_by_document(
         self, document_ids: Iterable[str]
