@@ -386,6 +386,61 @@ def _retry_parts(messages: list[ModelMessage]) -> list[RetryPromptPart]:
     ]
 
 
+def _tool_returns(messages: list[ModelMessage], tool_name: str) -> list[ToolReturnPart]:
+    return [
+        part
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, ToolReturnPart) and part.tool_name == tool_name
+    ]
+
+
+class FocusedInspectionDialogue:
+    """Inspect a long document plainly, then re-inspect with a focus term."""
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        inspections = _tool_returns(messages, "inspect_documents")
+        if len(inspections) < 2:
+            arguments: dict[str, Any] = {
+                "document_ids": ["ddbdp:DDbDP/27/27093.xml"],
+                "excerpt_limit": 1,
+            }
+            if inspections:
+                arguments["excerpt_chars"] = 300
+                arguments["focus_terms"] = ["δραχμ"]
+            return ModelResponse(
+                [
+                    ToolCallPart(
+                        "inspect_documents", arguments, tool_call_id=f"inspect-{len(inspections)}"
+                    )
+                ]
+            )
+        return ModelResponse([TextPart(_FINAL_ANSWER)])
+
+
+def test_focus_terms_move_the_excerpt_window_to_the_matching_region(
+    tool_service: CorpusToolService,
+) -> None:
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(FocusedInspectionDialogue()),
+    )
+    deps = CorpusToolDeps(service=tool_service)
+
+    result = agent.run_sync("Show the money terms in the inspected document.", deps=deps)
+
+    assert not _retry_parts(result.all_messages())
+    plain, focused = (
+        str(part.content) for part in _tool_returns(result.all_messages(), "inspect_documents")
+    )
+    assert "δραχμ" not in plain
+    assert "δραχμ" in focused
+    assert result.output.startswith("Scope and method:")
+
+
 class StringifiedSearchDialogue:
     """Nested search arguments arrive as JSON text where objects or arrays are expected."""
 

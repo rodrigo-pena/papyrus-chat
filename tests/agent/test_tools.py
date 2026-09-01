@@ -152,6 +152,58 @@ def test_inspection_summary_truncates_excerpt_and_keeps_hgv_context() -> None:
     assert "repository_url" not in str(dumped)
 
 
+def test_inspection_excerpt_centers_on_a_focus_term() -> None:
+    text = "λόγος ἀναγραφὴς οἴνου " * 200 + "χρέος ἀπόδος τοῦ ἀρταβάνου " + "καὶ ἄλλο " * 100
+    inspection = CorpusInspection(
+        document_id="ddbdp:DDbDP/41/41819.xml",
+        title="psi.congr.xvii.22",
+        collection="ddbdp",
+        languages=("grc",),
+        metadata={},
+        source=_source(),
+        canonical_url="https://papyri.info/ddbdp/psi.congr.xvii;;22",
+        components=(),
+        passages=(_hit(text=text),),
+    )
+
+    default = next(
+        summary.passages[0].excerpt
+        for summary in _inspection_summaries((inspection,))
+        if summary.passages
+    )
+    focused = next(
+        summary.passages[0].excerpt
+        for summary in _inspection_summaries((inspection,), focus_terms=("χρεο",))
+        if summary.passages
+    )
+
+    assert default is not None and "χρέος" not in default
+    assert focused is not None and "χρέος" in focused
+    assert focused.startswith("…")
+
+
+def test_inspection_excerpt_honors_a_larger_excerpt_budget() -> None:
+    text = "λόγος ἀναγραφὴς οἴνου " * 100
+    inspection = CorpusInspection(
+        document_id="ddbdp:DDbDP/41/41819.xml",
+        title="psi.congr.xvii.22",
+        collection="ddbdp",
+        languages=("grc",),
+        metadata={},
+        source=_source(),
+        canonical_url="https://papyri.info/ddbdp/psi.congr.xvii;;22",
+        components=(),
+        passages=(_hit(text=text),),
+    )
+
+    (summary,) = _inspection_summaries((inspection,), excerpt_chars=2000)
+
+    excerpt = summary.passages[0].excerpt
+    assert excerpt is not None
+    assert len(excerpt) > 501
+    assert len(excerpt) <= 2002
+
+
 def test_short_excerpt_is_not_truncated() -> None:
     assert _hit_summary(_hit(text="βραχύ"))  # sanity: summary built
     excerpt_text = "ἀργύριον τὸ δοσόν"
@@ -348,6 +400,13 @@ def test_tool_schemas_state_inspection_bounds_and_facet_options(
     assert inspection["excerpt_limit"]["minimum"] == 1
     assert inspection["excerpt_limit"]["maximum"] == 10
     assert inspection["excerpt_limit"]["default"] == 3
+    assert inspection["excerpt_chars"]["minimum"] == 200
+    assert inspection["excerpt_chars"]["maximum"] == 2000
+    assert inspection["excerpt_chars"]["default"] == 500
+    focus = inspection["focus_terms"]
+    assert focus["maxItems"] == 8
+    assert focus["items"]["minLength"] == 1
+    assert focus["items"]["maxLength"] == 200
 
     field = schemas["facet_documents"]["properties"]["field"]
     assert set(field["enum"]) == {"collection", "language", "subject", "material", "origin", "kind"}

@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, RunContext
 
 from papyrus_chat.artifact.records import ComponentRecord
-from papyrus_chat.retrieval.evidence import snippet_for
+from papyrus_chat.retrieval.evidence import targeted_snippet_for
 from papyrus_chat.retrieval.structured import (
     CorpusDescription,
     CorpusDocumentMatch,
@@ -173,11 +173,35 @@ def inspect_documents(
         int,
         Field(ge=1, le=10, description="Located passages shown per document, from 1 to 10."),
     ] = 3,
+    excerpt_chars: Annotated[
+        int,
+        Field(
+            ge=200,
+            le=2000,
+            description="Characters shown per excerpt window, from 200 to 2000.",
+        ),
+    ] = INSPECT_EXCERPT_CHARS,
+    focus_terms: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=200)], ...],
+        Field(
+            max_length=8,
+            description=(
+                "Optional search terms or words of interest; each excerpt centers on the "
+                "earliest diacritic-folded prefix match instead of the passage start. "
+                "At most 8 terms, each up to 200 characters."
+            ),
+        ),
+    ] = (),
 ) -> CorpusInspectionOutcome:
     """Inspect at most 20 selected documents with bounded excerpts and HGV context."""
     result = ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
     _remember_corpus_urls(ctx.deps, (inspection.canonical_url for inspection in result.inspections))
-    return _inspection_outcome(result.inspections, document_ids)
+    return _inspection_outcome(
+        result.inspections,
+        document_ids,
+        focus_terms=focus_terms,
+        excerpt_chars=excerpt_chars,
+    )
 
 
 def facet_documents(
@@ -229,6 +253,9 @@ def _hit_summary(hit: CorpusHit) -> CorpusHitSummary:
 
 def _inspection_summaries(
     inspections: Iterable[CorpusInspection],
+    *,
+    focus_terms: tuple[str, ...] = (),
+    excerpt_chars: int = INSPECT_EXCERPT_CHARS,
 ) -> tuple[CorpusInspectionSummary, ...]:
     return tuple(
         CorpusInspectionSummary(
@@ -238,7 +265,10 @@ def _inspection_summaries(
             languages=inspection.languages,
             canonical_url=inspection.canonical_url,
             hgv=_hgv_context(inspection.components),
-            passages=tuple(_excerpt(passage) for passage in inspection.passages),
+            passages=tuple(
+                _excerpt(passage, focus_terms=focus_terms, excerpt_chars=excerpt_chars)
+                for passage in inspection.passages
+            ),
         )
         for inspection in inspections
     )
@@ -247,11 +277,18 @@ def _inspection_summaries(
 def _inspection_outcome(
     inspections: tuple[CorpusInspection, ...],
     requested_ids: list[str],
+    *,
+    focus_terms: tuple[str, ...] = (),
+    excerpt_chars: int = INSPECT_EXCERPT_CHARS,
 ) -> CorpusInspectionOutcome:
     found = {inspection.document_id for inspection in inspections}
     missing = tuple(dict.fromkeys(id for id in requested_ids if id not in found))
     return CorpusInspectionOutcome(
-        inspections=_inspection_summaries(inspections),
+        inspections=_inspection_summaries(
+            inspections,
+            focus_terms=focus_terms,
+            excerpt_chars=excerpt_chars,
+        ),
         missing=missing,
     )
 
@@ -267,9 +304,14 @@ def _hgv_context(components: Iterable[ComponentRecord]) -> CorpusHgvContext | No
     return None
 
 
-def _excerpt(passage: CorpusHit) -> CorpusExcerpt:
+def _excerpt(
+    passage: CorpusHit,
+    *,
+    focus_terms: tuple[str, ...] = (),
+    excerpt_chars: int = INSPECT_EXCERPT_CHARS,
+) -> CorpusExcerpt:
     excerpt = (
-        snippet_for(passage.passage_text, length=INSPECT_EXCERPT_CHARS)
+        targeted_snippet_for(passage.passage_text, terms=focus_terms, length=excerpt_chars)
         if passage.passage_text is not None
         else None
     )
