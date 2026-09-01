@@ -24,7 +24,9 @@ Source acquisition establishes reproducible bytes and provenance, adapters inter
 4. The registered adapter parses each record into `DocumentRecord`,
    `IdentifierRecord`, and `PassageRecord` values. Specialized adapters may
    return additional typed component data.
-5. The pipeline sorts and persists those values, computes the logical content
+5. The pipeline audits the complete normalized record graph for duplicate
+   storage keys and broken document/component relationships.
+6. It sorts and persists the verified values, computes the logical content
    hash, writes the manifest, and validates the staged artifact before it is
    published.
 
@@ -76,6 +78,14 @@ identifiers. The DDbDP/HGV implementation demonstrates this pattern in
 Keep missing and one-to-many links observable. Do not guess relationships from
 titles, filenames, or insertion order when the source provides stable
 identifiers.
+
+Treat repeated upstream values according to their semantics. If a field is a
+set in the artifact model, remove exact repeats while preserving first-seen
+order, as the HGV metadata adapter does for subjects, commentary, and origins.
+Do not silently collapse records whose order or multiplicity carries meaning.
+The pipeline's pre-write integrity audit is the final guard: duplicate metadata,
+identifier, date, language, component, passage, or link keys fail together with
+their source paths before SQLite persistence begins.
 
 ### Non-EpiDoc sources
 
@@ -186,6 +196,8 @@ Cover at least:
    output, and remote sparse-checkout behavior affected by the new entry.
 5. Failure behavior for malformed input, without weakening the shared XML
    safety guarantees.
+6. Exact repeated values and any collection-specific uniqueness or relationship
+   rules exercised through the pre-write integrity audit.
 
 The default verification commands are:
 

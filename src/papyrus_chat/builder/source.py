@@ -1,9 +1,9 @@
 """Source acquisition for corpus builds.
 
 A `CorpusSource` resolves a Git ref to an exact commit and reads files from
-that commit's tree — never from a working tree, so uncommitted changes and
-dirty checkouts cannot alter a build. The artifact remains usable after the
-source disappears: files are copied into the artifact at build time.
+that commit's object tree. Remote sources keep one batch object reader open so
+record reads do not need one Git process per file. The artifact remains usable
+after the source disappears.
 """
 
 import logging
@@ -104,7 +104,11 @@ class LocalGitSource:
 
 
 def _is_safe_path(path: str) -> bool:
-    return not path.startswith("/") and ".." not in Path(path).parts
+    return (
+        not path.startswith("/")
+        and ".." not in Path(path).parts
+        and not any(character in path for character in ("\0", "\n", "\r"))
+    )
 
 
 class RemoteGitSource:
@@ -112,7 +116,9 @@ class RemoteGitSource:
 
     Only the selected collections' blobs are downloaded (blob:none filter +
     sparse checkout, SPEC 6.2). The cache lives outside the artifact and the
-    built artifact stays usable after the cache is removed.
+    selected commit is force-checked-out to hydrate its blobs, then records are
+    read from that commit through one persistent ``git cat-file`` process.
+    Dirty or concurrent working-tree changes therefore cannot alter a build.
     """
 
     COLLECTION_DIRS = {
@@ -132,8 +138,10 @@ class RemoteGitSource:
         self.cache_key = _cache_key(url)
         self.worktree = self.cache_dir / self.cache_key
         self._commit: str | None = None
+        self._batch_process: subprocess.Popen[bytes] | None = None
 
     def resolve_commit(self, ref: str) -> str:
+        self.close()
         self._ensure_clone()
         sha = _full_sha(ref)
         if sha is None:
@@ -201,7 +209,9 @@ class RemoteGitSource:
         """
         dirs = sorted(self.COLLECTION_DIRS.get(c, c) for c in {col.lower() for col in collections})
         _run_git(["sparse-checkout", "set", "--cone", *dirs], cwd=self.worktree)
-        _run_git(["checkout", self._require_commit()], cwd=self.worktree)
+        commit = self._require_commit()
+        _run_git(["checkout", "--force", commit], cwd=self.worktree)
+        self._start_batch_reader()
 
     def xml_files(self, upstream_dir: str) -> list[str]:
         commit = self._require_commit()
@@ -218,6 +228,10 @@ class RemoteGitSource:
 
     def read_bytes(self, path: str) -> bytes:
         commit = self._require_commit()
+        if not _is_safe_path(path):
+            raise BuildError(f"Cannot read unsafe source path: {path!r}")
+        if self._batch_process is not None:
+            return self._read_batch_bytes(path, commit)
         completed = subprocess.run(
             ["git", "show", f"{commit}:{path}"],
             cwd=self.worktree,
@@ -231,6 +245,69 @@ class RemoteGitSource:
                 "The blob may not be fetched yet; retry the build."
             )
         return completed.stdout
+
+    def _start_batch_reader(self) -> None:
+        self.close()
+        try:
+            self._batch_process = subprocess.Popen(
+                ["git", "cat-file", "--batch"],
+                cwd=self.worktree,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except OSError as error:
+            raise BuildError(f"Cannot start Git batch reader: {error}") from error
+
+    def _read_batch_bytes(self, path: str, commit: str) -> bytes:
+        process = self._batch_process
+        if process is None or process.stdin is None or process.stdout is None:
+            raise BuildError("Git batch reader is not available")
+        object_name = f"{commit}:{path}"
+        try:
+            process.stdin.write(object_name.encode("utf-8") + b"\n")
+            process.stdin.flush()
+            header = process.stdout.readline()
+            if header.endswith(b" missing\n"):
+                raise BuildError(
+                    f"Cannot read {path!r} from commit {commit[:12]}: object is missing"
+                )
+            fields = header.rstrip(b"\n").rsplit(b" ", 2)
+            if len(fields) != 3 or fields[1] != b"blob":
+                raise ValueError(f"unexpected Git response {header!r}")
+            size = int(fields[2])
+            content = process.stdout.read(size)
+            terminator = process.stdout.read(1)
+            if len(content) != size or terminator != b"\n":
+                raise ValueError("truncated Git object response")
+            return content
+        except (BrokenPipeError, OSError, ValueError) as error:
+            raise BuildError(
+                f"Cannot read {path!r} from commit {commit[:12]} via Git batch reader: {error}"
+            ) from error
+
+    def close(self) -> None:
+        process = getattr(self, "_batch_process", None)
+        self._batch_process = None
+        if process is None:
+            return
+        if process.stdin is not None and not process.stdin.closed:
+            process.stdin.close()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def _require_commit(self) -> str:
         if self._commit is None:

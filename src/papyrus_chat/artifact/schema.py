@@ -199,20 +199,32 @@ class ArtifactWriter:
     def insert_document(self, record: DocumentRecord) -> None:
         self._connection.execute(
             "INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                record.document_id,
-                record.collection,
-                record.title,
-                json.dumps(record.languages, ensure_ascii=False, sort_keys=True),
-                json.dumps(record.metadata, ensure_ascii=False, sort_keys=True),
-                record.source.repository_url,
-                record.source.commit,
-                record.source.path,
-                record.source.locator,
-                record.canonical_url,
-            ),
+            self._document_values(record),
         )
         self._refresh_document_fts(record.document_id)
+
+    def insert_documents(self, records: Sequence[DocumentRecord]) -> None:
+        """Insert documents and rebuild their search rows in bulk."""
+        self._connection.executemany(
+            "INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [self._document_values(record) for record in records],
+        )
+        self._rebuild_document_fts()
+
+    @staticmethod
+    def _document_values(record: DocumentRecord) -> tuple[object, ...]:
+        return (
+            record.document_id,
+            record.collection,
+            record.title,
+            json.dumps(record.languages, ensure_ascii=False, sort_keys=True),
+            json.dumps(record.metadata, ensure_ascii=False, sort_keys=True),
+            record.source.repository_url,
+            record.source.commit,
+            record.source.path,
+            record.source.locator,
+            record.canonical_url,
+        )
 
     def insert_passages(self, records: Sequence[PassageRecord]) -> None:
         self._connection.executemany(
@@ -366,11 +378,58 @@ class ArtifactWriter:
             "INSERT INTO component_links VALUES (?, ?)",
             [(link.ddbdp_component_id, link.hgv_component_id) for link in links],
         )
-        for document_id in self._document_ids():
-            self._refresh_document_fts(document_id)
+        self._rebuild_document_fts()
 
-    def _document_ids(self) -> list[str]:
-        return [row[0] for row in self._connection.execute("SELECT document_id FROM documents")]
+    def _rebuild_document_fts(self) -> None:
+        self._connection.execute("DELETE FROM documents_fts")
+        self._connection.execute(
+            """
+            WITH component_titles AS (
+                SELECT document_id, group_concat(title, ' ') AS titles
+                FROM (
+                    SELECT document_id, title
+                    FROM components
+                    WHERE document_id IS NOT NULL
+                    UNION
+                    SELECT d.document_id, h.title
+                    FROM component_links AS l
+                    JOIN components AS d ON d.component_id = l.ddbdp_component_id
+                    JOIN components AS h ON h.component_id = l.hgv_component_id
+                    WHERE d.document_id IS NOT NULL
+                    ORDER BY document_id, title
+                )
+                GROUP BY document_id
+            ),
+            component_metadata AS (
+                SELECT document_id, group_concat(value, ' ') AS values_text
+                FROM (
+                    SELECT owners.document_id, m.component_id, m.key, m.value
+                    FROM (
+                        SELECT document_id, component_id
+                        FROM components
+                        WHERE document_id IS NOT NULL
+                        UNION
+                        SELECT d.document_id, l.hgv_component_id
+                        FROM component_links AS l
+                        JOIN components AS d ON d.component_id = l.ddbdp_component_id
+                        WHERE d.document_id IS NOT NULL
+                    ) AS owners
+                    JOIN metadata AS m ON m.component_id = owners.component_id
+                    ORDER BY owners.document_id, m.component_id, m.key, m.value
+                )
+                GROUP BY document_id
+            )
+            INSERT INTO documents_fts (document_id, title, metadata)
+            SELECT
+                d.document_id,
+                d.title || coalesce(' ' || component_titles.titles, ''),
+                d.metadata || coalesce(' ' || component_metadata.values_text, '')
+            FROM documents AS d
+            LEFT JOIN component_titles USING (document_id)
+            LEFT JOIN component_metadata USING (document_id)
+            ORDER BY d.document_id
+            """
+        )
 
     def _refresh_document_fts(self, document_id: str) -> None:
         document = self._connection.execute(

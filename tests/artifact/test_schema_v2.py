@@ -92,6 +92,12 @@ def test_ddbdp_build_persists_linked_components_and_distinct_document_fts(
         ).fetchone()[0]
         == 1
     )
+    assert (
+        connection.execute(
+            "SELECT count(*) FROM documents_fts WHERE documents_fts MATCH 'Geld'"
+        ).fetchone()[0]
+        == 1
+    )
     connection.close()
 
     reader = ArtifactReader(result.output_dir / "corpus.sqlite")

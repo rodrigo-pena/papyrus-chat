@@ -53,7 +53,11 @@ uv run papyrus-chat --artifact ./papyrus-corpus
 
 Both commands write timestamped stage logs to the terminal. Corpus builds also
 report bounded per-collection XML parsing progress, so long builds remain visibly
-active. Pass `--verbose` (`-v`) to either command for diagnostic logging.
+active. After parsing, the builder audits the complete normalized record graph
+for duplicate database keys and broken relationships before opening SQLite. A
+failed audit reports several conflicts together with source paths, so adapter
+problems can be fixed in one pass. Pass `--verbose` (`-v`) to either command for
+diagnostic logging.
 
 Selecting `ddbdp` automatically fetches both `DDbDP/` and the linked
 `HGV_meta_EpiDoc/` records. HGV is stored as documentary metadata, not as a
@@ -104,11 +108,12 @@ uv run papyrus-corpus-build COLLECTION... [OPTIONS]
 # -v, --verbose   include detailed diagnostic logging
 ```
 
-Remote builds use a Git partial clone and sparse checkout, so only the
-selected source data is downloaded. Builds are deterministic: identical
-inputs produce the same logical content hash in `manifest.json` and the
-completion report. Reference measurements and known bottlenecks are recorded
-in [docs/performance.md](docs/performance.md).
+Remote builds use a Git partial clone, sparse checkout, and a persistent Git
+object reader, so only the selected source data is downloaded and records are
+read from the resolved commit without launching Git once per XML file. Builds
+are deterministic: identical inputs produce the same logical content hash in
+`manifest.json` and the completion report. Reference measurements and known
+bottlenecks are recorded in [docs/performance.md](docs/performance.md).
 
 ### Sample walkthrough
 

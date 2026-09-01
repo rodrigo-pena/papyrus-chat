@@ -144,3 +144,26 @@ def test_metadata_only_ddbdp_component_references_its_document(tmp_path: Path) -
     reader.close()
 
     assert stored[0].document_id == parsed.document.document_id
+
+
+def test_duplicate_hgv_metadata_values_are_persisted_once(tmp_path: Path) -> None:
+    parsed = parse_ddbdp_fixture()
+    hgv = parse_hgv_fixture().model_copy(update={"subjects": ("Brief", "Brief")})
+    components, links = _artifact_components(
+        (LinkedDDbDPComponent(component=parsed.component, hgv_components=(hgv,)),)
+    )
+
+    database = tmp_path / "corpus.sqlite"
+    writer = ArtifactWriter(database)
+    writer.create_schema()
+    writer.insert_document(parsed.document)
+    writer.insert_components(components, links)
+    writer.commit()
+    writer.close()
+
+    reader = ArtifactReader(database)
+    stored = reader.get_components(parsed.document.document_id)
+    reader.close()
+    stored_hgv = next(component for component in stored if component.kind == "hgv")
+
+    assert stored_hgv.metadata["subject"] == ("Brief",)

@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -44,6 +44,7 @@ from papyrus_chat.builder.components import (
     link_hgv_metadata,
 )
 from papyrus_chat.builder.errors import BuildError
+from papyrus_chat.builder.integrity import validate_record_graph
 from papyrus_chat.builder.source import CorpusSource
 
 BUILDER_NAME = "papyrus-corpus-build"
@@ -151,9 +152,14 @@ def build_artifact(
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.tmp-", dir=output.parent))
     try:
-        parsed_corpus = _parse_collections(
-            canonical, source=source, source_url=source_url, commit=resolved_commit
-        )
+        try:
+            parsed_corpus = _parse_collections(
+                canonical, source=source, source_url=source_url, commit=resolved_commit
+            )
+        finally:
+            close_source = getattr(source, "close", None)
+            if callable(close_source):
+                close_source()
         documents = parsed_corpus.documents
         passages = parsed_corpus.passages
         identifiers = parsed_corpus.identifiers
@@ -168,6 +174,22 @@ def build_artifact(
                 warnings.append(
                     f"{record.source.path}: no declared language; stored without languages"
                 )
+
+        LOGGER.info(
+            "Validating parsed corpus integrity",
+            extra={"event": "parsed_corpus_validation_started"},
+        )
+        validate_record_graph(
+            documents=documents,
+            passages=passages,
+            identifiers=identifiers,
+            components=components,
+            links=links,
+        )
+        LOGGER.info(
+            "Parsed corpus integrity verified",
+            extra={"event": "parsed_corpus_validation_completed"},
+        )
 
         database = staging / "corpus.sqlite"
         LOGGER.info(
@@ -186,8 +208,7 @@ def build_artifact(
         )
         writer = ArtifactWriter(database)
         writer.create_schema()
-        for record in sorted(documents, key=lambda d: d.document_id):
-            writer.insert_document(record)
+        writer.insert_documents(sorted(documents, key=lambda d: d.document_id))
         writer.insert_passages(sorted(passages, key=lambda p: (p.document_id, p.sequence)))
         writer.insert_identifiers(
             sorted(identifiers, key=lambda i: (i.document_id, i.namespace, i.value))
@@ -508,13 +529,13 @@ def _artifact_components(
 def _hgv_artifact_component(component: HGVComponent) -> ArtifactComponentRecord:
     metadata: dict[str, tuple[str, ...]] = {}
     if component.subjects:
-        metadata["subject"] = component.subjects
+        metadata["subject"] = _unique_strings(component.subjects)
     if component.commentary:
-        metadata["commentary"] = component.commentary
+        metadata["commentary"] = _unique_strings(component.commentary)
     if component.material:
         metadata["material"] = (component.material,)
     if component.origins:
-        metadata["origin"] = component.origins
+        metadata["origin"] = _unique_strings(component.origins)
     return ArtifactComponentRecord(
         component_id=component.component_id,
         document_id=None,
@@ -546,6 +567,10 @@ def _hgv_artifact_component(component: HGVComponent) -> ArtifactComponentRecord:
 
 def _single_value_metadata(metadata: dict[str, str]) -> dict[str, tuple[str, ...]]:
     return {key: (value,) for key, value in metadata.items()}
+
+
+def _unique_strings(values: Iterable[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(values))
 
 
 def _attribution_text(source_url: str, commit: str) -> str:

@@ -125,6 +125,21 @@ class TestWriterReader:
         loaded_identifiers = reader.get_identifiers(doc.document_id)
         assert loaded_identifiers == [ident]
 
+    def test_documents_can_be_inserted_and_indexed_in_bulk(self, tmp_path: Path) -> None:
+        writer = ArtifactWriter(tmp_path / "corpus.sqlite")
+        writer.create_schema()
+        statements: list[str] = []
+        writer._connection.set_trace_callback(statements.append)
+
+        writer.insert_documents([document("doc:1"), document("doc:2")])
+
+        assert not [
+            statement
+            for statement in statements
+            if "SELECT title, metadata FROM documents WHERE document_id" in statement
+        ]
+        assert writer._connection.execute("SELECT count(*) FROM documents_fts").fetchone() == (2,)
+
     def test_fts_index_contains_search_text(self, tmp_path: Path) -> None:
         writer = ArtifactWriter(tmp_path / "corpus.sqlite")
         writer.create_schema()

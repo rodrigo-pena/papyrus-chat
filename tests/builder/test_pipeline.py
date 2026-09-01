@@ -156,6 +156,7 @@ class TestBuildCli:
         assert "Resolving source ref" in result.output
         assert "Parsing dclp collection (2 XML records)" in result.output
         assert "Parsed dclp records: 1/2 (50%)" in result.output
+        assert "Validating parsed corpus integrity" in result.output
         assert "Writing corpus database" in result.output
         assert "Validating staged artifact" in result.output
         assert "Corpus build completed" in result.output

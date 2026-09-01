@@ -1,9 +1,9 @@
 # Performance measurements
 
-These measurements were recorded on 2026-08-31 on an Apple M5 Max with 128
-GB RAM, macOS, Python 3.13, and a broadband connection. The full-corpus
-baseline below predates the schema-v2 DDbDP/HGV implementation and is retained
-as a reference; it is not presented as a fresh v2 benchmark.
+The baseline measurements were recorded on 2026-08-31 on an Apple M5 Max with
+128 GB RAM, macOS, Python 3.13, and a broadband connection. The schema-v2
+measurements were recorded on the same machine on 2026-09-01. The full-corpus
+baseline predates the DDbDP/HGV implementation and is retained as a reference.
 
 ## Full-corpus baseline
 
@@ -21,19 +21,48 @@ artifact.
 | FTS search, English `horoscope` (average of 50)     | 14.9 ms                       | ≤ 500 ms | pass   |
 | First search without an LLM call                    | Search never contacts the LLM | required | pass   |
 
-The warm rebuild bottleneck was one `git show` subprocess per file in
-`LocalGitSource.read_bytes` (about 14,800 process spawns). Batch reads through
-`git archive` or a persistent `git cat-file` process remain a future
-optimization. DDbDP plus HGV and the v2 full-corpus rebuild were not measured
-end-to-end in this implementation session.
+The warm rebuild bottleneck was one `git show` subprocess per file. Remote
+builds now keep one `git cat-file --batch` process open after sparse checkout,
+while local checkout builds retain the simpler per-file object read because
+they are primarily a development path.
+
+## Schema-v2 DDbDP/HGV rebuild
+
+These measurements use upstream commit `ffc23d0174e8`, a warm source cache,
+and the same machine as the baseline. The failing run is the user-reported
+pre-change build. It reached its first SQLite uniqueness error only after both
+collections had parsed. The verification run includes duplicate-value
+normalization, a complete pre-write record-graph audit, and bulk document FTS
+indexing.
+
+| Measurement                          | Failing run | Verification run | Change |
+| ------------------------------------ | ----------- | ---------------- | ------ |
+| Parse 67,980 DDbDP records           | 1,344.6 s   | 387.9 s          | -71%   |
+| Parse/link 66,872 HGV records        | 1,050.7 s   | 257.9 s          | -75%   |
+| Combined parse and link              | 2,395.3 s   | 645.8 s          | -73%   |
+| Pre-write normalized integrity audit | absent      | <1 s             | added  |
+| SQLite write                         | failed      | 10 s             | pass   |
+| Complete artifact build              | failed      | 665.0 s          | pass   |
+
+The successful artifact contains 67,980 documents, 95,902 passages, and
+134,653 source components in an 872,867,224-byte artifact. The pre-change
+writer also refreshed document FTS with several queries per document. The
+bulk writer replaces that N+1 loop with set-based aggregation and insertion.
+
+A focused warm-cache benchmark of 1,000 real HGV object reads measured the
+old per-file `git show` path at 10.589 s and the final persistent exact-object
+reader at 0.064 s (about 165 times faster at the read layer). The full
+verification run used the same no-per-file-process strategy; the reader was
+then hardened to use commit objects rather than checked-out file bytes so a
+dirty or concurrently changed cache cannot affect reproducibility.
 
 ## v2 validation
 
-The committed automated coverage builds the paired real-source DDbDP/HGV
-fixture, validates schema-v2 tables and links, and exercises distinct-document
-FTS, date overlap, language filters, facets, and bounded evidence. A full
-68,000-document DDbDP/67,000-record HGV benchmark remains an explicit follow-up
-when a pinned upstream checkout and measurement window are available.
+The automated coverage builds the paired real-source DDbDP/HGV fixture,
+validates schema-v2 tables and links, and exercises distinct-document FTS,
+date overlap, language filters, facets, and bounded evidence. The full pinned
+DDbDP/HGV build above additionally verifies the normalized integrity audit,
+artifact validation, and exact duplicate metadata fix against upstream data.
 
 ## Acceptance feedback
 

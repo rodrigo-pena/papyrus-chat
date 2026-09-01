@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import papyrus_chat.builder.source as source_module
 from papyrus_chat.builder.errors import BuildError
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import RemoteGitSource
@@ -50,6 +51,40 @@ class TestRemoteAcquisition:
         # Translations blobs must not be present in the cache working tree
         translations_dir = source.worktree / "Translations"
         assert not translations_dir.exists() or not any(translations_dir.iterdir())
+
+    def test_sparse_checkout_reads_do_not_spawn_per_file_git_processes(
+        self,
+        tmp_path: Path,
+        remote_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        source = RemoteGitSource("file://" + str(remote_repo), cache_dir=tmp_path / "cache")
+        source.resolve_commit("master")
+        source.ensure_sparse_checkout(["dclp"])
+
+        def unexpected_subprocess(*args: object, **kwargs: object) -> None:
+            raise AssertionError(f"unexpected subprocess: {args!r}, {kwargs!r}")
+
+        monkeypatch.setattr(source_module.subprocess, "run", unexpected_subprocess)
+
+        content = source.read_bytes("DCLP/23/23702.xml")
+
+        assert b"Sb. 20 14258" in content
+
+    def test_sparse_checkout_reads_commit_objects_despite_worktree_changes(
+        self, tmp_path: Path, remote_repo: Path
+    ) -> None:
+        source = RemoteGitSource("file://" + str(remote_repo), cache_dir=tmp_path / "cache")
+        source.resolve_commit("master")
+        source.ensure_sparse_checkout(["dclp"])
+        source_dir = source.worktree / "DCLP" / "23"
+        moved_dir = source.worktree / "DCLP" / "records"
+        source_dir.rename(moved_dir)
+        source_dir.symlink_to(moved_dir.name)
+
+        content = source.read_bytes("DCLP/23/23702.xml")
+
+        assert b"Sb. 20 14258" in content
 
     def test_cache_is_reused_across_instances(self, tmp_path: Path, remote_repo: Path) -> None:
         cache = tmp_path / "cache"
