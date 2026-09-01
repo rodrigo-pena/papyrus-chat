@@ -2,9 +2,9 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai import Agent, RunContext
 
 from papyrus_chat.retrieval.structured import (
@@ -80,8 +80,17 @@ def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> Cor
 
 def inspect_documents(
     ctx: RunContext[CorpusToolDeps],
-    document_ids: list[str],
-    excerpt_limit: int = 3,
+    document_ids: Annotated[
+        list[str],
+        Field(
+            max_length=20,
+            description="Document identifiers from corpus tool results, at most 20.",
+        ),
+    ],
+    excerpt_limit: Annotated[
+        int,
+        Field(ge=1, le=10, description="Located passages shown per document, from 1 to 10."),
+    ] = 3,
 ) -> CorpusInspectionResult:
     """Inspect at most 20 selected documents and a bounded excerpt per document."""
     result = ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
@@ -90,7 +99,18 @@ def inspect_documents(
 
 
 def facet_documents(
-    ctx: RunContext[CorpusToolDeps], query: CorpusQuery, field: FacetField
+    ctx: RunContext[CorpusToolDeps],
+    query: CorpusQuery,
+    field: Annotated[
+        FacetField,
+        Field(
+            description=(
+                "Facet for counting: collection, language (edition transcriptions), "
+                "subject, material, or origin (HGV component metadata), or kind "
+                "(edition or translation passages)."
+            )
+        ),
+    ],
 ) -> CorpusFacetResult:
     """Count distinct candidate documents by a safe corpus facet."""
     return ctx.deps.service.facet_documents(query, field)

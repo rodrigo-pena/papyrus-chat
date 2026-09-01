@@ -217,13 +217,13 @@ class InsufficientEvidenceDialogue:
         )
 
 
-def _search_retry_count(messages: list[ModelMessage]) -> int:
+def _tool_retry_count(messages: list[ModelMessage], tool_name: str) -> int:
     return sum(
         1
         for message in messages
         if isinstance(message, ModelRequest)
         for part in message.parts
-        if isinstance(part, RetryPromptPart) and part.tool_name == "search_documents"
+        if isinstance(part, RetryPromptPart) and part.tool_name == tool_name
     )
 
 
@@ -232,7 +232,7 @@ class RecoveringSearchDialogue:
 
     def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         del info
-        retries = _search_retry_count(messages)
+        retries = _tool_retry_count(messages, "search_documents")
         if "search_documents" not in _returned_tool_names(messages):
             if retries < 2:
                 return ModelResponse(
@@ -296,6 +296,71 @@ def test_invalid_search_arguments_are_corrected_within_the_retry_budget(
     ]
     assert len(retry_parts) == 2
     assert "not_before must be less than or equal" in str(retry_parts[0].content)
+    assert result.output.startswith("Scope and method:")
+    assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
+
+
+class RecoveringInspectionDialogue:
+    """An oversized inspection request, then a bounded one; the service guard aborted the run."""
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        if "inspect_documents" not in _returned_tool_names(messages):
+            if _tool_retry_count(messages, "inspect_documents") < 1:
+                return ModelResponse(
+                    [
+                        ToolCallPart(
+                            "inspect_documents",
+                            {
+                                "document_ids": [
+                                    f"ddbdp:DDbDP/27/{27000 + index}.xml" for index in range(21)
+                                ]
+                            },
+                            tool_call_id="oversized-inspect",
+                        )
+                    ]
+                )
+            return ModelResponse(
+                [
+                    ToolCallPart(
+                        "inspect_documents",
+                        {"document_ids": ["ddbdp:DDbDP/27/27093.xml"], "excerpt_limit": 1},
+                        tool_call_id="recovered-inspect",
+                    )
+                ]
+            )
+        return ModelResponse(
+            [
+                TextPart(
+                    "Scope and method: one ddbdp document was inspected. "
+                    "Corpus evidence: https://papyri.info/ddbdp/p.mich;8;480. "
+                    "Transcription evidence is separated from model-supplied background."
+                )
+            ]
+        )
+
+
+def test_oversized_inspection_requests_are_corrected_within_the_retry_budget(
+    tool_service: CorpusToolService,
+) -> None:
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(RecoveringInspectionDialogue()),
+    )
+    deps = CorpusToolDeps(service=tool_service)
+
+    result = agent.run_sync("Inspect the matching documents.", deps=deps)
+
+    retry_parts = [
+        part
+        for message in result.all_messages()
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, RetryPromptPart) and part.tool_name == "inspect_documents"
+    ]
+    assert len(retry_parts) == 1
+    assert "at most 20" in str(retry_parts[0].content)
     assert result.output.startswith("Scope and method:")
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 

@@ -149,3 +149,27 @@ def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
         "inspect_documents",
         "facet_documents",
     }
+
+
+def test_tool_schemas_state_inspection_bounds_and_facet_options(
+    corpus_tools: CorpusToolService,
+) -> None:
+    model = TestModel()
+    agent = Agent(model, deps_type=CorpusToolDeps)
+    register_corpus_tools(agent)
+
+    agent.run_sync("Describe the corpus.", deps=CorpusToolDeps(service=corpus_tools))
+
+    parameters = model.last_model_request_parameters
+    assert parameters is not None
+    schemas = {tool.name: tool.parameters_json_schema for tool in parameters.function_tools}
+
+    inspection = schemas["inspect_documents"]["properties"]
+    assert inspection["document_ids"]["maxItems"] == 20
+    assert inspection["excerpt_limit"]["minimum"] == 1
+    assert inspection["excerpt_limit"]["maximum"] == 10
+    assert inspection["excerpt_limit"]["default"] == 3
+
+    field = schemas["facet_documents"]["properties"]["field"]
+    assert set(field["enum"]) == {"collection", "language", "subject", "material", "origin", "kind"}
+    assert "HGV component metadata" in field["description"]
