@@ -16,6 +16,27 @@ papyri.info.
 - Internet access the first time the browser UI is opened, so Pydantic AI can
   fetch and cache its stock chat UI from the CDN.
 
+## Supported upstream collections
+
+The upstream [papyri/idp.data](https://github.com/papyri/idp.data) repository
+contains data from several projects. Papyrus Chat currently supports exactly
+three user-selectable collections:
+
+| CLI name | Upstream directory | Content added to the artifact |
+|----------|--------------------|-------------------------------|
+| `dclp` | [`DCLP/`](https://github.com/papyri/idp.data/tree/master/DCLP) | Literary-papyrus metadata plus edition and embedded translation passages |
+| `ddbdp` | [`DDbDP/`](https://github.com/papyri/idp.data/tree/master/DDbDP) | Documentary transcriptions, identifiers, and metadata |
+| `translations` | [`Translations/`](https://github.com/papyri/idp.data/tree/master/Translations) | Published translation passages and their record metadata |
+
+Selecting `ddbdp` also reads [`HGV_meta_EpiDoc/`](https://github.com/papyri/idp.data/tree/master/HGV_meta_EpiDoc)
+and links matching HGV dates and descriptive metadata to DDbDP documents. HGV
+is an auxiliary source, not a fourth selectable collection. No other upstream
+directory is currently ingested; `papyrus-corpus-build --list-collections` is
+the authoritative runtime list.
+
+See the [collection adapter guide](docs/collection-adapters.md) to add another
+upstream collection or an auxiliary linked source.
+
 ## Quick start
 
 ```console
