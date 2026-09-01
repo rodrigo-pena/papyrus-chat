@@ -110,7 +110,7 @@ inputs produce the same logical content hash in `manifest.json` and the
 completion report. Reference measurements and known bottlenecks are recorded
 in [docs/performance.md](docs/performance.md).
 
-### Collaborator walkthrough
+### Sample walkthrough
 
 After starting the app, use one thread for this four-query smoke run:
 
