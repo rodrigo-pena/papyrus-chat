@@ -2,9 +2,11 @@
 
 from pathlib import Path
 
+from papyrus_chat.artifact.schema import ArtifactReader, ArtifactWriter
 from papyrus_chat.builder.collections.ddbdp import parse_record as parse_ddbdp
 from papyrus_chat.builder.collections.hgv import parse_record as parse_hgv
-from papyrus_chat.builder.components import link_hgv_metadata
+from papyrus_chat.builder.components import LinkedDDbDPComponent, link_hgv_metadata
+from papyrus_chat.builder.pipeline import _artifact_components
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "idp.data"
 REPO_URL = "https://github.com/papyri/idp.data.git"
@@ -122,3 +124,23 @@ class TestHgvLinks:
         ]
         assert linked[0].hgv_components == (hgv, duplicate)
         assert linked[1].hgv_components == ()
+
+
+def test_metadata_only_ddbdp_component_references_its_document(tmp_path: Path) -> None:
+    parsed = parse_ddbdp_fixture()
+    metadata_only = parsed.component.model_copy(update={"passages": ()})
+    components, _ = _artifact_components((LinkedDDbDPComponent(component=metadata_only),))
+
+    database = tmp_path / "corpus.sqlite"
+    writer = ArtifactWriter(database)
+    writer.create_schema()
+    writer.insert_document(parsed.document)
+    writer.insert_components(components)
+    writer.commit()
+    writer.close()
+
+    reader = ArtifactReader(database)
+    stored = reader.get_components(parsed.document.document_id)
+    reader.close()
+
+    assert stored[0].document_id == parsed.document.document_id

@@ -474,7 +474,7 @@ def _artifact_components(
         components.append(
             ArtifactComponentRecord(
                 component_id=ddbdp.component_id,
-                document_id=_document_id_from_component(ddbdp),
+                document_id=ddbdp.component_id,
                 kind=ddbdp.kind,
                 title=ddbdp.title,
                 languages=ddbdp.edition_languages,
@@ -503,12 +503,6 @@ def _artifact_components(
             seen_hgv.add(hgv.component_id)
             components.append(_hgv_artifact_component(hgv))
     return components, links
-
-
-def _document_id_from_component(component: DDbDPComponent) -> str:
-    if component.passages:
-        return component.passages[0].document_id
-    return component.component_id.removeprefix("ddbdp:")
 
 
 def _hgv_artifact_component(component: HGVComponent) -> ArtifactComponentRecord:
