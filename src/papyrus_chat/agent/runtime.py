@@ -85,6 +85,7 @@ def create_research_agent(
         output_type=str,
         instructions=RESEARCH_INSTRUCTIONS,
         capabilities=capabilities or None,
+        retries=3,
     )
     register_corpus_tools(agent)
 

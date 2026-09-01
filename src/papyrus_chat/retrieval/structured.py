@@ -26,13 +26,20 @@ class CorpusDateInterval(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    not_before: int
-    not_after: int
+    not_before: int = Field(
+        description="Inclusive lower bound as a proleptic year; BCE years are negative (e.g. -300)."
+    )
+    not_after: int = Field(
+        description="Inclusive upper bound as a proleptic year; BCE years are negative; "
+        "must be greater than or equal to not_before."
+    )
 
     @model_validator(mode="after")
     def bounds_are_ordered(self) -> "CorpusDateInterval":
         if self.not_before > self.not_after:
-            raise ValueError("not_before must be less than or equal to not_after")
+            raise ValueError(
+                "not_before must be less than or equal to not_after (BCE years are negative)"
+            )
         return self
 
 
@@ -41,17 +48,34 @@ class CorpusQuery(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    collections: tuple[str, ...] = ()
-    term_groups: tuple[tuple[str, ...], ...] = ()
-    fields: tuple[CorpusField, ...] = (
-        "transcription",
-        "translation",
-        "title",
-        "metadata",
+    collections: tuple[str, ...] = Field(
+        default=(),
+        description="Collection identifiers to restrict the search, as reported by "
+        "describe_corpus.",
     )
-    transcription_languages: tuple[str, ...] = ()
-    date_interval: CorpusDateInterval | None = None
-    limit: int = Field(default=20, ge=1, le=100)
+    term_groups: tuple[tuple[str, ...], ...] = Field(
+        default=(),
+        description="Up to 8 groups (AND between groups) of at most 16 alternative terms each "
+        "(OR within a group); each term is at most 200 characters. A flat list of strings is "
+        "not accepted: every group must itself be a list of terms.",
+    )
+    fields: tuple[CorpusField, ...] = Field(
+        default=("transcription", "translation", "title", "metadata"),
+        description="Fields to search; a non-empty subset of title, metadata, transcription, "
+        "translation.",
+    )
+    transcription_languages: tuple[str, ...] = Field(
+        default=(),
+        description="Edition language codes (e.g. grc) that a document's transcription must use.",
+    )
+    date_interval: CorpusDateInterval | None = Field(
+        default=None,
+        description="Optional inclusive interval overlapped with linked HGV date ranges; "
+        "BCE years are negative and not_before must not exceed not_after.",
+    )
+    limit: int = Field(
+        default=20, ge=1, le=100, description="Maximum documents returned, 1 to 100."
+    )
 
     @field_validator("collections", "transcription_languages", mode="before")
     @classmethod

@@ -7,6 +7,7 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
+    RetryPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -214,6 +215,89 @@ class InsufficientEvidenceDialogue:
                 )
             ]
         )
+
+
+def _search_retry_count(messages: list[ModelMessage]) -> int:
+    return sum(
+        1
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, RetryPromptPart) and part.tool_name == "search_documents"
+    )
+
+
+class RecoveringSearchDialogue:
+    """Two invalid searches, then a valid one; the default retry budget of 1 aborted this run."""
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        retries = _search_retry_count(messages)
+        if "search_documents" not in _returned_tool_names(messages):
+            if retries < 2:
+                return ModelResponse(
+                    [
+                        ToolCallPart(
+                            "search_documents",
+                            {
+                                "term_groups": [["Κλαύδιος"]],
+                                "fields": ["transcription"],
+                                "date_interval": {"not_before": 125, "not_after": 101},
+                            },
+                            tool_call_id=f"invalid-search-{retries + 1}",
+                        )
+                    ]
+                )
+            return ModelResponse(
+                [
+                    ToolCallPart(
+                        "search_documents",
+                        {
+                            "term_groups": [["Κλαύδιος", "Claudius"], ["Geld", "δραχμή"]],
+                            "fields": ["transcription", "metadata"],
+                            "transcription_languages": ["grc"],
+                            "date_interval": {"not_before": 101, "not_after": 125},
+                            "limit": 10,
+                        },
+                        tool_call_id="recovered-search",
+                    )
+                ]
+            )
+        return ModelResponse(
+            [
+                TextPart(
+                    "Scope and method: ddbdp, Greek transcription, and German metadata "
+                    "terms Κλαύδιος/Claudius plus Geld/δραχμή were searched for 101-125. "
+                    "Corpus evidence: https://papyri.info/ddbdp/p.mich;8;480. "
+                    "Transcription evidence is separated from model-supplied background."
+                )
+            ]
+        )
+
+
+def test_invalid_search_arguments_are_corrected_within_the_retry_budget(
+    tool_service: CorpusToolService,
+) -> None:
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(RecoveringSearchDialogue()),
+    )
+    deps = CorpusToolDeps(service=tool_service)
+
+    result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
+
+    retry_parts = [
+        part
+        for message in result.all_messages()
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, RetryPromptPart) and part.tool_name == "search_documents"
+    ]
+    assert len(retry_parts) == 2
+    assert "not_before must be less than or equal" in str(retry_parts[0].content)
+    assert result.output.startswith("Scope and method:")
+    assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
 def test_dialogue_labels_insufficient_evidence_and_background(
