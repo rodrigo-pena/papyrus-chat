@@ -20,6 +20,14 @@ DOCTYPE_REMOTE_DTD = b"""<?xml version="1.0" encoding="UTF-8"?>
 </TEI>
 """
 
+DUPLICATE_XML_IDS = b"""<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <text><body>
+    <div xml:id="_1"/>
+    <div xml:id="_1"/>
+  </body></text>
+</TEI>
+"""
+
 
 def test_entity_references_are_rejected() -> None:
     with pytest.raises(ParseError, match="entity"):
@@ -35,3 +43,9 @@ def test_remote_dtd_is_not_resolved() -> None:
 def test_malformed_xml_raises_parse_error_with_position() -> None:
     with pytest.raises(ParseError, match="line"):
         parse_xml(b"<TEI><teiHeader></TEI>")
+
+
+def test_duplicate_xml_ids_do_not_prevent_parsing() -> None:
+    tree = parse_xml(DUPLICATE_XML_IDS)
+
+    assert len(tree.findall(".//{http://www.tei-c.org/ns/1.0}div")) == 2

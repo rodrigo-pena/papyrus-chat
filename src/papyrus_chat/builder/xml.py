@@ -28,6 +28,8 @@ def make_safe_parser() -> etree.XMLParser:
         load_dtd=False,
         huge_tree=False,
         recover=False,
+        # Upstream EpiDoc records can repeat xml:id values; no adapter uses ID lookup.
+        collect_ids=False,
     )
 
 
