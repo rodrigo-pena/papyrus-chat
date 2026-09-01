@@ -101,7 +101,8 @@ class CorpusQuery(BaseModel):
     date_interval: CorpusDateInterval | None = Field(
         default=None,
         description="Optional inclusive interval overlapped with linked HGV date ranges; "
-        "BCE years are negative and not_before must not exceed not_after.",
+        "BCE years are negative and not_before must not exceed not_after. An HGV range "
+        "missing one bound (e.g. 'nach 48') counts as its known bound.",
     )
     limit: int = Field(
         default=20, ge=1, le=100, description="Maximum documents returned, 1 to 100."
@@ -477,6 +478,16 @@ class StructuredCorpusSearch:
             )
             params.extend(query.transcription_languages)
         if query.date_interval is not None:
+            # Clamp open-ended ranges ("nach 244 v.Chr.") to their known bound so a
+            # terminus post quem alone cannot overlap an unrelated interval.
+            start = (
+                "CAST(COALESCE(NULLIF(date_row.not_before, ''), "
+                "NULLIF(date_row.not_after, ''), NULLIF(date_row.when_value, '')) AS INTEGER)"
+            )
+            end = (
+                "CAST(COALESCE(NULLIF(date_row.not_after, ''), "
+                "NULLIF(date_row.not_before, ''), NULLIF(date_row.when_value, '')) AS INTEGER)"
+            )
             where.append(
                 "EXISTS ("
                 "SELECT 1 FROM components ddc "
@@ -484,17 +495,7 @@ class StructuredCorpusSearch:
                 "ON link.ddbdp_component_id = ddc.component_id "
                 "JOIN dates date_row ON date_row.component_id = link.hgv_component_id "
                 "WHERE ddc.document_id = d.document_id AND ddc.kind = 'ddbdp' "
-                "AND (NULLIF(date_row.not_before, '') IS NOT NULL "
-                "OR NULLIF(date_row.not_after, '') IS NOT NULL "
-                "OR NULLIF(date_row.when_value, '') IS NOT NULL) "
-                "AND (COALESCE(NULLIF(date_row.not_before, ''), "
-                "NULLIF(date_row.when_value, '')) IS NULL "
-                "OR CAST(COALESCE(NULLIF(date_row.not_before, ''), "
-                "NULLIF(date_row.when_value, '')) AS INTEGER) <= ?) "
-                "AND (COALESCE(NULLIF(date_row.not_after, ''), "
-                "NULLIF(date_row.when_value, '')) IS NULL "
-                "OR CAST(COALESCE(NULLIF(date_row.not_after, ''), "
-                "NULLIF(date_row.when_value, '')) AS INTEGER) >= ?)"
+                f"AND {start} <= ? AND {end} >= ?"
                 ")"
             )
             params.extend([query.date_interval.not_after, query.date_interval.not_before])

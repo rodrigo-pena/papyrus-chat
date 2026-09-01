@@ -288,6 +288,27 @@ def test_metadata_and_date_filters_use_linked_hgv_data(
     assert title_result.candidate_count == 1
 
 
+def test_open_ended_dates_clamp_to_their_known_bound(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    connection = documentary_search._connection  # noqa: SLF001 - focused date fixture
+    connection.execute("UPDATE dates SET not_after = NULL, when_value = NULL")
+
+    # "nach 110" clamps to the point 110 and still overlaps a range window.
+    connection.execute("UPDATE dates SET not_before = '0110'")
+    inside = documentary_search.query(
+        CorpusQuery(date_interval=CorpusDateInterval(not_before=100, not_after=125))
+    )
+    assert inside.candidate_count == 1
+
+    # "nach 244 v.Chr." clamps to the point -244 and no longer leaks into AD windows.
+    connection.execute("UPDATE dates SET not_before = '-0244-07-06'")
+    ad_window = documentary_search.query(
+        CorpusQuery(date_interval=CorpusDateInterval(not_before=41, not_after=54))
+    )
+    assert ad_window.candidate_count == 0
+
+
 def test_facets_count_distinct_documents_from_the_normalized_query(
     documentary_search: StructuredCorpusSearch,
 ) -> None:
@@ -377,13 +398,14 @@ def test_transcription_languages_use_actual_edition_passages(
     [
         ("0101", "0125", None, (110, 110), 1),
         (None, None, "0110", (110, 110), 1),
-        ("0101", None, None, (300, 350), 1),
-        (None, "0125", None, (-300, -200), 1),
+        ("0101", None, None, (101, 101), 1),
+        ("0101", None, None, (300, 350), 0),
+        (None, "0125", None, (-300, -200), 0),
         ("-0200", "-0100", None, (-150, -150), 1),
         (None, None, None, (100, 125), 0),
     ],
 )
-def test_date_filters_preserve_open_ended_and_point_intervals(
+def test_date_filters_clamp_open_ended_intervals(
     documentary_search: StructuredCorpusSearch,
     not_before: str | None,
     not_after: str | None,
