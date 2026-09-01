@@ -28,7 +28,7 @@ uv run papyrus-corpus-build dclp ddbdp translations --output ./papyrus-corpus
 # 3. Configure the model and start the local chat
 export LLM_BASE_URL="https://provider.example/v1"
 export LLM_MODEL="model-name"
-export LLM_API_KEY="..."   # optional for local, unauthenticated servers
+export LLM_API_KEY="..."   # optional if using local, unauthenticated servers
 uv run papyrus-chat --artifact ./papyrus-corpus
 ```
 
