@@ -42,13 +42,13 @@ See the [collection adapter guide](docs/collection-adapters.md) for hints on how
 uv sync
 
 # 2. Build the full selected documentary corpus (no LLM or credentials needed)
-uv run papyrus-corpus-build dclp ddbdp translations --output ./papyrus-corpus
+uv run papyrus-corpus-build dclp ddbdp translations --output ./data/papyrus-corpus
 
 # 3. Configure the model and start the local chat
 export LLM_BASE_URL="https://provider.example/v1"
 export LLM_MODEL="model-name"
 export LLM_API_KEY="..."   # optional if using local, unauthenticated servers
-uv run papyrus-chat --artifact ./papyrus-corpus
+uv run papyrus-chat --artifact ./data/papyrus-corpus
 ```
 
 Both commands write timestamped stage logs to the terminal. Corpus builds also
@@ -100,7 +100,7 @@ model-generated synthesis.
 uv run papyrus-corpus-build COLLECTION... [OPTIONS]
 
 # COLLECTION...   one or more of: dclp, ddbdp, translations (case-insensitive)
-# -o, --output    destination directory (default ./papyrus-corpus)
+# -o, --output    destination directory (default ./data/papyrus-corpus)
 # --source        Git URL (default upstream) or a local idp.data Git checkout
 # --ref           branch, tag, or commit to build from (default master)
 # --force         replace an existing artifact at exactly the given path

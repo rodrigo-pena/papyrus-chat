@@ -29,7 +29,7 @@ def build(
         help="One or more collections to include (see --list-collections).",
     ),
     output: str = typer.Option(
-        "./papyrus-corpus",
+        "./data/papyrus-corpus",
         "--output",
         "-o",
         help="Destination artifact directory.",

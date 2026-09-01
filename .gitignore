@@ -1,7 +1,5 @@
-
-
-# Generated corpus artifacts (user data, not source code)
-papyrus-corpus/
+# Data
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
