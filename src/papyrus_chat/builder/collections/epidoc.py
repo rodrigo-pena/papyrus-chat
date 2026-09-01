@@ -28,6 +28,8 @@ XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 
 _PASSAGE_DIV_KINDS = (("edition", "edition"), ("translation", "translation"))
 _WARNED_TAGS = ("g", "surplus", "del", "add")
+_BOUNDARY_TAGS = frozenset(f"{TEI}{tag}" for tag in ("lb", "pb", "cb", "space", "milestone"))
+_WORD_TAGS = frozenset({f"{TEI}w"})
 
 
 @dataclass(frozen=True)
@@ -211,7 +213,11 @@ def _line_reference(element: _etree._Element) -> str | None:
 def _render(element: _etree._Element) -> str:
     if element.tag == f"{TEI}gap":
         return "[...]"
-
+    if element.tag in _BOUNDARY_TAGS:
+        # break="no" marks a hyphenated word continuing across the boundary;
+        # every other line/column/page break separates two words even when the
+        # source XML omits whitespace around the element.
+        return "" if element.get("break") == "no" else " "
     content = [element.text or ""]
     for child in element:
         content.append(_render(child))
@@ -219,6 +225,8 @@ def _render(element: _etree._Element) -> str:
 
     if element.tag == f"{TEI}supplied":
         return "[" + "".join(content) + "]"
+    if element.tag in _WORD_TAGS:
+        return " " + "".join(content) + " "
     return "".join(content)
 
 

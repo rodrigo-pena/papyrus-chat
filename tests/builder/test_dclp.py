@@ -113,6 +113,43 @@ class TestDclpEditionRecord:
         assert [passage.language for passage in parsed.passages] == ["grc", "la"]
 
 
+class TestTextRenderBoundaries:
+    def passage_text(self, body: str) -> str:
+        xml = (
+            '<TEI xmlns="http://www.tei-c.org/ns/1.0">'
+            "<teiHeader><fileDesc><titleStmt><title>t</title></titleStmt></fileDesc></teiHeader>"
+            '<text><body><div type="edition" xml:space="preserve">'
+            + body
+            + "</div></body></text></TEI>"
+        )
+        parsed = parse_record(
+            xml.encode("utf-8"),
+            collection="dclp",
+            source_path="DCLP/23/boundaries.xml",
+            repository_url=REPO_URL,
+            commit=COMMIT,
+        )
+        return parsed.passages[0].display_text
+
+    def test_line_break_separates_words_without_source_whitespace(self) -> None:
+        assert self.passage_text("<ab>διεσείσθην<lb/>διασείσθηι</ab>") == "διεσείσθην διασείσθηι"
+
+    def test_break_no_hyphenation_stays_one_word(self) -> None:
+        assert self.passage_text('<ab>ἀρχιδι<lb break="no"/>καστῇ</ab>') == "ἀρχιδικαστῇ"
+
+    def test_word_elements_are_tokenized_separately(self) -> None:
+        assert self.passage_text("<ab><w>λογος</w><w>ἀργυρίου</w></ab>") == "λογος ἀργυρίου"
+
+    def test_word_internal_markup_stays_fused(self) -> None:
+        assert self.passage_text('<ab>ε<supplied reason="lost">λε</supplied>στ</ab>') == "ε[λε]στ"
+
+    def test_milestones_separate_words(self) -> None:
+        assert (
+            self.passage_text('<ab>verset<milestone unit="line" rend="break"/>next</ab>')
+            == "verset next"
+        )
+
+
 class TestDclpMetadataOnlyRecord:
     parsed = parse("DCLP/23/23702.xml")
 
