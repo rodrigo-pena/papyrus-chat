@@ -13,6 +13,9 @@ dependencies = [
     "uvicorn>=0.30",
 ]
 
+[project.optional-dependencies]
+semantic = ["fastembed>=0.4"]
+
 [dependency-groups]
 dev = [
     "lxml-stubs>=0.5.1",

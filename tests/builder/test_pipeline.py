@@ -11,6 +11,7 @@ from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.builder.cli import app
 from papyrus_chat.builder.pipeline import BuildResult, build_artifact
 from papyrus_chat.builder.source import LocalGitSource
+from papyrus_chat.semantic.embeddings import EmbeddingModelSpec
 
 runner = CliRunner()
 
@@ -32,7 +33,41 @@ def build_fixture(tmp_path: Path, output: str = "corpus", repo: Path | None = No
     )
 
 
+class EmptySemanticEncoder:
+    model_spec = EmbeddingModelSpec(
+        model_id="test/model", revision="c" * 40, dimensions=2, model_file="model.onnx"
+    )
+
+    def encode(self, texts: list[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
+        assert kind == "passage"
+        return tuple((1.0, 0.0) for _ in texts)
+
+
 class TestPipeline:
+    def test_can_bundle_semantic_index_from_local_model(
+        self, tmp_path: Path, fixture_git_repo: Path
+    ) -> None:
+        model_dir = tmp_path / "model"
+        model_dir.mkdir()
+        (model_dir / "model.onnx").write_bytes(b"fixture model")
+        result = build_artifact(
+            collections=["dclp"],
+            output=tmp_path / "semantic-corpus",
+            source=LocalGitSource(fixture_git_repo),
+            source_url="https://github.com/papyri/idp.data.git",
+            requested_ref="master",
+            semantic_model_dir=model_dir,
+            semantic_encoder=EmptySemanticEncoder(),
+        )
+
+        manifest = json.loads((result.output_dir / "manifest.json").read_text())
+        assert manifest["semantic_index"]["model_id"] == "test/model"
+        assert manifest["semantic_index"]["subject_count"] == 0
+        assert (result.output_dir / "semantic/model/model.onnx").read_bytes() == b"fixture model"
+        connection = sqlite3.connect(result.output_dir / "corpus.sqlite")
+        assert connection.execute("SELECT count(*) FROM semantic_subjects").fetchone() == (0,)
+        connection.close()
+
     def test_builds_valid_artifact_with_documented_files(
         self, tmp_path: Path, fixture_git_repo: Path
     ) -> None:
@@ -52,7 +87,7 @@ class TestPipeline:
         result = build_fixture(tmp_path, repo=fixture_git_repo)
         manifest = json.loads((result.output_dir / "manifest.json").read_text())
 
-        assert manifest["artifact_schema_version"] == 2
+        assert manifest["artifact_schema_version"] == 3
         assert manifest["source"]["resolved_commit"] == repo_sha(fixture_git_repo)
         assert manifest["source"]["requested_ref"] == "master"
         assert manifest["collections"] == ["dclp"]

@@ -45,10 +45,12 @@ from papyrus_chat.builder.components import (
 )
 from papyrus_chat.builder.errors import BuildError
 from papyrus_chat.builder.integrity import validate_record_graph
+from papyrus_chat.builder.semantic import SemanticIndexBuild, SubjectEncoder, build_subject_index
 from papyrus_chat.builder.source import CorpusSource
+from papyrus_chat.semantic.embeddings import LocalEmbeddingEncoder
 
 BUILDER_NAME = "papyrus-corpus-build"
-BUILDER_VERSION = "0.2.1"
+BUILDER_VERSION = "0.3.0"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -95,6 +97,8 @@ def build_artifact(
     source_url: str,
     requested_ref: str,
     force: bool = False,
+    semantic_model_dir: Path | None = None,
+    semantic_encoder: SubjectEncoder | None = None,
 ) -> BuildResult:
     started = time.monotonic()
     canonical = sorted({c.lower() for c in collections})
@@ -220,6 +224,17 @@ def build_artifact(
                 key=lambda link: (link.ddbdp_component_id, link.hgv_component_id),
             ),
         )
+        semantic_build: SemanticIndexBuild | None = None
+        if semantic_model_dir is not None:
+            encoder = semantic_encoder or LocalEmbeddingEncoder(semantic_model_dir)
+            semantic_build = build_subject_index(
+                staging,
+                components=components,
+                links=links,
+                model_dir=semantic_model_dir,
+                encoder=encoder,
+            )
+            writer.insert_semantic_subjects(semantic_build.subject_rows)
         writer.commit()
         writer.close()
 
@@ -261,6 +276,7 @@ def build_artifact(
             ),
             logical_content_hash=logical_hash,
             created_at=datetime.now(UTC).isoformat(),
+            semantic_index=semantic_build.manifest if semantic_build is not None else None,
         )
         save_manifest(staging / "manifest.json", manifest)
         (staging / "ATTRIBUTION.md").write_text(
