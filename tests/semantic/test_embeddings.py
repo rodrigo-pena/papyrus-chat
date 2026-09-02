@@ -18,6 +18,19 @@ from papyrus_chat.semantic.embeddings import (
 def test_default_model_is_pinned_and_portable() -> None:
     assert DEFAULT_EMBEDDING_MODEL.model_id == "intfloat/multilingual-e5-small"
     assert DEFAULT_EMBEDDING_MODEL.revision == "4a4cddf9cf6d77a61cc1c73f824ec2127773db85"
+
+
+@pytest.mark.network
+def test_pinned_model_revision_contains_configured_file() -> None:
+    huggingface_hub = pytest.importorskip("huggingface_hub")
+
+    info = huggingface_hub.HfApi().model_info(
+        DEFAULT_EMBEDDING_MODEL.model_id,
+        revision=DEFAULT_EMBEDDING_MODEL.revision,
+    )
+    files = {sibling.rfilename for sibling in info.siblings}
+
+    assert DEFAULT_EMBEDDING_MODEL.model_file in files
     assert DEFAULT_EMBEDDING_MODEL.dimensions == 384
     assert DEFAULT_EMBEDDING_MODEL.model_file == "onnx/model_O4.onnx"
     assert DEFAULT_EMBEDDING_MODEL.revision
