@@ -92,19 +92,36 @@ routes. Semantic suggestions are a planning aid; corpus counts and citations sti
 come only from exact local queries and inspections.
 
 The configured endpoint must support reliable function/tool calling. A
-plain-text-only completion endpoint cannot invoke corpus retrieval. For a
-provider that supports Pydantic AI's OpenAI Responses native web search, use
-the `openai-responses:` model prefix:
+plain-text-only completion endpoint cannot invoke corpus retrieval. Use the
+model identifier exactly as the provider advertises it; identifiers may be
+case-sensitive.
+
+For a provider that implements both the OpenAI Responses API and its native
+`web_search` tool, select the Responses transport with the
+`openai-responses:` prefix and opt in to web search at startup:
 
 ```console
-export LLM_MODEL="openai-responses:model-name"
+export LLM_MODEL="openai-responses:exact-model-name"
+uv run papyrus-chat --artifact ./data/papyrus-corpus --web-search
 ```
 
-Native web search is optional and requires no additional search API key. For
-generic OpenAI-compatible endpoints, pass `--web-search` to enable the
-provider-neutral DuckDuckGo terminology tool (`uv sync --extra web`). It is
-disabled by default, is intended only for terminology/background, and web
-results never replace local corpus evidence or contribute to counts.
+The prefix selects the Responses API transport; `--web-search` separately
+enables the native tool. Native web search is optional and requires no
+additional search API key. OpenAI compatibility alone does not guarantee that
+an endpoint implements the Responses API or its native tool.
+
+For an endpoint that supports Chat Completions but not native web search, omit
+the prefix and install the provider-neutral DuckDuckGo terminology tool:
+
+```console
+uv sync --extra web
+export LLM_MODEL="exact-model-name"
+uv run papyrus-chat --artifact ./data/papyrus-corpus --web-search
+```
+
+Web search is disabled by default, is intended only for
+terminology/background, and never replaces local corpus evidence or
+contributes to counts.
 
 ### Research answer semantics
 
