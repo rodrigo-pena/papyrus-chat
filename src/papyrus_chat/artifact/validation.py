@@ -83,9 +83,7 @@ def validate_artifact(root: Path) -> None:
         connection.close()
 
 
-def _validate_semantic_index(
-    root: Path, connection: sqlite3.Connection, semantic
-) -> None:
+def _validate_semantic_index(root: Path, connection: sqlite3.Connection, semantic) -> None:
     indexed_files = [
         semantic.subjects_file,
         semantic.embeddings_file,

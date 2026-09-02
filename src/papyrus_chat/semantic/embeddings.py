@@ -32,9 +32,7 @@ class EmbeddingModelSpec:
     pooling: Literal["mean"] = "mean"
 
 
-def normalize_embedding(
-    vector: Sequence[float], *, dimensions: int
-) -> tuple[float, ...]:
+def normalize_embedding(vector: Sequence[float], *, dimensions: int) -> tuple[float, ...]:
     """Validate and L2-normalize one embedding for cosine similarity."""
     values = tuple(float(value) for value in vector)
     if len(values) != dimensions:

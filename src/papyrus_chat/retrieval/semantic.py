@@ -202,9 +202,7 @@ class SemanticSubjectSearch:
             },
         )
 
-    def _lexical_ranks(
-        self, concept: str, rows: Sequence[sqlite3.Row]
-    ) -> dict[int, int]:
+    def _lexical_ranks(self, concept: str, rows: Sequence[sqlite3.Row]) -> dict[int, int]:
         fts_query = build_fts_query(concept)
         if not fts_query:
             return {}

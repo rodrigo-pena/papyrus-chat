@@ -1,12 +1,26 @@
 """Shared SQL for document-level corpus scopes."""
 
+from collections.abc import Sequence
 from typing import Protocol
 
 
+class DateInterval(Protocol):
+    @property
+    def not_before(self) -> int: ...
+
+    @property
+    def not_after(self) -> int: ...
+
+
 class DocumentScope(Protocol):
-    collections: list[str]
-    transcription_languages: list[str]
-    date_interval: object | None
+    @property
+    def collections(self) -> Sequence[str]: ...
+
+    @property
+    def transcription_languages(self) -> Sequence[str]: ...
+
+    @property
+    def date_interval(self) -> DateInterval | None: ...
 
 
 def document_scope_where(scope: DocumentScope) -> tuple[list[str], list[object]]:
