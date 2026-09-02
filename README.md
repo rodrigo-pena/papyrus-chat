@@ -3,8 +3,8 @@
 Build a searchable, provenance-preserving corpus from
 [papyri/idp.data](https://github.com/papyri/idp.data), then investigate it in
 a local Pydantic AI chat. The assistant discloses its search scope, separates
-local transcription evidence from model background, and links cited records to
-papyri.info.
+local transcription evidence from web-sourced and model-supplied background,
+and links cited records to papyri.info.
 
 ## Requirements
 
@@ -111,7 +111,7 @@ additional search API key. OpenAI compatibility alone does not guarantee that
 an endpoint implements the Responses API or its native tool.
 
 For an endpoint that supports Chat Completions but not native web search, omit
-the prefix and install the provider-neutral DuckDuckGo terminology tool:
+the prefix and install the provider-neutral DuckDuckGo historical-background tool:
 
 ```console
 uv sync --extra web
@@ -119,9 +119,12 @@ export LLM_MODEL="exact-model-name"
 uv run papyrus-chat --artifact ./data/papyrus-corpus --web-search
 ```
 
-Web search is disabled by default, is intended only for
-terminology/background, and never replaces local corpus evidence or
-contributes to counts.
+Web search is disabled by default. When enabled, it can verify historical and
+contextual background such as reign dates, chronology, Egyptian regnal-year
+mechanics, terminology, institutions, and geography. Web results are cited as
+web-sourced background and never replace local corpus evidence or contribute to
+corpus counts; papyri records and transcriptions still come only from local
+corpus tools.
 
 ### Research answer semantics
 

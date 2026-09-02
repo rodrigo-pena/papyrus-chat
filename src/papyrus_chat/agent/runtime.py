@@ -10,7 +10,7 @@ from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools
-from papyrus_chat.agent.web import search_web_terminology
+from papyrus_chat.agent.web import search_web_background
 from papyrus_chat.chat.provider import ProviderConfig
 from papyrus_chat.retrieval.structured import CorpusDocumentMatch
 
@@ -31,18 +31,26 @@ each corpus document with the papyri.info URL exactly as a corpus tool returned
 it: never build a citation from a document title, identifier, or memory, and
 treat a document as citable only once search_documents or inspect_documents has
 returned it in this conversation. Distinguish transcription evidence from
-model-generated synthesis. Label calendar, historical, or other knowledge not
-present in corpus results as model-supplied background. If native web search is
-available, preserve its provider citations and never use web results as a
-replacement for local corpus evidence.
+model-generated synthesis. If any web search tool is available, use it whenever
+the user explicitly asks to search, browse, verify, or find better web evidence.
+You may also use it proactively when historical or contextual facts determine
+corpus filters or interpretation, including reign dates, calendars, regnal-year
+mechanics, terminology, institutions, or geography. Label claims supported by
+returned sources as web-sourced background and cite the returned URLs
+(preserving native provider citations); label uncited knowledge as model-supplied
+background. Web results must never establish which papyri exist, what they
+contain, or any corpus count, and must never replace local corpus evidence.
 
 For concepts such as document genres or administrative topics, call
 suggest_subject_values first with the declared scope. Use returned exact HGV
 labels to form a narrow subject_groups search and a broader related-label
 search, then report both exact candidate counts, label prevalence,
 subject-annotation coverage, and the
-labels used. If the requested historical period is not bounded, ask for both
-inclusive lower and upper years before counting.
+labels used. If a named historical period is not numerically bounded, use
+available web search to establish inclusive lower and upper years, then disclose
+the source and any calendar or regnal-year assumption before counting. If web
+search is unavailable, inconclusive, conflicting, or the period is ambiguous,
+ask for both inclusive lower and upper years before counting.
 """.strip()
 
 _PAPYRI_URL = re.compile(r"https://papyri\.info/[^\s)\]>]+")
@@ -170,7 +178,7 @@ def create_research_agent(
     if enable_web_search and not (
         enable_native_web_search and model_supports_native_web_search(config.model)
     ):
-        agent.tool(search_web_terminology)
+        agent.tool(search_web_background)
 
     @agent.output_validator
     def validate_output(ctx: RunContext[CorpusToolDeps], output: str) -> str:

@@ -1,9 +1,21 @@
 """Pydantic AI runtime configuration and citation validation."""
 
+import sys
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from pydantic_ai import Agent, ModelRetry
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+)
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
 import papyrus_chat.agent.runtime as runtime
@@ -120,7 +132,146 @@ def test_provider_neutral_web_search_is_opt_in(tool_service: CorpusToolService) 
     agent.run_sync("Describe the corpus.", deps=CorpusToolDeps(service=tool_service))
     parameters = model.last_model_request_parameters
     assert parameters is not None
-    assert any(tool.name == "search_web_terminology" for tool in parameters.function_tools)
+    web_tool = next(
+        tool for tool in parameters.function_tools if tool.name == "search_web_background"
+    )
+    description = web_tool.description or ""
+    assert "historical" in description.casefold()
+    assert "corpus evidence" in description.casefold()
+    assert "regnal" in web_tool.parameters_json_schema["properties"]["query"]["description"]
+    assert "source links" in web_tool.parameters_json_schema["properties"]["query"]["description"]
+
+
+def _returned_tool_names(messages: list[ModelMessage]) -> list[str]:
+    return [
+        part.tool_name
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, ToolReturnPart)
+    ]
+
+
+class WebBackgroundDialogue:
+    """Script web context first, then optionally combine it with corpus evidence."""
+
+    def __init__(self, *, include_corpus: bool) -> None:
+        self.include_corpus = include_corpus
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        returned = _returned_tool_names(messages)
+        if not returned:
+            arguments = {
+                "query": "Claudius reign dates ancient Egypt Egyptian regnal-year mechanics",
+                "limit": 3,
+            }
+            self.calls.append(("search_web_background", arguments))
+            return ModelResponse(
+                [ToolCallPart("search_web_background", arguments, tool_call_id="web-1")]
+            )
+        if not self.include_corpus:
+            return ModelResponse(
+                [
+                    TextPart(
+                        "Web-sourced background: the returned source discusses Claudius's "
+                        "reign dates and Egyptian regnal-year mechanics. "
+                        "https://example.test/claudius"
+                    )
+                ]
+            )
+        if returned == ["search_web_background"]:
+            arguments = {
+                "term_groups": [["Κλαύδιος", "Claudius"], ["Geld", "δραχμή"]],
+                "fields": ["transcription", "metadata"],
+                "date_interval": {"not_before": 101, "not_after": 125},
+                "limit": 10,
+            }
+            self.calls.append(("search_documents", arguments))
+            return ModelResponse(
+                [ToolCallPart("search_documents", arguments, tool_call_id="search-1")]
+            )
+        if returned == ["search_web_background", "search_documents"]:
+            arguments = {"document_ids": ["ddbdp:DDbDP/27/27093.xml"], "excerpt_limit": 1}
+            self.calls.append(("inspect_documents", arguments))
+            return ModelResponse(
+                [ToolCallPart("inspect_documents", arguments, tool_call_id="inspect-1")]
+            )
+        assert returned == ["search_web_background", "search_documents", "inspect_documents"]
+        return ModelResponse(
+            [
+                TextPart(
+                    "Web-sourced background: the returned source explains the relevant "
+                    "chronology and regnal-year mechanics. https://example.test/claudius "
+                    "Corpus evidence: https://papyri.info/ddbdp/p.mich;8;480."
+                )
+            ]
+        )
+
+
+def _fake_web_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeDDGS:
+        def text(self, query: str, *, max_results: int) -> list[dict[str, str]]:
+            assert "Claudius" in query
+            assert max_results == 3
+            return [
+                {
+                    "title": "Claudius in Egypt",
+                    "href": "https://example.test/claudius",
+                    "body": "Reign dates and Egyptian calendrical context.",
+                }
+            ]
+
+    monkeypatch.setitem(sys.modules, "ddgs", SimpleNamespace(DDGS=FakeDDGS))
+
+
+def test_explicit_web_background_request_uses_web_source(monkeypatch, tool_service) -> None:
+    _fake_web_provider(monkeypatch)
+    dialogue = WebBackgroundDialogue(include_corpus=False)
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(dialogue),
+        enable_web_search=True,
+    )
+
+    result = agent.run_sync(
+        (
+            "What were the Claudius years in ancient Egypt? "
+            "Search the web for better evidence on the dates."
+        ),
+        deps=CorpusToolDeps(service=tool_service),
+    )
+
+    assert dialogue.calls[0][0] == "search_web_background"
+    assert "Web-sourced background" in result.output
+    assert "https://example.test/claudius" in result.output
+
+
+def test_web_background_can_bound_a_corpus_search(monkeypatch, tool_service) -> None:
+    _fake_web_provider(monkeypatch)
+    dialogue = WebBackgroundDialogue(include_corpus=True)
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(dialogue),
+        enable_web_search=True,
+    )
+
+    result = agent.run_sync(
+        "What are some Claudius-years civil disputes recorded on the papyri?",
+        deps=CorpusToolDeps(service=tool_service),
+    )
+
+    assert [name for name, _ in dialogue.calls] == [
+        "search_web_background",
+        "search_documents",
+        "inspect_documents",
+    ]
+    assert dialogue.calls[1][1]["date_interval"] == {"not_before": 101, "not_after": 125}
+    assert "Web-sourced background" in result.output
+    assert "Corpus evidence: https://papyri.info/ddbdp/p.mich;8;480" in result.output
 
 
 def test_output_validator_accepts_known_corpus_links_and_rejects_unknown_links() -> None:

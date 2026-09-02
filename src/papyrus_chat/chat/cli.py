@@ -35,7 +35,9 @@ def serve(
     web_search: bool = typer.Option(
         False,
         "--web-search",
-        help="Enable optional terminology/background web search (never corpus evidence).",
+        help=(
+            "Enable optional historical/contextual web search (never corpus evidence or counts)."
+        ),
     ),
     verbose: bool = typer.Option(
         False,
