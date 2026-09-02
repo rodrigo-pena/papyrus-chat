@@ -6,6 +6,8 @@ a local Pydantic AI chat. The assistant discloses its search scope, separates
 local transcription evidence from web-sourced and model-supplied background,
 and links cited records to papyri.info.
 
+> See the [local MCP integration guide](docs/local-mcp.md) for instructions on interacting with Papyri.info data from your own chatbot or coding agent interface.
+
 ## Quick start
 
 This is the lowest-effort route for using Papyrus Chat: install
@@ -229,9 +231,6 @@ read from the resolved commit without launching Git once per XML file. Builds
 are deterministic: identical inputs produce the same logical content hash in
 `manifest.json` and the completion report. Reference measurements and known
 bottlenecks are recorded in [docs/performance.md](docs/performance.md).
-
-For connecting a built artifact to Codex or the ChatGPT desktop app, see the
-[local MCP integration guide](docs/local-mcp.md).
 
 ### Sample questions
 

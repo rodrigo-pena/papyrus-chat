@@ -131,14 +131,14 @@ metadata, model configuration, or network behavior.
 
 The server exposes exactly six tools:
 
-| Tool | Purpose |
-| --- | --- |
-| `get_corpus_info` | Return schema, builder/source provenance, collections, statistics, languages, hash, creation time, and semantic capability. |
-| `suggest_subjects` | Return bounded exact HGV subject labels, scoped prevalence/coverage, and semantic availability. |
-| `search_documents` | Accept `CorpusQuery`; return exact candidate counts and at most 100 lean hits with located snippets and canonical URLs. |
-| `facet_documents` | Count a bounded collection, language, subject, material, origin, or passage-kind facet with exact `total_values` and truncation. |
-| `lookup_document` | Normalize an identifier and return exact match counts plus bounded, deterministic lean matches. |
-| `inspect_documents` | Inspect 1–20 selected IDs with 1–10 passages, 200–2000-character excerpts, up to 8 focus terms, HGV context, line references, and canonical URLs. |
+| Tool                | Purpose                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_corpus_info`   | Return schema, builder/source provenance, collections, statistics, languages, hash, creation time, and semantic capability.                       |
+| `suggest_subjects`  | Return bounded exact HGV subject labels, scoped prevalence/coverage, and semantic availability.                                                   |
+| `search_documents`  | Accept `CorpusQuery`; return exact candidate counts and at most 100 lean hits with located snippets and canonical URLs.                           |
+| `facet_documents`   | Count a bounded collection, language, subject, material, origin, or passage-kind facet with exact `total_values` and truncation.                  |
+| `lookup_document`   | Normalize an identifier and return exact match counts plus bounded, deterministic lean matches.                                                   |
+| `inspect_documents` | Inspect 1-20 selected IDs with 1-10 passages, 200-2000-character excerpts, up to 8 focus terms, HGV context, line references, and canonical URLs. |
 
 For a question about an identifier, look it up first and inspect the returned
 document IDs. For a conceptual question, inspect corpus information when
@@ -160,14 +160,14 @@ or limits are tool errors that should be corrected.
 
 Example requests to the connected host:
 
-- “Look up TM 23944, then inspect the matching record and cite the returned
-  papyri.info URL.”
-- “Within DDbDP, how many Greek documents dated 700–750 CE concern taxes?
+- "Look up TM 23944, then inspect the matching record and cite the returned
+  papyri.info URL."
+- "Within DDbDP, how many Greek documents dated 700-750 CE concern taxes?
   Try lexical alternatives such as φόρος, phoros, and tax, use subject facets
-  if available, then inspect representative records and disclose the scope.”
-- “Find documentary texts with a monthly list structure. Search the relevant
+  if available, then inspect representative records and disclose the scope."
+- "Find documentary texts with a monthly list structure. Search the relevant
   Greek and English terms, compare collection and passage-kind facets, and
-  cite only inspected records.”
+  cite only inspected records."
 
 ## Rebuilding the artifact safely
 
@@ -179,7 +179,7 @@ builder replaces it.
 
 ## Troubleshooting
 
-### “MCP support is optional” or import errors
+### "MCP support is optional" or import errors
 
 Install the protocol extra: `[mcp]` for retrieval-only use, or
 `[mcp,semantic]` for an artifact with semantic subject suggestions. With a

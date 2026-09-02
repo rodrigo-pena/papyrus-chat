@@ -82,7 +82,7 @@ The connected server exposes exactly these read-only tools:
 - `lookup_document(identifier, limit)` — normalized identifier, exact match
   count, truncation status, and bounded lean matches.
 - `inspect_documents(document_ids, excerpt_limit, excerpt_chars, focus_terms)`
-  — 1–20 selected IDs, 1–10 passages, 200–2000-character excerpts, at most
+  — 1-20 selected IDs, 1-10 passages, 200-2000-character excerpts, at most
   eight focus terms, HGV context, line references, and canonical URLs.
 
 Invalid schemas, fields, date intervals, or limits are tool errors and should
