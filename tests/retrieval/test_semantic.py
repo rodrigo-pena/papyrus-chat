@@ -98,3 +98,33 @@ def test_query_encoder_uses_the_artifact_model_contract(
 
     assert captured["spec"] == spec
     search.close()
+
+
+def test_lexical_subject_ranking_uses_normalized_fts(
+    tmp_path: Path, fixture_git_repo: Path
+) -> None:
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "model.onnx").write_bytes(b"fixture model")
+    artifact = tmp_path / "corpus"
+    build_artifact(
+        ["ddbdp"],
+        output=artifact,
+        source=LocalGitSource(fixture_git_repo),
+        source_url="https://github.com/papyri/idp.data.git",
+        requested_ref="master",
+        semantic_model_dir=model_dir,
+        semantic_encoder=FixtureEncoder(),
+    )
+
+    search = SemanticSubjectSearch(artifact / "corpus.sqlite", encoder=FixtureEncoder())
+    statements: list[str] = []
+    search._connection.set_trace_callback(statements.append)  # noqa: SLF001 - FTS usage test
+    suggestions = search.suggest_subject_values(
+        "GÉL", scope=CorpusQuery(collections=["ddbdp"]), limit=3
+    )
+
+    assert suggestions[0].value == "Geld"
+    assert suggestions[0].strategy == "hybrid"
+    assert any("semantic_subjects_fts MATCH" in statement for statement in statements)
+    search.close()

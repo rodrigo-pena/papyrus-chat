@@ -21,7 +21,7 @@ from papyrus_chat.artifact.records import (
     IdentifierRecord,
     PassageRecord,
 )
-from papyrus_chat.textnorm import normalize_identifier_value
+from papyrus_chat.textnorm import normalize_identifier_value, normalize_search_text
 
 SCHEMA_VERSION = 3
 
@@ -300,7 +300,10 @@ class ArtifactWriter:
         self._connection.executemany("INSERT INTO semantic_subjects VALUES (?, ?, ?, ?)", records)
         self._connection.executemany(
             "INSERT INTO semantic_subjects_fts (value, subject_id) VALUES (?, ?)",
-            [(value, subject_id) for subject_id, value, _value_norm, _count in records],
+            [
+                (normalize_search_text(value), subject_id)
+                for subject_id, value, _value_norm, _count in records
+            ],
         )
 
     def insert_components(

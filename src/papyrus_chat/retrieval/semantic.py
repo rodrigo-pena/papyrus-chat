@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, computed_field
 
 from papyrus_chat.artifact.manifest import SemanticIndexInfo, load_manifest
 from papyrus_chat.retrieval.scope import document_scope_where
+from papyrus_chat.retrieval.search import build_fts_query
 from papyrus_chat.retrieval.structured import CorpusQuery
 from papyrus_chat.semantic.embeddings import (
     EmbeddingKind,
@@ -201,17 +202,36 @@ class SemanticSubjectSearch:
             },
         )
 
-    @staticmethod
-    def _lexical_ranks(concept: str, rows: Sequence[sqlite3.Row]) -> dict[int, int]:
-        tokens = {token.casefold() for token in concept.split() if token.strip()}
-        scored = []
-        for index, row in enumerate(rows):
-            value_tokens = {token.casefold() for token in row["value"].split()}
-            overlap = len(tokens & value_tokens)
-            if overlap:
-                scored.append((overlap, row["value_norm"], row["value"], index))
-        scored.sort(key=lambda item: (-item[0], item[1], item[2]))
-        return {item[3]: rank for rank, item in enumerate(scored, start=1)}
+    def _lexical_ranks(
+        self, concept: str, rows: Sequence[sqlite3.Row]
+    ) -> dict[int, int]:
+        fts_query = build_fts_query(concept)
+        if not fts_query:
+            return {}
+        matches = self._connection.execute(
+            "SELECT subject_id, bm25(semantic_subjects_fts) AS score "
+            "FROM semantic_subjects_fts "
+            "WHERE semantic_subjects_fts MATCH ? "
+            "ORDER BY score, subject_id",
+            (fts_query,),
+        ).fetchall()
+        if not matches:
+            fts_query = build_fts_query(concept, operator="OR")
+            if not fts_query:
+                return {}
+            matches = self._connection.execute(
+                "SELECT subject_id, bm25(semantic_subjects_fts) AS score "
+                "FROM semantic_subjects_fts "
+                "WHERE semantic_subjects_fts MATCH ? "
+                "ORDER BY score, subject_id",
+                (fts_query,),
+            ).fetchall()
+        index_by_subject_id = {row["subject_id"]: index for index, row in enumerate(rows)}
+        return {
+            index_by_subject_id[match["subject_id"]]: rank
+            for rank, match in enumerate(matches, start=1)
+            if match["subject_id"] in index_by_subject_id
+        }
 
     def _dense_ranks(
         self, concept: str, rows: Sequence[sqlite3.Row], manifest: SemanticIndexInfo
