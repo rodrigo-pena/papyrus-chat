@@ -2,9 +2,11 @@
 
 import json
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from functools import wraps
 from pathlib import Path
-from typing import Literal
+from threading import RLock
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -17,6 +19,16 @@ from papyrus_chat.artifact.records import (
 from papyrus_chat.retrieval.evidence import snippet_for
 from papyrus_chat.retrieval.scope import document_scope_where
 from papyrus_chat.retrieval.search import build_fts_query
+
+
+def _serialized(method: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(method)
+    def wrapper(self: "StructuredCorpusSearch", *args: Any, **kwargs: Any) -> Any:
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
 
 CorpusField = Literal["title", "metadata", "transcription", "translation"]
 FacetField = Literal["collection", "language", "subject", "material", "origin", "kind"]
@@ -337,21 +349,37 @@ class CorpusDocumentMatch(BaseModel):
 class StructuredCorpusSearch:
     """Read-only structured query service for an artifact SQLite database."""
 
-    def __init__(self, database_path: Path) -> None:
-        self._connection = sqlite3.connect(database_path, check_same_thread=False)
+    def __init__(self, database_path: Path, *, read_only: bool = False, lock: Any = None) -> None:
+        if read_only:
+            self._connection = sqlite3.connect(
+                f"{database_path.resolve().as_uri()}?mode=ro",
+                uri=True,
+                check_same_thread=False,
+            )
+        else:
+            self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._database_path = database_path
+        self._read_only = read_only
+        self._lock = lock or RLock()
         self._semantic = None
+        self._closed = False
 
     @property
     def semantic(self):
         """Lazily open the optional semantic subject index beside this database."""
-        if self._semantic is None:
-            from papyrus_chat.retrieval.semantic import SemanticSubjectSearch
+        with self._lock:
+            if self._semantic is None:
+                from papyrus_chat.retrieval.semantic import SemanticSubjectSearch
 
-            self._semantic = SemanticSubjectSearch(self._database_path)
-        return self._semantic
+                self._semantic = SemanticSubjectSearch(
+                    self._database_path,
+                    read_only=self._read_only,
+                    lock=self._lock,
+                )
+            return self._semantic
 
+    @_serialized
     def query(
         self,
         query: CorpusQuery | dict[str, object],
@@ -410,6 +438,7 @@ class StructuredCorpusSearch:
             )
         return tuple(counts)
 
+    @_serialized
     def facet_documents(
         self,
         query: CorpusQuery | dict[str, object],
@@ -426,6 +455,7 @@ class StructuredCorpusSearch:
         )
         return CorpusFacetResult(query=normalized, field=field, values=values)
 
+    @_serialized
     def describe(self) -> CorpusDescription:
         collections = tuple(
             row["collection"]
@@ -451,6 +481,7 @@ class StructuredCorpusSearch:
             languages=tuple(sorted(languages)),
         )
 
+    @_serialized
     def inspect_documents(
         self,
         document_ids: Iterable[str],
@@ -511,6 +542,7 @@ class StructuredCorpusSearch:
             )
         return tuple(inspections)
 
+    @_serialized
     def document_for_citation(self, canonical_url: str) -> CorpusDocumentMatch | None:
         """Resolve a citation URL to its corpus document, if one exists.
 
@@ -531,10 +563,14 @@ class StructuredCorpusSearch:
             collection=row["collection"],
         )
 
+    @_serialized
     def close(self) -> None:
+        if self._closed:
+            return
         if self._semantic is not None:
             self._semantic.close()
         self._connection.close()
+        self._closed = True
 
     def _where_clause(self, query: CorpusQuery) -> tuple[list[str], list[object]]:
         where, params = document_scope_where(query)

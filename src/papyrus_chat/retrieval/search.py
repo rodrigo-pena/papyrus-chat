@@ -50,8 +50,15 @@ class SearchFilters:
 class CorpusSearch:
     BM25_WEIGHTS = BM25_WEIGHTS
 
-    def __init__(self, database_path: Path) -> None:
-        self._connection = sqlite3.connect(database_path, check_same_thread=False)
+    def __init__(self, database_path: Path, *, read_only: bool = True) -> None:
+        if read_only:
+            self._connection = sqlite3.connect(
+                f"{database_path.resolve().as_uri()}?mode=ro",
+                uri=True,
+                check_same_thread=False,
+            )
+        else:
+            self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._identifiers = IdentifierLookup(database_path)
         self._weights = BM25_WEIGHTS

@@ -6,11 +6,11 @@ from typing import Any
 from starlette.applications import Starlette
 
 from papyrus_chat.agent.runtime import create_research_agent
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
+from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.artifact.manifest import load_manifest
 from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.chat.provider import ProviderError, load_provider_config
-from papyrus_chat.retrieval.structured import StructuredCorpusSearch
+from papyrus_chat.corpus import CorpusService
 from papyrus_chat.web.streaming import install_validated_chat_route
 
 
@@ -58,8 +58,7 @@ def load_app(
     validate_startup(artifact, env=env, require_provider=False)
     manifest = load_manifest(artifact / "manifest.json")
     provider_config = load_provider_config(env, required=False)
-    search = StructuredCorpusSearch(artifact / "corpus.sqlite")
-    tool_service = CorpusToolService(search)
+    tool_service = CorpusService.open(artifact)
     agent = create_research_agent(
         provider_config, tool_service, model=model, enable_web_search=enable_web_search
     )
@@ -71,7 +70,7 @@ def load_app(
     install_validated_chat_route(app, agent, deps)
     app.state.artifact = artifact
     app.state.manifest = manifest
-    app.state.search = search
+    app.state.search = tool_service
     app.state.tool_service = tool_service
     app.state.agent = agent
     app.state.provider_config = provider_config

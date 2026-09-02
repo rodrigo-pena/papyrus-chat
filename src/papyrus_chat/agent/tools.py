@@ -1,173 +1,47 @@
-"""Read-only Pydantic AI tools backed by structured corpus retrieval."""
+"""Pydantic AI adapters for the transport-neutral corpus service."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 from pydantic_ai import Agent, RunContext
 
-from papyrus_chat.artifact.records import ComponentRecord
-from papyrus_chat.retrieval.evidence import targeted_snippet_for
-from papyrus_chat.retrieval.semantic import SubjectSuggestion
-from papyrus_chat.retrieval.structured import (
+from papyrus_chat.corpus import (
     CorpusDescription,
-    CorpusDocumentMatch,
     CorpusFacetResult,
-    CorpusHit,
-    CorpusInspection,
+    CorpusInspectionResult,
     CorpusQuery,
-    CorpusSearchResult,
-    FacetField,
-    StructuredCorpusSearch,
+    CorpusService,
+    CorpusSubjectSuggestionSummary,
 )
-
-INSPECT_EXCERPT_CHARS = 500
-
-
-class CorpusInspectionResult(BaseModel):
-    """Bounded inspection output for selected corpus documents."""
-
-    model_config = ConfigDict(frozen=True)
-
-    inspections: tuple[CorpusInspection, ...]
-
-
-class CorpusHitSummary(BaseModel):
-    """A distinct candidate document with located evidence and its citation URL."""
-
-    model_config = ConfigDict(frozen=True)
-
-    document_id: str
-    title: str
-    collection: str
-    languages: tuple[str, ...]
-    passage_kind: Literal["edition", "translation"] | None = None
-    passage_language: str | None = None
-    snippet: str | None = None
-    line_reference: str | None = None
-    canonical_url: str | None = None
-
-
-class CorpusSearchSummary(BaseModel):
-    """Complete normalized query, exact candidate count, and lean located hits."""
-
-    model_config = ConfigDict(frozen=True)
-
-    query: CorpusQuery
-    assumptions: tuple[str, ...] = ()
-    candidate_count: int
-    truncated: bool
-    hits: tuple[CorpusHitSummary, ...]
-    group_candidate_counts: tuple[int, ...] | None = None
-
-
-class CorpusSubjectSuggestionSummary(BaseModel):
-    """Bounded semantic labels with exact scope coverage for cohort planning."""
-
-    model_config = ConfigDict(frozen=True)
-
-    concept: str
-    scope: CorpusQuery
-    suggestions: tuple[SubjectSuggestion, ...]
-
-
-class CorpusHgvContext(BaseModel):
-    """Summarized HGV metadata and date texts for one inspected document."""
-
-    model_config = ConfigDict(frozen=True)
-
-    title: str
-    metadata: dict[str, tuple[str, ...]] = Field(default_factory=dict)
-    date_texts: tuple[str, ...] = ()
-
-
-class CorpusExcerpt(BaseModel):
-    """A located passage with a bounded excerpt and its line reference."""
-
-    model_config = ConfigDict(frozen=True)
-
-    kind: Literal["edition", "translation"] | None = None
-    language: str | None = None
-    line_reference: str | None = None
-    excerpt: str | None = None
-
-
-class CorpusInspectionSummary(BaseModel):
-    """Identity, citation URL, HGV context, and bounded excerpts for one document."""
-
-    model_config = ConfigDict(frozen=True)
-
-    document_id: str
-    title: str
-    collection: str
-    languages: tuple[str, ...]
-    canonical_url: str | None = None
-    hgv: CorpusHgvContext | None = None
-    passages: tuple[CorpusExcerpt, ...] = ()
-
-
-class CorpusInspectionOutcome(BaseModel):
-    """Inspection summaries plus any requested ids the corpus does not contain."""
-
-    model_config = ConfigDict(frozen=True)
-
-    inspections: tuple[CorpusInspectionSummary, ...] = ()
-    missing: tuple[str, ...] = ()
+from papyrus_chat.corpus.models import (
+    CorpusExcerpt,
+    CorpusHgvContext,
+    CorpusHitSummary,
+    CorpusInspectionOutcome,
+    CorpusInspectionSummary,
+    CorpusSearchSummary,
+)
+from papyrus_chat.corpus.projections import (
+    INSPECT_EXCERPT_CHARS,
+    _excerpt,
+    _hgv_context,
+    _hit_summary,
+    _inspection_outcome,
+    _inspection_summaries,
+    _search_summary,
+)
+from papyrus_chat.retrieval.structured import FacetField
 
 
 @dataclass(frozen=True)
 class CorpusToolDeps:
-    service: "CorpusToolService"
+    service: CorpusService
     known_corpus_urls: set[str] = field(default_factory=set)
 
 
-class CorpusToolService:
-    """Application service used by tools and deterministic tests."""
-
-    def __init__(self, search: StructuredCorpusSearch) -> None:
-        self._search = search
-
-    def describe_corpus(self) -> CorpusDescription:
-        return self._search.describe()
-
-    def search_documents(
-        self,
-        query: CorpusQuery,
-        *,
-        assumptions: tuple[str, ...] = (),
-    ) -> CorpusSearchResult:
-        return self._search.query(query, assumptions=assumptions)
-
-    def inspect_documents(
-        self,
-        document_ids: list[str],
-        *,
-        excerpt_limit: int = 3,
-    ) -> CorpusInspectionResult:
-        return CorpusInspectionResult(
-            inspections=self._search.inspect_documents(
-                document_ids,
-                excerpt_limit=excerpt_limit,
-            )
-        )
-
-    def facet_documents(self, query: CorpusQuery, field: FacetField) -> CorpusFacetResult:
-        return self._search.facet_documents(query, field)
-
-    def suggest_subject_values(
-        self, concept: str, *, scope: CorpusQuery, limit: int = 20
-    ) -> CorpusSubjectSuggestionSummary:
-        return CorpusSubjectSuggestionSummary(
-            concept=concept,
-            scope=scope.model_copy(update={"term_groups": (), "subject_groups": ()}),
-            suggestions=self._search.semantic.suggest_subject_values(
-                concept, scope=scope, limit=limit
-            ),
-        )
-
-    def document_for_citation(self, canonical_url: str) -> CorpusDocumentMatch | None:
-        return self._search.document_for_citation(canonical_url)
+CorpusToolService = CorpusService
 
 
 def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
@@ -258,103 +132,6 @@ def _remember_corpus_urls(deps: CorpusToolDeps, urls: Iterable[str | None]) -> N
     deps.known_corpus_urls.update(url for url in urls if url is not None)
 
 
-def _search_summary(result: CorpusSearchResult) -> CorpusSearchSummary:
-    return CorpusSearchSummary(
-        query=result.query,
-        assumptions=result.assumptions,
-        candidate_count=result.candidate_count,
-        truncated=result.truncated,
-        hits=tuple(_hit_summary(hit) for hit in result.hits),
-        group_candidate_counts=result.group_candidate_counts,
-    )
-
-
-def _hit_summary(hit: CorpusHit) -> CorpusHitSummary:
-    return CorpusHitSummary(
-        document_id=hit.document_id,
-        title=hit.title,
-        collection=hit.collection,
-        languages=hit.languages,
-        passage_kind=hit.passage_kind,
-        passage_language=hit.passage_language,
-        snippet=hit.snippet,
-        line_reference=hit.line_reference,
-        canonical_url=hit.canonical_url,
-    )
-
-
-def _inspection_summaries(
-    inspections: Iterable[CorpusInspection],
-    *,
-    focus_terms: tuple[str, ...] = (),
-    excerpt_chars: int = INSPECT_EXCERPT_CHARS,
-) -> tuple[CorpusInspectionSummary, ...]:
-    return tuple(
-        CorpusInspectionSummary(
-            document_id=inspection.document_id,
-            title=inspection.title,
-            collection=inspection.collection,
-            languages=inspection.languages,
-            canonical_url=inspection.canonical_url,
-            hgv=_hgv_context(inspection.components),
-            passages=tuple(
-                _excerpt(passage, focus_terms=focus_terms, excerpt_chars=excerpt_chars)
-                for passage in inspection.passages
-            ),
-        )
-        for inspection in inspections
-    )
-
-
-def _inspection_outcome(
-    inspections: tuple[CorpusInspection, ...],
-    requested_ids: list[str],
-    *,
-    focus_terms: tuple[str, ...] = (),
-    excerpt_chars: int = INSPECT_EXCERPT_CHARS,
-) -> CorpusInspectionOutcome:
-    found = {inspection.document_id for inspection in inspections}
-    missing = tuple(dict.fromkeys(id for id in requested_ids if id not in found))
-    return CorpusInspectionOutcome(
-        inspections=_inspection_summaries(
-            inspections,
-            focus_terms=focus_terms,
-            excerpt_chars=excerpt_chars,
-        ),
-        missing=missing,
-    )
-
-
-def _hgv_context(components: Iterable[ComponentRecord]) -> CorpusHgvContext | None:
-    for component in components:
-        if component.kind == "hgv":
-            return CorpusHgvContext(
-                title=component.title,
-                metadata=component.metadata,
-                date_texts=tuple(date.text for date in component.dates if date.text),
-            )
-    return None
-
-
-def _excerpt(
-    passage: CorpusHit,
-    *,
-    focus_terms: tuple[str, ...] = (),
-    excerpt_chars: int = INSPECT_EXCERPT_CHARS,
-) -> CorpusExcerpt:
-    excerpt = (
-        targeted_snippet_for(passage.passage_text, terms=focus_terms, length=excerpt_chars)
-        if passage.passage_text is not None
-        else None
-    )
-    return CorpusExcerpt(
-        kind=passage.passage_kind,
-        language=passage.passage_language,
-        line_reference=passage.line_reference,
-        excerpt=excerpt,
-    )
-
-
 def register_corpus_tools(agent: Agent[Any, Any]) -> None:
     """Register the read-only corpus tools on an agent."""
     agent.tool(describe_corpus)
@@ -375,6 +152,12 @@ __all__ = [
     "CorpusSubjectSuggestionSummary",
     "CorpusToolDeps",
     "CorpusToolService",
+    "_excerpt",
+    "_hgv_context",
+    "_hit_summary",
+    "_inspection_outcome",
+    "_inspection_summaries",
+    "_search_summary",
     "describe_corpus",
     "facet_documents",
     "inspect_documents",
