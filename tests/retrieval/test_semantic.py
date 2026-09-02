@@ -41,6 +41,8 @@ def test_suggestions_fuse_local_vectors_and_report_scoped_coverage(
     )
 
     search = SemanticSubjectSearch(artifact / "corpus.sqlite", encoder=FixtureEncoder())
+    statements: list[str] = []
+    search._connection.set_trace_callback(statements.append)  # noqa: SLF001 - query budget test
     suggestions = search.suggest_subject_values(
         "payments", scope=CorpusQuery(collections=["ddbdp"]), limit=3
     )
@@ -50,6 +52,7 @@ def test_suggestions_fuse_local_vectors_and_report_scoped_coverage(
     assert suggestions[0].scope_document_count == 1
     assert suggestions[0].coverage == 1.0
     assert suggestions[0].strategy == "semantic"
+    assert not any("subject.value IN" in statement for statement in statements)
     search.close()
 
 

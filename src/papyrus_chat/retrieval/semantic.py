@@ -3,6 +3,7 @@
 import sqlite3
 import struct
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -45,6 +46,13 @@ class SubjectSuggestion(BaseModel):
         return self.scoped_document_count / self.scope_document_count
 
 
+@dataclass(frozen=True)
+class SubjectScopeStats:
+    scope_document_count: int
+    annotated_document_count: int
+    scoped_label_counts: dict[str, int]
+
+
 class SemanticSubjectSearch:
     """Fuse lexical vocabulary matching with local dense vectors and scope counts."""
 
@@ -74,11 +82,8 @@ class SemanticSubjectSearch:
             update={"term_groups": (), "subject_groups": (), "limit": 1}
         )
         scope_where, scope_params = self._scope_where(normalized_scope)
-        scope_count = int(
-            self._connection.execute(
-                f"SELECT count(*) FROM documents d WHERE {scope_where}", scope_params
-            ).fetchone()[0]
-        )
+        scope_stats = self._subject_scope_stats(scope_where, scope_params)
+        scope_count = scope_stats.scope_document_count
         rows = self._connection.execute(
             "SELECT subject_id, value, value_norm, document_count FROM semantic_subjects "
             "ORDER BY value_norm, value"
@@ -103,7 +108,7 @@ class SemanticSubjectSearch:
         ranked.sort(key=lambda item: (-item[0], item[1]["value_norm"], item[1]["value"]))
         suggestions: list[SubjectSuggestion] = []
         for score, row, strategy in ranked:
-            scoped_count = self._subject_count(row["value"], normalized_scope)
+            scoped_count = scope_stats.scoped_label_counts.get(row["value"], 0)
             if scoped_count == 0:
                 continue
             suggestions.append(
@@ -127,24 +132,62 @@ class SemanticSubjectSearch:
         where, params = document_scope_where(scope)
         return " AND ".join(where), params
 
-    def _subject_count(self, value: str, scope: CorpusQuery) -> int:
-        where, params = self._scope_where(scope)
-        placeholders = "?"
-        params.extend([value, value])
-        return int(
-            self._connection.execute(
-                f"SELECT count(*) FROM documents d WHERE {where} AND d.document_id IN ("
-                "SELECT owner.document_id FROM components owner JOIN metadata subject "
-                "ON subject.component_id = owner.component_id "
-                "WHERE owner.document_id IS NOT NULL AND subject.key = 'subject' "
-                f"AND subject.value IN ({placeholders}) "
-                "UNION SELECT ddbdp.document_id FROM components ddbdp JOIN component_links link "
-                "ON link.ddbdp_component_id = ddbdp.component_id JOIN metadata subject "
-                "ON subject.component_id = link.hgv_component_id "
-                "WHERE ddbdp.document_id IS NOT NULL AND subject.key = 'subject' "
-                f"AND subject.value IN ({placeholders}))",
-                params,
-            ).fetchone()[0]
+    def _subject_scope_stats(
+        self, scope_where: str, scope_params: list[object]
+    ) -> SubjectScopeStats:
+        rows = self._connection.execute(
+            f"""
+            WITH scoped_documents AS (
+                SELECT d.document_id FROM documents d WHERE {scope_where}
+            ), subject_documents AS (
+                SELECT owner.document_id, subject.value
+                FROM components owner
+                JOIN metadata subject ON subject.component_id = owner.component_id
+                WHERE owner.document_id IS NOT NULL AND subject.key = 'subject'
+                UNION
+                SELECT ddbdp.document_id, subject.value
+                FROM components ddbdp
+                JOIN component_links link ON link.ddbdp_component_id = ddbdp.component_id
+                JOIN metadata subject ON subject.component_id = link.hgv_component_id
+                WHERE ddbdp.document_id IS NOT NULL AND subject.key = 'subject'
+            ), scoped_subject_documents AS (
+                SELECT DISTINCT scoped.document_id, subjects.value
+                FROM scoped_documents scoped
+                JOIN subject_documents subjects ON subjects.document_id = scoped.document_id
+            ), label_counts AS (
+                SELECT value, count(*) AS document_count
+                FROM scoped_subject_documents
+                GROUP BY value
+            )
+            SELECT
+                (SELECT count(*) FROM scoped_documents) AS scope_document_count,
+                (SELECT count(DISTINCT document_id) FROM scoped_subject_documents)
+                    AS annotated_document_count,
+                label_counts.value,
+                label_counts.document_count
+            FROM label_counts
+            UNION ALL
+            SELECT
+                (SELECT count(*) FROM scoped_documents),
+                (SELECT count(DISTINCT document_id) FROM scoped_subject_documents),
+                NULL,
+                NULL
+            WHERE NOT EXISTS (SELECT 1 FROM label_counts)
+            ORDER BY value
+            """,
+            scope_params,
+        ).fetchall()
+        if not rows:
+            return SubjectScopeStats(0, 0, {})
+        first = rows[0]
+        return SubjectScopeStats(
+            scope_document_count=int(first["scope_document_count"]),
+            annotated_document_count=int(first["annotated_document_count"]),
+            scoped_label_counts={
+                str(row["value"]): int(row["document_count"])
+                for row in rows
+                if row["value"] is not None
+            },
         )
 
     @staticmethod
