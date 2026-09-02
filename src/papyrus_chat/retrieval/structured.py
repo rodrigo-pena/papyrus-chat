@@ -91,6 +91,11 @@ class CorpusQuery(BaseModel):
         "stems (e.g. Greek augmented διεσ- vs unaugmented δια-) do not match. A flat list of "
         "strings is not accepted: every group must itself be a list of terms.",
     )
+    subject_groups: tuple[tuple[str, ...], ...] = Field(
+        default=(),
+        description="Up to 8 groups of exact HGV subject labels (OR within a group, AND "
+        "between groups). Use semantic suggestions to discover labels before filtering.",
+    )
     fields: tuple[CorpusField, ...] = Field(
         default=("transcription", "translation", "title", "metadata"),
         description="Fields to search; a non-empty subset of title, metadata, transcription, "
@@ -195,6 +200,39 @@ class CorpusQuery(BaseModel):
                 if term.casefold() not in {entry.casefold() for entry in terms}:
                     terms.append(term)
             groups.append(tuple(terms))
+        return tuple(groups)
+
+    @field_validator("subject_groups", mode="before")
+    @classmethod
+    def normalize_subject_groups(cls, value: object) -> tuple[tuple[str, ...], ...]:
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            decoded = _loads_json_text(value)
+            if isinstance(decoded, (list, tuple)):
+                value = decoded
+        if not isinstance(value, (list, tuple)):
+            raise ValueError("subject_groups must be a list of subject-label lists")
+        if len(value) > 8:
+            raise ValueError("at most 8 subject groups are allowed")
+        groups: list[tuple[str, ...]] = []
+        for raw_group in value:
+            if not isinstance(raw_group, (list, tuple)) or not raw_group:
+                raise ValueError("each subject group must contain at least one label")
+            if len(raw_group) > 32:
+                raise ValueError("each subject group may contain at most 32 labels")
+            labels: list[str] = []
+            for raw_label in raw_group:
+                if not isinstance(raw_label, str):
+                    raise ValueError("subject labels must be strings")
+                label = " ".join(raw_label.split())
+                if not label:
+                    raise ValueError("subject labels must be non-empty")
+                if len(label) > 300:
+                    raise ValueError("subject labels may contain at most 300 characters")
+                if label.casefold() not in {entry.casefold() for entry in labels}:
+                    labels.append(label)
+            groups.append(tuple(labels))
         return tuple(groups)
 
 
@@ -494,6 +532,8 @@ class StructuredCorpusSearch:
         for group in query.term_groups:
             alternatives = self._term_group_conditions(group, query.fields, params)
             where.append("(" + " OR ".join(alternatives) + ")" if alternatives else "0 = 1")
+        for group in query.subject_groups:
+            where.append(self._subject_group_condition(group, params))
         if query.transcription_languages:
             placeholders = ", ".join("?" for _ in query.transcription_languages)
             where.append(
@@ -527,6 +567,25 @@ class StructuredCorpusSearch:
             )
             params.extend([query.date_interval.not_after, query.date_interval.not_before])
         return where, params
+
+    @staticmethod
+    def _subject_group_condition(group: tuple[str, ...], params: list[object]) -> str:
+        placeholders = ", ".join("?" for _ in group)
+        params.extend([*group, *group])
+        return (
+            "d.document_id IN ("
+            "SELECT owner.document_id FROM components owner "
+            "JOIN metadata subject ON subject.component_id = owner.component_id "
+            "WHERE owner.document_id IS NOT NULL AND subject.key = 'subject' "
+            f"AND subject.value IN ({placeholders}) "
+            "UNION "
+            "SELECT ddbdp.document_id FROM components ddbdp "
+            "JOIN component_links link ON link.ddbdp_component_id = ddbdp.component_id "
+            "JOIN metadata subject ON subject.component_id = link.hgv_component_id "
+            "WHERE ddbdp.document_id IS NOT NULL AND subject.key = 'subject' "
+            f"AND subject.value IN ({placeholders})"
+            ")"
+        )
 
     def _term_group_conditions(
         self,

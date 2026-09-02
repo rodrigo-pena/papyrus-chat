@@ -97,6 +97,7 @@ def test_query_normalizes_filters_and_preserves_lexical_groups() -> None:
         transcription_languages=["GRC"],
         date_interval=CorpusDateInterval(not_before=100, not_after=125),
         limit=7,
+        subject_groups=[[" Geld ", "geld"], ["Liste"]],
     )
 
     assert query.collections == ("dclp", "ddbdp")
@@ -105,6 +106,7 @@ def test_query_normalizes_filters_and_preserves_lexical_groups() -> None:
     assert query.transcription_languages == ("grc",)
     assert query.date_interval == CorpusDateInterval(not_before=100, not_after=125)
     assert query.limit == 7
+    assert query.subject_groups == (("Geld",), ("Liste",))
 
 
 def test_query_rejects_unbounded_or_empty_groups() -> None:
@@ -257,6 +259,21 @@ def test_metadata_and_date_filters_use_linked_hgv_data(
 
     title_only = documentary_search.query(CorpusQuery(term_groups=[["Geld"]], fields=["title"]))
     assert title_only.candidate_count == 0
+
+
+def test_subject_groups_filter_exact_linked_hgv_labels(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    result = documentary_search.query(CorpusQuery(subject_groups=[["Geld"]], fields=["metadata"]))
+
+    assert result.candidate_count == 1
+    assert result.hits[0].document_id == "ddbdp:DDbDP/27/27093.xml"
+    assert (
+        documentary_search.query(
+            CorpusQuery(subject_groups=[["geld"]], fields=["metadata"])
+        ).candidate_count
+        == 0
+    )
 
     metadata_only = documentary_search.query(
         CorpusQuery(term_groups=[["Terentianus to"]], fields=["metadata"])
