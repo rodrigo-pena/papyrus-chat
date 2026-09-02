@@ -1,6 +1,6 @@
 [project]
 name = "papyrus-chat"
-version = "0.2.0"
+version = "0.3.0"
 description = "Searchable corpus artifact and evidence-grounded chat over papyri/idp.data collections (proof of concept)"
 readme = "README.md"
 requires-python = ">=3.12"
