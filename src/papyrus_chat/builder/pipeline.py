@@ -253,6 +253,7 @@ def build_artifact(
             identifiers=identifiers,
             components=components,
             links=links,
+            semantic_index=semantic_build.manifest if semantic_build is not None else None,
         )
 
         LOGGER.info(

@@ -20,6 +20,7 @@ import json
 from collections.abc import Iterable
 from pathlib import Path
 
+from papyrus_chat.artifact.manifest import SemanticIndexInfo
 from papyrus_chat.artifact.records import (
     ComponentLinkRecord,
     ComponentRecord,
@@ -54,6 +55,7 @@ def logical_content_hash(
     identifiers: Iterable[IdentifierRecord],
     components: Iterable[ComponentRecord] = (),
     links: Iterable[ComponentLinkRecord] = (),
+    semantic_index: SemanticIndexInfo | None = None,
 ) -> str:
     documents = sorted(documents, key=lambda d: d.document_id)
     passages = sorted(passages, key=lambda p: p.passage_id)
@@ -78,5 +80,7 @@ def logical_content_hash(
         payload["components"] = [component.model_dump(mode="json") for component in components]
     if links:
         payload["links"] = [link.model_dump(mode="json") for link in links]
+    if semantic_index is not None:
+        payload["semantic_index"] = semantic_index.model_dump(mode="json")
     digest = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
