@@ -145,7 +145,6 @@ bottlenecks are recorded in [docs/performance.md](docs/performance.md).
 - Can you summarize the kinds/categories of taxes attested in these documents?
 - How were taxes collected in the Early Arab period in Egypt, based on the Greek papyri in the corpus?
 
-
 ## Development
 
 ```console

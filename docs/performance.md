@@ -68,10 +68,10 @@ uv run papyrus-corpus-build ddbdp \
   --output ./data/ddbdp
 ```
 
-| Measurement                       | Result                         | Target   | Status |
-| --------------------------------- | ------------------------------ | -------- | ------ |
-| DDbDP build with semantic vectors | 115.36 s (1 min 55 s)          | ≤ 2 min  | pass   |
-| Resulting artifact size           | 2,616,737,301 bytes (~2.62 GB) | observe  | —      |
+| Measurement                       | Result                         | Target  | Status |
+| --------------------------------- | ------------------------------ | ------- | ------ |
+| DDbDP build with semantic vectors | 115.36 s (1 min 55 s)          | ≤ 2 min | pass   |
+| Resulting artifact size           | 2,616,737,301 bytes (~2.62 GB) | observe | —      |
 
 The artifact-size increase is expected: the portable semantic model snapshot
 is bundled alongside the corpus, subject vocabulary, and float32 embeddings.
