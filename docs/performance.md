@@ -56,6 +56,26 @@ verification run used the same no-per-file-process strategy; the reader was
 then hardened to use commit objects rather than checked-out file bytes so a
 dirty or concurrently changed cache cannot affect reproducibility.
 
+## Schema-v3 DDbDP semantic build
+
+An observed build on an Apple M5 Max MacBook Pro bundled the local multilingual
+embedding model and generated semantic subject vectors with the following
+command:
+
+```console
+uv run papyrus-corpus-build ddbdp \
+  --semantic-model-dir ./models/multilingual-e5-small \
+  --output ./data/ddbdp
+```
+
+| Measurement                       | Result                         | Target   | Status |
+| --------------------------------- | ------------------------------ | -------- | ------ |
+| DDbDP build with semantic vectors | 115.36 s (1 min 55 s)          | ≤ 2 min  | pass   |
+| Resulting artifact size           | 2,616,737,301 bytes (~2.62 GB) | observe  | —      |
+
+The artifact-size increase is expected: the portable semantic model snapshot
+is bundled alongside the corpus, subject vocabulary, and float32 embeddings.
+
 ## v2 validation
 
 The automated coverage builds the paired real-source DDbDP/HGV fixture,
