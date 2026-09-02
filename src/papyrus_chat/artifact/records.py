@@ -58,7 +58,7 @@ class ComponentDateRecord(BaseModel):
 
 
 class ComponentRecord(BaseModel):
-    """Normalized component data persisted in artifact schema v2."""
+    """Normalized component data persisted in artifact schema v3."""
 
     model_config = ConfigDict(frozen=True)
 

@@ -72,6 +72,11 @@ def validate_artifact(root: Path) -> None:
                 *manifest.semantic_index.model_files,
             }
             for relative in sorted(indexed_files):
+                relative_path = Path(relative)
+                if relative_path.is_absolute() or ".." in relative_path.parts:
+                    raise ArtifactInvalid(
+                        f"Semantic index file path must stay inside the artifact: {relative}"
+                    )
                 candidate = root / relative
                 if not candidate.is_file():
                     raise ArtifactInvalid(f"Semantic index file is missing: {relative}")

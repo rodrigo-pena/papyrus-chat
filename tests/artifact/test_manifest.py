@@ -137,3 +137,12 @@ class TestValidateArtifact:
 
         with pytest.raises(ArtifactInvalid, match=r"passage_languages.*Rebuild.*0\.3\.0"):
             validate_artifact(root)
+
+    def test_semantic_index_paths_cannot_escape_artifact(self, tmp_path: Path) -> None:
+        semantic = make_semantic_index().model_copy(update={"subjects_file": "../subjects.jsonl"})
+        root = write_artifact(
+            tmp_path / "artifact", make_manifest().model_copy(update={"semantic_index": semantic})
+        )
+
+        with pytest.raises(ArtifactInvalid, match="stay inside"):
+            validate_artifact(root)

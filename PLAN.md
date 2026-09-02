@@ -11,7 +11,7 @@ Do not maintain an Egyptian-calendar vocabulary or other domain glossary. The ag
 ## Public Contracts
 
 - `papyrus-corpus-build` accepts `ddbdp`; selecting it implicitly fetches `DDbDP/` and `HGV_meta_EpiDoc/`. HGV remains linked metadata rather than a user-visible collection.
-- Artifact schema v2 replaces v1; old artifacts receive an actionable rebuild message rather than an in-place migration.
+- Artifact schema v3 replaces v2; old artifacts receive an actionable rebuild message rather than an in-place migration. It can bundle a portable HGV subject vocabulary index.
 - `papyrus-chat` keeps its existing artifact, host, port, and provider environment interface, but requires reliable function/tool calling.
 - The old `/search`, `/documents/...`, and `/chat` pages are removed. The stock UI owns `/`, `/{thread_id}`, `/api/chat`, `/api/configure`, and `/api/health`.
 - New immutable interfaces:
@@ -19,7 +19,7 @@ Do not maintain an Egyptian-calendar vocabulary or other domain glossary. The ag
     - `CorpusHit`: document metadata, matched passage and locator, provenance, and canonical papyri.info URL.
     - `CorpusQueryResult`: normalized query, disclosed assumptions, exact candidate count, truncation state, and ranked hits.
 - Read-only agent tools: `describe_corpus`, `search_documents`, `inspect_documents`, `facet_documents`, and `suggest_subject_values`. No arbitrary SQL, filesystem, or code-execution tool is exposed.
-- Register Pydantic AI’s provider-native web-search capability where the configured model supports it; otherwise rely on model knowledge. No custom search provider or additional search API key is introduced. [Native tool support](https://pydantic.dev/docs/ai/guides/web/#native-tool-support)
+- Register Pydantic AI’s provider-native web-search capability where the configured model supports it; otherwise offer an explicit DuckDuckGo terminology fallback. Web results never contribute corpus counts or citations. [Native tool support](https://pydantic.dev/docs/ai/guides/web/#native-tool-support)
 
 Every answer must:
 
@@ -50,7 +50,7 @@ Every answer must:
 
 5. `feat(agent): expose read-only corpus research tools`
 
-    Wrap retrieval in the four typed Pydantic AI tools. Return the complete normalized query with each result so follow-up turns can reuse and refine "this corpus." Enforce limits on groups, terms, text length, result count, inspected documents, and excerpts.
+    Wrap retrieval in the five typed Pydantic AI tools, including scoped semantic subject suggestions. Return the complete normalized query with each result so follow-up turns can reuse and refine "this corpus." Enforce limits on groups, terms, text length, result count, inspected documents, and excerpts.
 
 6. `feat(agent): adopt the Pydantic AI runtime`
 
