@@ -22,6 +22,8 @@ REQUIRED_TABLES = {
     "components",
     "component_identifiers",
     "metadata",
+    "semantic_subjects",
+    "semantic_subjects_fts",
     "dates",
     "languages",
     "component_links",
@@ -60,8 +62,26 @@ def validate_artifact(root: Path) -> None:
             raise ArtifactInvalid(
                 f"SQLite artifact is missing schema v{ARTIFACT_SCHEMA_VERSION} table(s): "
                 + ", ".join(missing_tables)
-                + ". Rebuild this artifact with papyrus-corpus-build 0.2.1 or newer."
+                + ". Rebuild this artifact with papyrus-corpus-build 0.3.0 or newer."
             )
+        manifest = load_manifest(root / MANIFEST_FILENAME)
+        if manifest.semantic_index is not None:
+            indexed_files = {
+                manifest.semantic_index.subjects_file,
+                manifest.semantic_index.embeddings_file,
+                *manifest.semantic_index.model_files,
+            }
+            for relative in sorted(indexed_files):
+                candidate = root / relative
+                if not candidate.is_file():
+                    raise ArtifactInvalid(f"Semantic index file is missing: {relative}")
+                expected = manifest.semantic_index.file_hashes.get(relative)
+                if expected is not None:
+                    from papyrus_chat.artifact.hashing import file_sha256
+
+                    actual = file_sha256(candidate)
+                    if actual != expected:
+                        raise ArtifactInvalid(f"Semantic index file hash mismatch: {relative}")
         violations = connection.execute("PRAGMA foreign_key_check").fetchall()
         if violations:
             raise ArtifactInvalid(f"Foreign-key violations in {database}: {len(violations)} row(s)")

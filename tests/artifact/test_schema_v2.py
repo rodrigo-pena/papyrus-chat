@@ -28,7 +28,7 @@ def test_ddbdp_build_persists_linked_components_and_distinct_document_fts(
     )
 
     manifest = json.loads((result.output_dir / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["artifact_schema_version"] == 2
+    assert manifest["artifact_schema_version"] == 3
     assert manifest["collections"] == ["ddbdp"]
     assert manifest["statistics"]["components"] == 2
     assert manifest["statistics"]["links"] == 1
@@ -48,6 +48,8 @@ def test_ddbdp_build_persists_linked_components_and_distinct_document_fts(
         "languages",
         "component_links",
         "documents_fts",
+        "semantic_subjects",
+        "semantic_subjects_fts",
         "passages_fts",
         "passage_languages",
     } <= tables

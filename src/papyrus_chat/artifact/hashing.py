@@ -18,6 +18,7 @@ required.
 import hashlib
 import json
 from collections.abc import Iterable
+from pathlib import Path
 
 from papyrus_chat.artifact.records import (
     ComponentLinkRecord,
@@ -30,6 +31,15 @@ from papyrus_chat.artifact.records import (
 
 def canonical_json(payload: object) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def file_sha256(path: Path) -> str:
+    """Return a stable SHA-256 digest for a portable artifact file."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def logical_content_hash(

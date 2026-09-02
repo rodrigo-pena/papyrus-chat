@@ -9,6 +9,7 @@ from papyrus_chat.artifact.manifest import (
     ArtifactManifest,
     BuilderInfo,
     ManifestSource,
+    SemanticIndexInfo,
     Statistics,
     load_manifest,
     save_manifest,
@@ -29,6 +30,18 @@ def make_manifest() -> ArtifactManifest:
         statistics=Statistics(documents=2, passages=3, parse_errors=0),
         logical_content_hash="sha256:abc123",
         created_at="2026-08-31T00:00:00Z",
+    )
+
+
+def make_semantic_index() -> SemanticIndexInfo:
+    return SemanticIndexInfo(
+        model_id="intfloat/multilingual-e5-small",
+        revision="a" * 40,
+        dimensions=384,
+        subject_count=2,
+        subjects_file="semantic/subjects.jsonl",
+        embeddings_file="semantic/subjects.f32",
+        model_files=["semantic/model/model.onnx"],
     )
 
 
@@ -61,6 +74,10 @@ class TestManifest:
 
         assert manifest.collections == ["dclp", "translations"]
 
+    def test_semantic_index_metadata_round_trips(self) -> None:
+        manifest = make_manifest().model_copy(update={"semantic_index": make_semantic_index()})
+        assert ArtifactManifest.model_validate(manifest.model_dump()) == manifest
+
 
 class TestSchemaCompatibility:
     def test_unsupported_major_version_is_rejected(self, tmp_path: Path) -> None:
@@ -73,7 +90,7 @@ class TestSchemaCompatibility:
             load_manifest(path)
 
         message = str(excinfo.value)
-        assert "2" in message
+        assert "3" in message
         assert "1" in message
 
 
@@ -118,5 +135,5 @@ class TestValidateArtifact:
         connection.commit()
         connection.close()
 
-        with pytest.raises(ArtifactInvalid, match=r"passage_languages.*Rebuild.*0\.2\.1"):
+        with pytest.raises(ArtifactInvalid, match=r"passage_languages.*Rebuild.*0\.3\.0"):
             validate_artifact(root)
