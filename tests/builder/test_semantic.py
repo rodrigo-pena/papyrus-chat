@@ -66,5 +66,9 @@ def test_subject_index_is_sorted_and_portable(tmp_path: Path) -> None:
     assert [json.loads(line)["value"] for line in lines] == ["Liste", "Steuern"]
     assert (output / "semantic/model/model.onnx").read_bytes() == b"model"
     assert result.manifest.subject_count == 2
+    assert result.manifest.model_file == "model.onnx"
+    assert result.manifest.query_prefix == "query: "
+    assert result.manifest.passage_prefix == "passage: "
+    assert result.manifest.pooling == "mean"
     assert result.manifest.file_hashes["semantic/subjects.f32"].startswith("sha256:")
     assert len((output / "semantic/subjects.f32").read_bytes()) == 2 * 2 * 4

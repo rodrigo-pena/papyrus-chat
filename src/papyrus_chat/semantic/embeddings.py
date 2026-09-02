@@ -25,6 +25,7 @@ class EmbeddingModelSpec:
     model_file: str
     query_prefix: str = "query: "
     passage_prefix: str = "passage: "
+    pooling: Literal["mean"] = "mean"
 
 
 DEFAULT_EMBEDDING_MODEL = EmbeddingModelSpec(

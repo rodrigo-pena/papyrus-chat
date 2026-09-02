@@ -38,6 +38,7 @@ def make_semantic_index() -> SemanticIndexInfo:
         model_id="intfloat/multilingual-e5-small",
         revision="a" * 40,
         dimensions=384,
+        model_file="onnx/model.onnx",
         subject_count=2,
         subjects_file="semantic/subjects.jsonl",
         embeddings_file="semantic/subjects.f32",

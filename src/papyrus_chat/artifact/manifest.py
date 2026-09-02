@@ -47,6 +47,10 @@ class SemanticIndexInfo(BaseModel):
     model_id: str
     revision: str
     dimensions: int = Field(gt=0)
+    model_file: str
+    query_prefix: str = "query: "
+    passage_prefix: str = "passage: "
+    pooling: Literal["mean"] = "mean"
     metric: Literal["cosine"] = "cosine"
     dtype: Literal["float32"] = "float32"
     subject_count: int = Field(ge=0)
