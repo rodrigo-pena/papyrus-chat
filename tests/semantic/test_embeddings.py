@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -77,3 +78,50 @@ def test_local_encoder_rejects_dimension_mismatch() -> None:
 
     with pytest.raises(ValueError, match="384 dimensions"):
         encoder.encode(("Liste",), kind="passage")
+
+
+def test_local_encoder_registers_each_model_contract_once(monkeypatch, tmp_path: Path) -> None:
+    registrations: list[dict[str, object]] = []
+
+    class FakeTextEmbedding:
+        @classmethod
+        def add_custom_model(cls, **kwargs) -> None:
+            registrations.append(kwargs)
+
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def embed(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
+            return [(1.0, 0.0) for _ in texts]
+
+    fake_fastembed = SimpleNamespace(TextEmbedding=FakeTextEmbedding)
+    fake_description = SimpleNamespace(
+        ModelSource=lambda **kwargs: kwargs,
+        PoolingType=SimpleNamespace(MEAN="mean"),
+    )
+
+    import importlib
+
+    original_import = importlib.import_module
+
+    def fake_import(name: str):
+        if name == "fastembed":
+            return fake_fastembed
+        if name == "fastembed.common.model_description":
+            return fake_description
+        return original_import(name)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+    (tmp_path / "model.onnx").write_bytes(b"fixture")
+    spec = replace(
+        DEFAULT_EMBEDDING_MODEL,
+        model_id="test/registration",
+        dimensions=2,
+        model_file="model.onnx",
+    )
+
+    LocalEmbeddingEncoder(tmp_path, model_spec=spec)
+    LocalEmbeddingEncoder(tmp_path, model_spec=spec)
+
+    assert len(registrations) == 1
+    assert registrations[0]["model_file"] == spec.model_file

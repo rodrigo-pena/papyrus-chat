@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from papyrus_chat.artifact.manifest import SemanticIndexInfo, load_manifest
 from papyrus_chat.retrieval.structured import CorpusQuery
-from papyrus_chat.semantic.embeddings import EmbeddingKind
+from papyrus_chat.semantic.embeddings import EmbeddingKind, EmbeddingModelSpec
 
 
 class QueryEncoder(Protocol):
@@ -193,7 +193,18 @@ class SemanticSubjectSearch:
         if encoder is None:
             from papyrus_chat.semantic.embeddings import LocalEmbeddingEncoder
 
-            encoder = LocalEmbeddingEncoder(self.artifact_root / "semantic/model")
+            model_spec = EmbeddingModelSpec(
+                model_id=semantic.model_id,
+                revision=semantic.revision,
+                dimensions=semantic.dimensions,
+                model_file=semantic.model_file,
+                query_prefix=semantic.query_prefix,
+                passage_prefix=semantic.passage_prefix,
+                pooling=semantic.pooling,
+            )
+            encoder = LocalEmbeddingEncoder(
+                self.artifact_root / "semantic/model", model_spec=model_spec
+            )
             self._encoder = encoder
         query_vector = encoder.encode([concept], kind="query")[0]
         raw = (self.artifact_root / semantic.embeddings_file).read_bytes()

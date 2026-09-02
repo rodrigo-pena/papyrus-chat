@@ -8,11 +8,15 @@ artifacts do not require a model to start.
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from hashlib import sha256
 from math import sqrt
 from pathlib import Path
+from threading import Lock
 from typing import Any, Literal
 
 EmbeddingKind = Literal["query", "passage"]
+_REGISTRATION_LOCK = Lock()
+_REGISTERED_MODELS: dict[tuple[object, ...], str] = {}
 
 
 @dataclass(frozen=True)
@@ -69,7 +73,9 @@ class LocalEmbeddingEncoder:
         self.model_dir = model_dir
         self.model_spec = model_spec
         self._model = (
-            model_factory(model_dir) if model_factory is not None else self._load_model(model_dir)
+            model_factory(model_dir)
+            if model_factory is not None
+            else self._load_model(model_dir, model_spec)
         )
 
     def encode(self, texts: Sequence[str], *, kind: EmbeddingKind) -> tuple[tuple[float, ...], ...]:
@@ -92,7 +98,7 @@ class LocalEmbeddingEncoder:
         return tuple(normalized)
 
     @staticmethod
-    def _load_model(model_dir: Path) -> Any:
+    def _load_model(model_dir: Path, model_spec: EmbeddingModelSpec) -> Any:
         try:
             import importlib
 
@@ -106,7 +112,6 @@ class LocalEmbeddingEncoder:
                 "semantic search requires the fastembed dependency; install the semantic extra"
             ) from error
 
-        model_spec = DEFAULT_EMBEDDING_MODEL
         model_path = model_dir / model_spec.model_file
         if not model_path.is_file():
             raise ValueError(
@@ -114,16 +119,31 @@ class LocalEmbeddingEncoder:
                 f"{model_spec.model_file}"
             )
 
-        TextEmbedding.add_custom_model(
-            model=model_spec.model_id,
-            pooling=PoolingType.MEAN,
-            normalization=True,
-            sources=ModelSource(hf=model_spec.model_id),
-            dim=model_spec.dimensions,
-            model_file=model_spec.model_file,
+        registration_key = (
+            model_spec.model_id,
+            model_spec.revision,
+            model_spec.dimensions,
+            model_spec.model_file,
+            model_spec.query_prefix,
+            model_spec.passage_prefix,
+            model_spec.pooling,
         )
+        with _REGISTRATION_LOCK:
+            model_name = _REGISTERED_MODELS.get(registration_key)
+            if model_name is None:
+                digest = sha256(repr(registration_key).encode("utf-8")).hexdigest()[:16]
+                model_name = f"papyrus-chat-{digest}"
+                TextEmbedding.add_custom_model(
+                    model=model_name,
+                    pooling=PoolingType.MEAN,
+                    normalization=True,
+                    sources=ModelSource(hf=model_spec.model_id),
+                    dim=model_spec.dimensions,
+                    model_file=model_spec.model_file,
+                )
+                _REGISTERED_MODELS[registration_key] = model_name
         return TextEmbedding(
-            model_name=model_spec.model_id,
+            model_name=model_name,
             specific_model_path=str(model_dir),
             local_files_only=True,
         )
