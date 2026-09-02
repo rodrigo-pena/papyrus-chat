@@ -149,15 +149,12 @@ def create_research_agent(
     if selected_model is None:
         api_key = config.api_key.get_secret_value() if config.api_key is not None else None
         provider = OpenAIProvider(base_url=config.base_url, api_key=api_key)
-        if (
-            enable_web_search
-            and enable_native_web_search
-            and model_supports_native_web_search(config.model)
-        ):
+        if model_supports_native_web_search(config.model):
             selected_model = OpenAIResponsesModel(
                 config.model.removeprefix("openai-responses:"), provider=provider
             )
-            capabilities.append(NativeTool(WebSearchTool()))
+            if enable_web_search and enable_native_web_search:
+                capabilities.append(NativeTool(WebSearchTool()))
         else:
             selected_model = OpenAIChatModel(config.model, provider=provider)
 

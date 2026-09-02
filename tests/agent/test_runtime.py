@@ -6,6 +6,7 @@ import pytest
 from pydantic_ai import Agent, ModelRetry
 from pydantic_ai.models.test import TestModel
 
+import papyrus_chat.agent.runtime as runtime
 from papyrus_chat.agent.runtime import (
     RESEARCH_INSTRUCTIONS,
     create_research_agent,
@@ -79,6 +80,33 @@ def test_runtime_registers_tools_without_a_real_model_call(
 def test_native_web_search_is_opted_in_only_for_responses_models() -> None:
     assert model_supports_native_web_search("openai-responses:gpt-5.2")
     assert not model_supports_native_web_search("gpt-5.2")
+
+
+def test_responses_prefix_selects_transport_without_enabling_web_search(
+    tool_service: CorpusToolService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected_models: list[str] = []
+
+    def responses_model(model_name: str, *, provider: object) -> TestModel:
+        selected_models.append(model_name)
+        return TestModel()
+
+    def chat_model(model_name: str, *, provider: object) -> TestModel:
+        pytest.fail(f"Responses model was passed to chat transport: {model_name}")
+
+    monkeypatch.setattr(runtime, "OpenAIResponsesModel", responses_model)
+    monkeypatch.setattr(runtime, "OpenAIChatModel", chat_model)
+
+    create_research_agent(
+        ProviderConfig(
+            base_url="https://provider.example/v1",
+            model="openai-responses:Qwen3.8-27B-oQ4e-mtp",
+            api_key="test-key",
+        ),
+        tool_service,
+    )
+
+    assert selected_models == ["Qwen3.8-27B-oQ4e-mtp"]
 
 
 def test_provider_neutral_web_search_is_opt_in(tool_service: CorpusToolService) -> None:
