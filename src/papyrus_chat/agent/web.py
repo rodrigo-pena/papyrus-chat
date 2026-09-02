@@ -22,7 +22,9 @@ def search_web_terminology(
 ) -> WebTerminologyResult:
     """Look up terminology/background; never use results as corpus evidence."""
     try:
-        from ddgs import DDGS
+        import importlib
+
+        DDGS = importlib.import_module("ddgs").DDGS
     except ImportError as error:  # pragma: no cover - optional runtime dependency
         raise RuntimeError(
             "web terminology search requires the web-search dependency; install the web extra"

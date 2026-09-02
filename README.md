@@ -61,14 +61,36 @@ diagnostic logging.
 
 Selecting `ddbdp` automatically fetches both `DDbDP/` and the linked
 `HGV_meta_EpiDoc/` records. HGV is stored as documentary metadata, not as a
-separate user-facing collection. The artifact is schema v2; an older artifact
+separate user-facing collection. The artifact is schema v3; an older artifact
 is rejected with an actionable rebuild message.
+
+Semantic subject suggestions are vocabulary-first and local. To bundle them,
+install the semantic extra and point the builder at a downloaded FastEmbed
+model snapshot:
+
+```console
+uv sync --extra semantic
+uv run papyrus-corpus-build dclp ddbdp translations \
+  --semantic-model-dir ./models/multilingual-e5-small \
+  --output ./data/papyrus-corpus
+```
+
+The builder stores normalized HGV subject labels, float32 vectors, the model
+snapshot, and file digests in the artifact. Chat-time queries use the same
+local model and fuse lexical vocabulary matches with dense ranking. Suggested
+labels are then applied as exact HGV subject filters, so the assistant can
+report both narrow and broader cohorts with exact counts and annotation
+coverage. This is exploratory discovery, not a claim of exhaustive scholarly
+classification; document and passage embeddings, GraphRAG, and persistent
+relevance feedback are intentionally deferred.
 
 `papyrus-chat` validates the artifact, binds to `127.0.0.1:8000`, and opens
 the stock Pydantic AI chat UI. The UI provides persistent browser threads,
 streaming responses, and visible tool activity. The application is local,
 single-user, read-only, and does not maintain bespoke search or document
-routes; research happens through the assistant's four corpus tools.
+routes; research happens through the assistant's five read-only corpus tools.
+Semantic suggestions are a planning aid; corpus counts and citations still
+come only from exact local queries and inspections.
 
 The configured endpoint must support reliable function/tool calling. A
 plain-text-only completion endpoint cannot invoke corpus retrieval. For a
@@ -79,10 +101,11 @@ the `openai-responses:` model prefix:
 export LLM_MODEL="openai-responses:model-name"
 ```
 
-Native web search is optional and requires no additional search API key. When
-it is unavailable, the assistant may use model knowledge for terminology or
-historical context, but must label that material as model-supplied background;
-web results never replace local corpus evidence.
+Native web search is optional and requires no additional search API key. For
+generic OpenAI-compatible endpoints, pass `--web-search` to enable the
+provider-neutral DuckDuckGo terminology tool (`uv sync --extra web`). It is
+disabled by default, is intended only for terminology/background, and web
+results never replace local corpus evidence or contribute to counts.
 
 ### Research answer semantics
 
@@ -104,6 +127,7 @@ uv run papyrus-corpus-build COLLECTION... [OPTIONS]
 # --source        Git URL (default upstream) or a local idp.data Git checkout
 # --ref           branch, tag, or commit to build from (default master)
 # --force         replace an existing artifact at exactly the given path
+# --semantic-model-dir  local FastEmbed model snapshot to bundle for subject suggestions
 # --list-collections
 # -v, --verbose   include detailed diagnostic logging
 ```

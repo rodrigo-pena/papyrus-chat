@@ -37,13 +37,14 @@ DEFAULT_EMBEDDING_MODEL = EmbeddingModelSpec(
 )
 
 
-def prefixed_texts(texts: Sequence[str], *, kind: EmbeddingKind) -> tuple[str, ...]:
+def prefixed_texts(
+    texts: Sequence[str],
+    *,
+    kind: EmbeddingKind,
+    model_spec: EmbeddingModelSpec = DEFAULT_EMBEDDING_MODEL,
+) -> tuple[str, ...]:
     """Apply E5's asymmetric query/passage prefixes to non-empty texts."""
-    prefix = (
-        DEFAULT_EMBEDDING_MODEL.query_prefix
-        if kind == "query"
-        else DEFAULT_EMBEDDING_MODEL.passage_prefix
-    )
+    prefix = model_spec.query_prefix if kind == "query" else model_spec.passage_prefix
     result: list[str] = []
     for text in texts:
         cleaned = " ".join(text.split())
@@ -70,7 +71,7 @@ class LocalEmbeddingEncoder:
         )
 
     def encode(self, texts: Sequence[str], *, kind: EmbeddingKind) -> tuple[tuple[float, ...], ...]:
-        prepared = prefixed_texts(texts, kind=kind)
+        prepared = prefixed_texts(texts, kind=kind, model_spec=self.model_spec)
         vectors = tuple(self._model.embed(prepared))
         if len(vectors) != len(prepared):
             raise ValueError("embedding backend returned the wrong number of vectors")
@@ -91,8 +92,13 @@ class LocalEmbeddingEncoder:
     @staticmethod
     def _load_model(model_dir: Path) -> Any:
         try:
-            from fastembed import TextEmbedding
-            from fastembed.common.model_description import ModelSource, PoolingType
+            import importlib
+
+            fastembed = importlib.import_module("fastembed")
+            model_description = importlib.import_module("fastembed.common.model_description")
+            TextEmbedding = fastembed.TextEmbedding
+            ModelSource = model_description.ModelSource
+            PoolingType = model_description.PoolingType
         except ImportError as error:  # pragma: no cover - exercised without optional dependency
             raise RuntimeError(
                 "semantic search requires the fastembed dependency; install the semantic extra"

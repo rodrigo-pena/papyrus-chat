@@ -3,6 +3,7 @@
 import json
 import sqlite3
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -38,7 +39,7 @@ class EmptySemanticEncoder:
         model_id="test/model", revision="c" * 40, dimensions=2, model_file="model.onnx"
     )
 
-    def encode(self, texts: list[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
+    def encode(self, texts: Sequence[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
         assert kind == "passage"
         return tuple((1.0, 0.0) for _ in texts)
 

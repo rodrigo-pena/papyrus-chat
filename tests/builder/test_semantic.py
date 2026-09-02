@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from papyrus_chat.artifact.records import (
@@ -15,7 +16,7 @@ class FakeEncoder:
         model_id="test/model", revision="b" * 40, dimensions=2, model_file="model.onnx"
     )
 
-    def encode(self, texts: list[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
+    def encode(self, texts: Sequence[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
         assert kind == "passage"
         return tuple((float(index + 1), 0.0) for index, _ in enumerate(texts))
 

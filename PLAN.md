@@ -18,7 +18,7 @@ Do not maintain an Egyptian-calendar vocabulary or other domain glossary. The ag
     - `CorpusQuery`: collections, OR-within/AND-between term groups, fields, transcription languages, inferred date interval, and bounded result limit.
     - `CorpusHit`: document metadata, matched passage and locator, provenance, and canonical papyri.info URL.
     - `CorpusQueryResult`: normalized query, disclosed assumptions, exact candidate count, truncation state, and ranked hits.
-- Read-only agent tools: `describe_corpus`, `search_documents`, `inspect_documents`, and `facet_documents`. No arbitrary SQL, filesystem, or code-execution tool is exposed.
+- Read-only agent tools: `describe_corpus`, `search_documents`, `inspect_documents`, `facet_documents`, and `suggest_subject_values`. No arbitrary SQL, filesystem, or code-execution tool is exposed.
 - Register Pydantic AI’s provider-native web-search capability where the configured model supports it; otherwise rely on model knowledge. No custom search provider or additional search API key is introduced. [Native tool support](https://pydantic.dev/docs/ai/guides/web/#native-tool-support)
 
 Every answer must:
@@ -91,4 +91,4 @@ Each implementation commit includes its focused tests and must leave `pytest`, R
 - Corpus evidence always comes from the pinned local artifact; web results may inform terminology but never replace papyrus evidence.
 - Counts describe the displayed lexical/structured query and are not advertised as exhaustive scholarly classifications.
 - The application remains local, single-user, read-only, and CDN-dependent on first UI use.
-- Embeddings, GraphRAG, a custom frontend, authentication, hosted deployment, and publication-grade completeness remain out of scope.
+- Document/passage embeddings, GraphRAG, persistent relevance feedback, a custom frontend, authentication, hosted deployment, and publication-grade completeness remain out of scope. Schema-v3 bundles an optional local HGV-subject vocabulary index for exploratory cohort discovery.

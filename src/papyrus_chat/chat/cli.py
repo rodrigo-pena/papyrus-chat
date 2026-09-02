@@ -71,7 +71,7 @@ def serve(
         "Loading chat application",
         extra={"event": "chat_application_load_started"},
     )
-    chat_app = load_app(artifact, enable_web_search=web_search)
+    chat_app = load_app(artifact, enable_web_search=True) if web_search else load_app(artifact)
 
     if not no_open:
         LOGGER.info(

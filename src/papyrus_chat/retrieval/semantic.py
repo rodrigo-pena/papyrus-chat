@@ -8,7 +8,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from papyrus_chat.artifact.manifest import load_manifest
+from papyrus_chat.artifact.manifest import SemanticIndexInfo, load_manifest
 from papyrus_chat.retrieval.structured import CorpusQuery
 from papyrus_chat.semantic.embeddings import EmbeddingKind
 
@@ -186,7 +186,7 @@ class SemanticSubjectSearch:
         return {item[3]: rank for rank, item in enumerate(scored, start=1)}
 
     def _dense_ranks(
-        self, concept: str, rows: Sequence[sqlite3.Row], manifest: object
+        self, concept: str, rows: Sequence[sqlite3.Row], manifest: SemanticIndexInfo
     ) -> tuple[dict[int, int], dict[str, float]]:
         semantic = manifest
         encoder = self._encoder

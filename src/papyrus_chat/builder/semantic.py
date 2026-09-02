@@ -2,6 +2,7 @@
 
 import json
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -16,7 +17,9 @@ from papyrus_chat.textnorm import normalize_identifier_value
 class SubjectEncoder(Protocol):
     model_spec: EmbeddingModelSpec
 
-    def encode(self, texts: list[str], *, kind: EmbeddingKind) -> tuple[tuple[float, ...], ...]: ...
+    def encode(
+        self, texts: Sequence[str], *, kind: EmbeddingKind
+    ) -> tuple[tuple[float, ...], ...]: ...
 
 
 @dataclass(frozen=True)

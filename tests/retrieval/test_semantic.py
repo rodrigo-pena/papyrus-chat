@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 from papyrus_chat.builder.pipeline import build_artifact
@@ -12,7 +13,7 @@ class FixtureEncoder:
         model_id="test/model", revision="d" * 40, dimensions=2, model_file="model.onnx"
     )
 
-    def encode(self, texts: list[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
+    def encode(self, texts: Sequence[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
         vectors = []
         for text in texts:
             lowered = text.casefold()

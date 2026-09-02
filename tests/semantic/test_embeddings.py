@@ -6,6 +6,7 @@ import pytest
 
 from papyrus_chat.semantic.embeddings import (
     DEFAULT_EMBEDDING_MODEL,
+    EmbeddingKind,
     LocalEmbeddingEncoder,
     prefixed_texts,
 )
@@ -30,9 +31,14 @@ def test_default_model_is_pinned_and_portable() -> None:
     ],
 )
 def test_e5_prefixes_are_applied(
-    kind: str, texts: tuple[str, ...], expected: tuple[str, ...]
+    kind: EmbeddingKind, texts: tuple[str, ...], expected: tuple[str, ...]
 ) -> None:
     assert prefixed_texts(texts, kind=kind) == expected
+
+
+def test_custom_model_prefixes_are_used() -> None:
+    custom = replace(DEFAULT_EMBEDDING_MODEL, query_prefix="q: ", passage_prefix="p: ")
+    assert prefixed_texts(("text",), kind="query", model_spec=custom) == ("q: text",)
 
 
 def test_empty_text_is_rejected() -> None:
