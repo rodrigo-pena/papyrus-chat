@@ -14,6 +14,7 @@ from papyrus_chat.semantic.embeddings import (
 
 def test_default_model_is_pinned_and_portable() -> None:
     assert DEFAULT_EMBEDDING_MODEL.model_id == "intfloat/multilingual-e5-small"
+    assert DEFAULT_EMBEDDING_MODEL.revision == "4a4cddf9cf6d77a61cc1c73f824ec2127773db85"
     assert DEFAULT_EMBEDDING_MODEL.dimensions == 384
     assert DEFAULT_EMBEDDING_MODEL.model_file == "onnx/model_O4.onnx"
     assert DEFAULT_EMBEDDING_MODEL.revision

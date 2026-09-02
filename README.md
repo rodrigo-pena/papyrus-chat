@@ -64,10 +64,14 @@ Selecting `ddbdp` automatically fetches both `DDbDP/` and the linked
 separate user-facing collection. The artifact is schema v3; an older artifact
 is rejected with an actionable rebuild message.
 
-To bundle semantic subject suggestions, install the semantic extra and point the builder at a downloaded FastEmbed model snapshot:
+To bundle semantic subject suggestions, install the semantic extra and point the builder at a
+downloaded FastEmbed model snapshot for the pinned revision:
 
 ```console
 uv sync --extra semantic
+hf download intfloat/multilingual-e5-small \
+  --revision 4a4cddf9cf6d77a61cc1c73f824ec2127773db85 \
+  --local-dir ./models/multilingual-e5-small
 uv run papyrus-corpus-build dclp ddbdp translations \
   --semantic-model-dir ./models/multilingual-e5-small \
   --output ./data/papyrus-corpus

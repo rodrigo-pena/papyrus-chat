@@ -29,9 +29,10 @@ class EmbeddingModelSpec:
 
 DEFAULT_EMBEDDING_MODEL = EmbeddingModelSpec(
     model_id="intfloat/multilingual-e5-small",
-    # The revision is deliberately explicit; builders replace this with the
-    # resolved snapshot used for the portable artifact.
-    revision="fd1525a9fd15316a2d503bf26ab031a61d056e98",
+    # This revision contains the optimized ONNX file configured below. Keep
+    # the revision and filename together: FastEmbed otherwise reports a vague
+    # local-model error when the snapshot predates the exported file.
+    revision="4a4cddf9cf6d77a61cc1c73f824ec2127773db85",
     dimensions=384,
     model_file="onnx/model_O4.onnx",
 )
@@ -104,16 +105,24 @@ class LocalEmbeddingEncoder:
                 "semantic search requires the fastembed dependency; install the semantic extra"
             ) from error
 
+        model_spec = DEFAULT_EMBEDDING_MODEL
+        model_path = model_dir / model_spec.model_file
+        if not model_path.is_file():
+            raise ValueError(
+                "semantic model snapshot is missing the configured model file: "
+                f"{model_spec.model_file}"
+            )
+
         TextEmbedding.add_custom_model(
-            model=DEFAULT_EMBEDDING_MODEL.model_id,
+            model=model_spec.model_id,
             pooling=PoolingType.MEAN,
             normalization=True,
-            sources=ModelSource(hf=DEFAULT_EMBEDDING_MODEL.model_id),
-            dim=DEFAULT_EMBEDDING_MODEL.dimensions,
-            model_file=DEFAULT_EMBEDDING_MODEL.model_file,
+            sources=ModelSource(hf=model_spec.model_id),
+            dim=model_spec.dimensions,
+            model_file=model_spec.model_file,
         )
         return TextEmbedding(
-            model_name=DEFAULT_EMBEDDING_MODEL.model_id,
+            model_name=model_spec.model_id,
             specific_model_path=str(model_dir),
             local_files_only=True,
         )
