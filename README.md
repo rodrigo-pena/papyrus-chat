@@ -6,6 +6,78 @@ a local Pydantic AI chat. The assistant discloses its search scope, separates
 local transcription evidence from web-sourced and model-supplied background,
 and links cited records to papyri.info.
 
+## Quick start
+
+This is the lowest-effort route for using Papyrus Chat: install
+[uv](https://docs.astral.sh/uv/getting-started/installation/), make sure Git is
+available, and run the commands below. You do not need to clone this repository
+or create a Python environment; `uvx` downloads Papyrus Chat from GitHub and
+runs it in an isolated, cached environment.
+
+Run these commands from the directory where you want to keep the corpus data:
+
+```console
+# Download the semantic model snapshot once
+uvx --from huggingface-hub hf download intfloat/multilingual-e5-small \
+  --revision 4a4cddf9cf6d77a61cc1c73f824ec2127773db85 \
+  --local-dir ./models/multilingual-e5-small
+
+# Build a corpus artifact with semantic subject suggestions
+uvx --from 'papyrus-chat[semantic,web] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
+  papyrus-corpus-build dclp ddbdp translations \
+  --semantic-model-dir ./models/multilingual-e5-small \
+  --output ./data/papyrus-corpus
+
+# Configure an OpenAI-compatible model
+export LLM_BASE_URL="https://provider.example/v1"
+export LLM_MODEL="model-name"
+export LLM_API_KEY="..."   # optional for local, unauthenticated endpoints
+
+# Start the local chat and open it in your browser
+uvx --from 'papyrus-chat[semantic,web] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
+  papyrus-chat --artifact ./data/papyrus-corpus --web-search
+```
+
+The build output is persistent; it is not stored in uv's tool cache. With the
+commands above, `./data/papyrus-corpus` is relative to the directory from which
+you ran the builder and contains:
+
+```text
+data/papyrus-corpus/
+├── manifest.json
+├── corpus.sqlite
+└── ATTRIBUTION.md
+```
+
+The build step technically needs to be run only once. Reuse the same artifact
+for every later chat session. Run the builder again only when you want to sync
+with the current [papyri/idp.data](https://github.com/papyri/idp.data) state;
+because the destination already exists, use `--force` to replace it:
+
+```console
+uvx --from 'papyrus-chat[semantic,web] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
+  papyrus-corpus-build dclp ddbdp translations \
+  --semantic-model-dir ./models/multilingual-e5-small \
+  --output ./data/papyrus-corpus --force
+```
+
+You can also skip the build entirely if you obtained a compatible artifact
+elsewhere: keep its directory intact and pass that directory to the chat
+command, for example:
+
+```console
+uvx --from 'papyrus-chat[semantic,web] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
+  papyrus-chat --artifact /path/to/papyrus-corpus --web-search
+```
+
+Semantic subject suggestions and contextual web search are enabled by default
+in this quick start. If you do not want one of them, remove the corresponding
+model download/`--semantic-model-dir` or `--web-search` option and change the
+`uvx --from` requirement in both commands: use
+`papyrus-chat[web] @ git+https://github.com/rodrigo-pena/papyrus-chat.git` without
+semantic embeddings, `papyrus-chat[semantic] @ git+https://github.com/rodrigo-pena/papyrus-chat.git`
+without web search, or the bare Git URL without either extra.
+
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/)
@@ -35,7 +107,7 @@ directory is currently ingested. The authoritative runtime list is `papyrus-corp
 
 See the [collection adapter guide](docs/collection-adapters.md) for hints on how to add another upstream collection or an auxiliary linked source.
 
-## Quick start
+## From a project checkout
 
 ```console
 # 1. Install the locked environment
