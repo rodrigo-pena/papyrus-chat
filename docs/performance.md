@@ -62,7 +62,7 @@ An observed build on an Apple M5 Max MacBook Pro bundled the local multilingual
 embedding model and generated semantic subject vectors with the following
 command:
 
-```console
+```bash
 uv run papyrus-corpus-build ddbdp \
   --semantic-model-dir ./models/multilingual-e5-small \
   --output ./data/ddbdp

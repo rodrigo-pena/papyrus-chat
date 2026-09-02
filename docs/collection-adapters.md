@@ -201,7 +201,7 @@ Cover at least:
 
 The default verification commands are:
 
-```console
+```bash
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
@@ -211,7 +211,7 @@ uv run ty check
 Run the network-marked upstream smoke test separately when the adapter changes
 remote acquisition:
 
-```console
+```bash
 uv run pytest -m network
 ```
 

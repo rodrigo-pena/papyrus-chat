@@ -15,7 +15,7 @@ tool caller cannot switch artifacts during a session.
 The semantic index is optional, but this example builds it so
 `suggest_subjects` is available. Download the pinned model snapshot once:
 
-```console
+```bash
 uvx --from huggingface-hub hf download intfloat/multilingual-e5-small \
   --revision 4a4cddf9cf6d77a61cc1c73f824ec2127773db85 \
   --local-dir ./models/multilingual-e5-small
@@ -23,7 +23,7 @@ uvx --from huggingface-hub hf download intfloat/multilingual-e5-small \
 
 From any directory, build through the GitHub package:
 
-```console
+```bash
 uvx --from 'papyrus-chat[mcp,semantic] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
   papyrus-corpus-build dclp ddbdp translations \
   --semantic-model-dir ./models/multilingual-e5-small \
@@ -32,7 +32,7 @@ uvx --from 'papyrus-chat[mcp,semantic] @ git+https://github.com/rodrigo-pena/pap
 
 From a local checkout, install the extras and run the same builder:
 
-```console
+```bash
 uv sync --extra mcp --extra semantic
 uv run papyrus-corpus-build dclp ddbdp translations \
   --semantic-model-dir ./models/multilingual-e5-small \
@@ -47,14 +47,14 @@ The server performs full validation before it starts.
 
 Recommended, with the GitHub package through `uvx`:
 
-```console
+```bash
 uvx --from 'papyrus-chat[mcp,semantic] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
   papyrus-mcp --artifact ./data/papyrus-corpus
 ```
 
 With a local checkout:
 
-```console
+```bash
 uv run --extra mcp --extra semantic papyrus-mcp \
   --artifact ./data/papyrus-corpus
 ```
@@ -90,10 +90,10 @@ file formats differ:
 
 In this setup, `papyrus-mcp` is not a separately installed executable. The MCP
 client starts `uvx`, which creates or reuses a managed environment for the Git
-package and runs its `papyrus-mcp` console entry point. Test and pre-warm that
+package and runs its `papyrus-mcp` bash entry point. Test and pre-warm that
 environment once before registering it:
 
-```console
+```bash
 uvx --from 'papyrus-chat[mcp,semantic] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
   papyrus-mcp --help
 ```
@@ -146,7 +146,7 @@ needs a trusted STDIO-to-HTTP bridge or tunnel.
 
 Register the local command with the Codex CLI:
 
-```console
+```bash
 codex mcp add papyrus-corpus -- \
   uvx --from 'papyrus-chat[mcp,semantic] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
   papyrus-mcp --artifact /absolute/path/to/data/papyrus-corpus
@@ -257,7 +257,7 @@ This checkout includes the instruction-only skill at
 `skills/research-papyri/SKILL.md`. Install that directory with your Codex skill
 installer, or copy it into the discoverable local skills directory:
 
-```console
+```bash
 mkdir -p ~/.agents/skills
 cp -R skills/research-papyri ~/.agents/skills/
 ```

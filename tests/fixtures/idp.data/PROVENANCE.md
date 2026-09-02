@@ -44,7 +44,7 @@ By default, fixtures are pinned to the commit recorded above. An informed
 user may regenerate them from the same commit, from the HEAD of the upstream
 default branch (`master`), or from any other commit SHA:
 
-```console
+```bash
 # Re-fetch at the pinned commit (no-op unless files drifted):
 uv run python scripts/refresh_fixtures.py
 

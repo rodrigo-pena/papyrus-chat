@@ -20,7 +20,7 @@ runs it in an isolated, cached environment.
 
 Run these commands from the directory where you want to keep the corpus data:
 
-```console
+```bash
 # Download the semantic model snapshot once
 uvx --from huggingface-hub hf download intfloat/multilingual-e5-small \
   --revision 4a4cddf9cf6d77a61cc1c73f824ec2127773db85 \
@@ -58,7 +58,7 @@ for every later chat session. Run the builder again only when you want to sync
 with the current [papyri/idp.data](https://github.com/papyri/idp.data) state;
 because the destination already exists, use `--force` to replace it:
 
-```console
+```bash
 uvx --from 'papyrus-chat[semantic,web] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
   papyrus-corpus-build dclp ddbdp translations \
   --semantic-model-dir ./models/multilingual-e5-small \
@@ -69,7 +69,7 @@ You can also skip the build entirely if you obtained a compatible artifact
 elsewhere: keep its directory intact and pass that directory to the chat
 command, for example:
 
-```console
+```bash
 uvx --from 'papyrus-chat[semantic,web] @ git+https://github.com/rodrigo-pena/papyrus-chat.git' \
   papyrus-chat --artifact /path/to/papyrus-corpus --web-search
 ```
@@ -113,7 +113,7 @@ See the [collection adapter guide](docs/collection-adapters.md) for hints on how
 
 ## From a project checkout
 
-```console
+```bash
 # 1. Install the locked environment
 uv sync
 
@@ -143,7 +143,7 @@ is rejected with an actionable rebuild message.
 To bundle semantic subject suggestions, install the semantic extra and point the builder at a
 downloaded FastEmbed model snapshot for the pinned revision:
 
-```console
+```bash
 uv sync --extra semantic
 hf download intfloat/multilingual-e5-small \
   --revision 4a4cddf9cf6d77a61cc1c73f824ec2127773db85 \
@@ -176,7 +176,7 @@ For a provider that implements both the OpenAI Responses API and its native
 `web_search` tool, select the Responses transport with the
 `openai-responses:` prefix and opt in to web search at startup:
 
-```console
+```bash
 export LLM_MODEL="openai-responses:exact-model-name"
 uv run papyrus-chat --artifact ./data/papyrus-corpus --web-search
 ```
@@ -189,7 +189,7 @@ an endpoint implements the Responses API or its native tool.
 For an endpoint that supports Chat Completions but not native web search, omit
 the prefix and install the provider-neutral DuckDuckGo historical-background tool:
 
-```console
+```bash
 uv sync --extra web
 export LLM_MODEL="exact-model-name"
 uv run papyrus-chat --artifact ./data/papyrus-corpus --web-search
@@ -214,7 +214,7 @@ model-generated synthesis.
 
 ### Builder options
 
-```console
+```bash
 uv run papyrus-corpus-build COLLECTION... [OPTIONS]
 
 # COLLECTION...   one or more of: dclp, ddbdp, translations (case-insensitive)
@@ -243,7 +243,7 @@ bottlenecks are recorded in [docs/performance.md](docs/performance.md).
 
 ## Development
 
-```console
+```bash
 uv run pytest                    # offline test suite (network tests excluded)
 uv run pytest -m network         # optional smoke test against the real upstream
 uv run ruff check .
