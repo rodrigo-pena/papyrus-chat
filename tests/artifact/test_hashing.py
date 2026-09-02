@@ -1,6 +1,7 @@
 """Tests pinning the logical content hash canonicalization."""
 
 from papyrus_chat.artifact.hashing import logical_content_hash
+from papyrus_chat.artifact.manifest import SemanticIndexInfo
 from papyrus_chat.artifact.records import (
     DocumentRecord,
     IdentifierRecord,
@@ -101,3 +102,35 @@ def test_canonical_form_is_pinned_by_golden_value() -> None:
     digest = full_hash(documents, [])
 
     assert digest == "sha256:be449e44441d206cfc450d2e5fe459e4d46d2c1cfc943518e6b64fa7ddd83e1f"
+
+
+def test_semantic_index_identity_changes_logical_hash() -> None:
+    documents = [doc("DCLP/23/23702.xml", "Sb. 20 14258")]
+    first = SemanticIndexInfo(
+        model_id="test/model",
+        revision="a" * 40,
+        dimensions=2,
+        model_file="model.onnx",
+        subject_count=1,
+        subjects_file="semantic/subjects.jsonl",
+        embeddings_file="semantic/subjects.f32",
+        model_files=["semantic/model/model.onnx"],
+        file_hashes={
+            "semantic/subjects.jsonl": "sha256:1",
+            "semantic/subjects.f32": "sha256:2",
+            "semantic/model/model.onnx": "sha256:3",
+        },
+    )
+    second = first.model_copy(update={"revision": "b" * 40})
+
+    assert full_hash(documents, []) != logical_content_hash(
+        schema_version=1,
+        builder_version="0.1.0",
+        source_url=REPO,
+        resolved_commit=COMMIT,
+        collections=["dclp"],
+        documents=documents,
+        passages=[],
+        identifiers=[],
+        semantic_index=second,
+    )

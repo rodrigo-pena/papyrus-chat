@@ -43,6 +43,11 @@ def build(
     force: bool = typer.Option(
         False, "--force", help="Explicitly allow replacement of the destination artifact."
     ),
+    semantic_model_dir: str | None = typer.Option(
+        None,
+        "--semantic-model-dir",
+        help="Local FastEmbed model snapshot to bundle for semantic subject search.",
+    ),
     list_collections: bool = typer.Option(
         False, "--list-collections", help="Print supported collection names and exit."
     ),
@@ -86,6 +91,9 @@ def build(
             source_url=source,
             requested_ref=ref,
             force=force,
+            semantic_model_dir=Path(semantic_model_dir).expanduser()
+            if semantic_model_dir is not None
+            else None,
         )
     except BuildError as error:
         LOGGER.error("Corpus build failed: %s", error)

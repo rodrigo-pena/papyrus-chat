@@ -15,6 +15,7 @@ from papyrus_chat.artifact.records import (
     SourceReference,
 )
 from papyrus_chat.retrieval.evidence import snippet_for
+from papyrus_chat.retrieval.scope import document_scope_where
 from papyrus_chat.retrieval.search import build_fts_query
 
 CorpusField = Literal["title", "metadata", "transcription", "translation"]
@@ -90,6 +91,11 @@ class CorpusQuery(BaseModel):
         "against diacritic-folded word tokens: include inflected variants, since different "
         "stems (e.g. Greek augmented διεσ- vs unaugmented δια-) do not match. A flat list of "
         "strings is not accepted: every group must itself be a list of terms.",
+    )
+    subject_groups: tuple[tuple[str, ...], ...] = Field(
+        default=(),
+        description="Up to 8 groups of exact HGV subject labels (OR within a group, AND "
+        "between groups). Use semantic suggestions to discover labels before filtering.",
     )
     fields: tuple[CorpusField, ...] = Field(
         default=("transcription", "translation", "title", "metadata"),
@@ -197,6 +203,39 @@ class CorpusQuery(BaseModel):
             groups.append(tuple(terms))
         return tuple(groups)
 
+    @field_validator("subject_groups", mode="before")
+    @classmethod
+    def normalize_subject_groups(cls, value: object) -> tuple[tuple[str, ...], ...]:
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            decoded = _loads_json_text(value)
+            if isinstance(decoded, (list, tuple)):
+                value = decoded
+        if not isinstance(value, (list, tuple)):
+            raise ValueError("subject_groups must be a list of subject-label lists")
+        if len(value) > 8:
+            raise ValueError("at most 8 subject groups are allowed")
+        groups: list[tuple[str, ...]] = []
+        for raw_group in value:
+            if not isinstance(raw_group, (list, tuple)) or not raw_group:
+                raise ValueError("each subject group must contain at least one label")
+            if len(raw_group) > 32:
+                raise ValueError("each subject group may contain at most 32 labels")
+            labels: list[str] = []
+            for raw_label in raw_group:
+                if not isinstance(raw_label, str):
+                    raise ValueError("subject labels must be strings")
+                label = " ".join(raw_label.split())
+                if not label:
+                    raise ValueError("subject labels must be non-empty")
+                if len(label) > 300:
+                    raise ValueError("subject labels may contain at most 300 characters")
+                if label.casefold() not in {entry.casefold() for entry in labels}:
+                    labels.append(label)
+            groups.append(tuple(labels))
+        return tuple(groups)
+
 
 class CorpusHit(BaseModel):
     """One distinct candidate document with an optional located passage."""
@@ -301,6 +340,17 @@ class StructuredCorpusSearch:
     def __init__(self, database_path: Path) -> None:
         self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
+        self._database_path = database_path
+        self._semantic = None
+
+    @property
+    def semantic(self):
+        """Lazily open the optional semantic subject index beside this database."""
+        if self._semantic is None:
+            from papyrus_chat.retrieval.semantic import SemanticSubjectSearch
+
+            self._semantic = SemanticSubjectSearch(self._database_path)
+        return self._semantic
 
     def query(
         self,
@@ -482,51 +532,37 @@ class StructuredCorpusSearch:
         )
 
     def close(self) -> None:
+        if self._semantic is not None:
+            self._semantic.close()
         self._connection.close()
 
     def _where_clause(self, query: CorpusQuery) -> tuple[list[str], list[object]]:
-        where = ["1 = 1"]
-        params: list[object] = []
-        if query.collections:
-            placeholders = ", ".join("?" for _ in query.collections)
-            where.append(f"d.collection IN ({placeholders})")
-            params.extend(query.collections)
+        where, params = document_scope_where(query)
         for group in query.term_groups:
             alternatives = self._term_group_conditions(group, query.fields, params)
             where.append("(" + " OR ".join(alternatives) + ")" if alternatives else "0 = 1")
-        if query.transcription_languages:
-            placeholders = ", ".join("?" for _ in query.transcription_languages)
-            where.append(
-                "EXISTS (SELECT 1 FROM passages p "
-                "WHERE p.document_id = d.document_id AND p.kind = 'edition' "
-                "AND EXISTS (SELECT 1 FROM passage_languages pl "
-                "WHERE pl.passage_id = p.passage_id "
-                f"AND pl.language IN ({placeholders})))"
-            )
-            params.extend(query.transcription_languages)
-        if query.date_interval is not None:
-            # Clamp open-ended ranges ("nach 244 v.Chr.") to their known bound so a
-            # terminus post quem alone cannot overlap an unrelated interval.
-            start = (
-                "CAST(COALESCE(NULLIF(date_row.not_before, ''), "
-                "NULLIF(date_row.not_after, ''), NULLIF(date_row.when_value, '')) AS INTEGER)"
-            )
-            end = (
-                "CAST(COALESCE(NULLIF(date_row.not_after, ''), "
-                "NULLIF(date_row.not_before, ''), NULLIF(date_row.when_value, '')) AS INTEGER)"
-            )
-            where.append(
-                "EXISTS ("
-                "SELECT 1 FROM components ddc "
-                "JOIN component_links link "
-                "ON link.ddbdp_component_id = ddc.component_id "
-                "JOIN dates date_row ON date_row.component_id = link.hgv_component_id "
-                "WHERE ddc.document_id = d.document_id AND ddc.kind = 'ddbdp' "
-                f"AND {start} <= ? AND {end} >= ?"
-                ")"
-            )
-            params.extend([query.date_interval.not_after, query.date_interval.not_before])
+        for group in query.subject_groups:
+            where.append(self._subject_group_condition(group, params))
         return where, params
+
+    @staticmethod
+    def _subject_group_condition(group: tuple[str, ...], params: list[object]) -> str:
+        placeholders = ", ".join("?" for _ in group)
+        params.extend([*group, *group])
+        return (
+            "d.document_id IN ("
+            "SELECT owner.document_id FROM components owner "
+            "JOIN metadata subject ON subject.component_id = owner.component_id "
+            "WHERE owner.document_id IS NOT NULL AND subject.key = 'subject' "
+            f"AND subject.value IN ({placeholders}) "
+            "UNION "
+            "SELECT ddbdp.document_id FROM components ddbdp "
+            "JOIN component_links link ON link.ddbdp_component_id = ddbdp.component_id "
+            "JOIN metadata subject ON subject.component_id = link.hgv_component_id "
+            "WHERE ddbdp.document_id IS NOT NULL AND subject.key = 'subject' "
+            f"AND subject.value IN ({placeholders})"
+            ")"
+        )
 
     def _term_group_conditions(
         self,

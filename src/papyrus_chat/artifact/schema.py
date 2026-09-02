@@ -1,7 +1,8 @@
 """SQLite logical schema for corpus artifacts.
 
-Schema version 2 adds source components and their linked metadata while
-retaining the document, identifier, and passage tables used by retrieval.
+Schema version 3 adds a deterministic HGV subject vocabulary table used by
+the portable semantic index while retaining the document, identifier,
+passage, and linked-component tables used by retrieval.
 Stable IDs derive from collection, source identity (path), and structural
 location — never from insertion order.
 """
@@ -20,9 +21,9 @@ from papyrus_chat.artifact.records import (
     IdentifierRecord,
     PassageRecord,
 )
-from papyrus_chat.textnorm import normalize_identifier_value
+from papyrus_chat.textnorm import normalize_identifier_value, normalize_search_text
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE documents (
@@ -119,6 +120,19 @@ CREATE TABLE metadata (
     PRIMARY KEY (component_id, key, value)
 );
 CREATE INDEX metadata_lookup ON metadata(key, value);
+
+CREATE TABLE semantic_subjects (
+    subject_id    TEXT PRIMARY KEY,
+    value         TEXT NOT NULL UNIQUE,
+    value_norm    TEXT NOT NULL,
+    document_count INTEGER NOT NULL CHECK (document_count >= 0)
+);
+CREATE INDEX semantic_subjects_norm_lookup ON semantic_subjects(value_norm);
+
+CREATE VIRTUAL TABLE semantic_subjects_fts USING fts5(
+    value,
+    subject_id UNINDEXED
+);
 
 CREATE TABLE dates (
     component_id  TEXT NOT NULL REFERENCES components(component_id),
@@ -278,6 +292,17 @@ class ArtifactWriter:
                     normalize_identifier_value(record.value),
                 )
                 for record in records
+            ],
+        )
+
+    def insert_semantic_subjects(self, records: Sequence[tuple[str, str, str, int]]) -> None:
+        """Insert the deterministic HGV vocabulary used by semantic search."""
+        self._connection.executemany("INSERT INTO semantic_subjects VALUES (?, ?, ?, ?)", records)
+        self._connection.executemany(
+            "INSERT INTO semantic_subjects_fts (value, subject_id) VALUES (?, ?)",
+            [
+                (normalize_search_text(value), subject_id)
+                for subject_id, value, _value_norm, _count in records
             ],
         )
 

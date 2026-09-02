@@ -1,6 +1,6 @@
 [project]
 name = "papyrus-chat"
-version = "0.1.0"
+version = "0.2.0"
 description = "Searchable corpus artifact and evidence-grounded chat over papyri/idp.data collections (proof of concept)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -12,6 +12,10 @@ dependencies = [
     "typer>=0.12",
     "uvicorn>=0.30",
 ]
+
+[project.optional-dependencies]
+semantic = ["fastembed>=0.4"]
+web = ["ddgs>=9.0"]
 
 [dependency-groups]
 dev = [

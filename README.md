@@ -3,8 +3,8 @@
 Build a searchable, provenance-preserving corpus from
 [papyri/idp.data](https://github.com/papyri/idp.data), then investigate it in
 a local Pydantic AI chat. The assistant discloses its search scope, separates
-local transcription evidence from model background, and links cited records to
-papyri.info.
+local transcription evidence from web-sourced and model-supplied background,
+and links cited records to papyri.info.
 
 ## Requirements
 
@@ -61,28 +61,70 @@ diagnostic logging.
 
 Selecting `ddbdp` automatically fetches both `DDbDP/` and the linked
 `HGV_meta_EpiDoc/` records. HGV is stored as documentary metadata, not as a
-separate user-facing collection. The artifact is schema v2; an older artifact
+separate user-facing collection. The artifact is schema v3; an older artifact
 is rejected with an actionable rebuild message.
+
+To bundle semantic subject suggestions, install the semantic extra and point the builder at a
+downloaded FastEmbed model snapshot for the pinned revision:
+
+```console
+uv sync --extra semantic
+hf download intfloat/multilingual-e5-small \
+  --revision 4a4cddf9cf6d77a61cc1c73f824ec2127773db85 \
+  --local-dir ./models/multilingual-e5-small
+uv run papyrus-corpus-build dclp ddbdp translations \
+  --semantic-model-dir ./models/multilingual-e5-small \
+  --output ./data/papyrus-corpus
+```
+
+The builder stores normalized HGV subject labels, float32 vectors, the model
+snapshot, and file digests in the artifact. Chat-time queries use the same
+local model and fuse lexical vocabulary matches with dense ranking. Suggested
+labels are then applied as exact HGV subject filters, so the assistant can
+report both narrow and broader cohorts with exact counts, label prevalence,
+and subject-annotation coverage.
 
 `papyrus-chat` validates the artifact, binds to `127.0.0.1:8000`, and opens
 the stock Pydantic AI chat UI. The UI provides persistent browser threads,
 streaming responses, and visible tool activity. The application is local,
 single-user, read-only, and does not maintain bespoke search or document
-routes; research happens through the assistant's four corpus tools.
+routes. Semantic suggestions are a planning aid; corpus counts and citations still
+come only from exact local queries and inspections.
 
 The configured endpoint must support reliable function/tool calling. A
-plain-text-only completion endpoint cannot invoke corpus retrieval. For a
-provider that supports Pydantic AI's OpenAI Responses native web search, use
-the `openai-responses:` model prefix:
+plain-text-only completion endpoint cannot invoke corpus retrieval. Use the
+model identifier exactly as the provider advertises it; identifiers may be
+case-sensitive.
+
+For a provider that implements both the OpenAI Responses API and its native
+`web_search` tool, select the Responses transport with the
+`openai-responses:` prefix and opt in to web search at startup:
 
 ```console
-export LLM_MODEL="openai-responses:model-name"
+export LLM_MODEL="openai-responses:exact-model-name"
+uv run papyrus-chat --artifact ./data/papyrus-corpus --web-search
 ```
 
-Native web search is optional and requires no additional search API key. When
-it is unavailable, the assistant may use model knowledge for terminology or
-historical context, but must label that material as model-supplied background;
-web results never replace local corpus evidence.
+The prefix selects the Responses API transport; `--web-search` separately
+enables the native tool. Native web search is optional and requires no
+additional search API key. OpenAI compatibility alone does not guarantee that
+an endpoint implements the Responses API or its native tool.
+
+For an endpoint that supports Chat Completions but not native web search, omit
+the prefix and install the provider-neutral DuckDuckGo historical-background tool:
+
+```console
+uv sync --extra web
+export LLM_MODEL="exact-model-name"
+uv run papyrus-chat --artifact ./data/papyrus-corpus --web-search
+```
+
+Web search is disabled by default. When enabled, it can verify historical and
+contextual background such as reign dates, chronology, Egyptian regnal-year
+mechanics, terminology, institutions, and geography. Web results are cited as
+web-sourced background and never replace local corpus evidence or contribute to
+corpus counts; papyri records and transcriptions still come only from local
+corpus tools.
 
 ### Research answer semantics
 
@@ -104,6 +146,7 @@ uv run papyrus-corpus-build COLLECTION... [OPTIONS]
 # --source        Git URL (default upstream) or a local idp.data Git checkout
 # --ref           branch, tag, or commit to build from (default master)
 # --force         replace an existing artifact at exactly the given path
+# --semantic-model-dir  local FastEmbed model snapshot to bundle for subject suggestions
 # --list-collections
 # -v, --verbose   include detailed diagnostic logging
 ```
@@ -121,7 +164,6 @@ bottlenecks are recorded in [docs/performance.md](docs/performance.md).
 - Within this corpus, can you find lists structured by month? Make sure you know the names of Egyptian months used in this period.
 - Can you summarize the kinds/categories of taxes attested in these documents?
 - How were taxes collected in the Early Arab period in Egypt, based on the Greek papyri in the corpus?
-
 
 ## Development
 

@@ -32,6 +32,13 @@ def serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Local bind address."),
     port: int = typer.Option(8000, "--port", help="Local HTTP port."),
     no_open: bool = typer.Option(False, "--no-open", help="Do not open the default browser."),
+    web_search: bool = typer.Option(
+        False,
+        "--web-search",
+        help=(
+            "Enable optional historical/contextual web search (never corpus evidence or counts)."
+        ),
+    ),
     verbose: bool = typer.Option(
         False,
         "--verbose",
@@ -66,7 +73,7 @@ def serve(
         "Loading chat application",
         extra={"event": "chat_application_load_started"},
     )
-    chat_app = load_app(artifact)
+    chat_app = load_app(artifact, enable_web_search=True) if web_search else load_app(artifact)
 
     if not no_open:
         LOGGER.info(

@@ -18,7 +18,9 @@ required.
 import hashlib
 import json
 from collections.abc import Iterable
+from pathlib import Path
 
+from papyrus_chat.artifact.manifest import SemanticIndexInfo
 from papyrus_chat.artifact.records import (
     ComponentLinkRecord,
     ComponentRecord,
@@ -30,6 +32,15 @@ from papyrus_chat.artifact.records import (
 
 def canonical_json(payload: object) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def file_sha256(path: Path) -> str:
+    """Return a stable SHA-256 digest for a portable artifact file."""
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def logical_content_hash(
@@ -44,6 +55,7 @@ def logical_content_hash(
     identifiers: Iterable[IdentifierRecord],
     components: Iterable[ComponentRecord] = (),
     links: Iterable[ComponentLinkRecord] = (),
+    semantic_index: SemanticIndexInfo | None = None,
 ) -> str:
     documents = sorted(documents, key=lambda d: d.document_id)
     passages = sorted(passages, key=lambda p: p.passage_id)
@@ -68,5 +80,7 @@ def logical_content_hash(
         payload["components"] = [component.model_dump(mode="json") for component in components]
     if links:
         payload["links"] = [link.model_dump(mode="json") for link in links]
+    if semantic_index is not None:
+        payload["semantic_index"] = semantic_index.model_dump(mode="json")
     digest = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
     return f"sha256:{digest}"

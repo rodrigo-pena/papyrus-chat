@@ -379,6 +379,7 @@ def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
         "search_documents",
         "inspect_documents",
         "facet_documents",
+        "suggest_subject_values",
     }
 
 

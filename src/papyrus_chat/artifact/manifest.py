@@ -2,12 +2,12 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 MANIFEST_FILENAME = "manifest.json"
-ARTIFACT_SCHEMA_VERSION = 2
+ARTIFACT_SCHEMA_VERSION = 3
 
 
 class ArtifactInvalid(Exception):
@@ -39,6 +39,27 @@ class Statistics(BaseModel):
     parse_errors: int
 
 
+class SemanticIndexInfo(BaseModel):
+    """Portable semantic vocabulary index bundled with a schema-v3 artifact."""
+
+    model_config = ConfigDict(frozen=True)
+
+    model_id: str
+    revision: str
+    dimensions: int = Field(gt=0)
+    model_file: str
+    query_prefix: str = "query: "
+    passage_prefix: str = "passage: "
+    pooling: Literal["mean"] = "mean"
+    metric: Literal["cosine"] = "cosine"
+    dtype: Literal["float32"] = "float32"
+    subject_count: int = Field(ge=0)
+    subjects_file: str
+    embeddings_file: str
+    model_files: list[str] = Field(default_factory=list)
+    file_hashes: dict[str, str] = Field(default_factory=dict)
+
+
 class ArtifactManifest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -49,6 +70,7 @@ class ArtifactManifest(BaseModel):
     statistics: Statistics
     logical_content_hash: str
     created_at: str = Field(description="RFC 3339 timestamp")
+    semantic_index: SemanticIndexInfo | None = None
 
     @field_validator("collections")
     @classmethod

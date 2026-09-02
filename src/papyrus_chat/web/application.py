@@ -46,6 +46,7 @@ def load_app(
     *,
     model: Any | None = None,
     html_source: str | Path | None = None,
+    enable_web_search: bool = False,
 ) -> Starlette:
     """Build the stock Pydantic AI web app with artifact-backed dependencies.
 
@@ -59,7 +60,9 @@ def load_app(
     provider_config = load_provider_config(env, required=False)
     search = StructuredCorpusSearch(artifact / "corpus.sqlite")
     tool_service = CorpusToolService(search)
-    agent = create_research_agent(provider_config, tool_service, model=model)
+    agent = create_research_agent(
+        provider_config, tool_service, model=model, enable_web_search=enable_web_search
+    )
     deps = CorpusToolDeps(service=tool_service)
     app = agent.to_web(
         deps=deps,
