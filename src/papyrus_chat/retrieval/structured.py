@@ -334,6 +334,9 @@ class CorpusFacetResult(BaseModel):
     query: CorpusQuery
     field: FacetField
     values: tuple[CorpusFacetValue, ...]
+    total_values: int = 0
+    truncated: bool = False
+    limit: int | None = None
 
 
 class CorpusDocumentMatch(BaseModel):
@@ -443,17 +446,29 @@ class StructuredCorpusSearch:
         self,
         query: CorpusQuery | dict[str, object],
         field: FacetField,
+        *,
+        limit: int | None = None,
     ) -> CorpusFacetResult:
         if field not in {"collection", "language", "subject", "material", "origin", "kind"}:
             raise ValueError(f"Unsupported facet field: {field}")
+        if limit is not None and not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
         normalized = CorpusQuery.model_validate(query)
         where, params = self._where_clause(normalized)
         where_sql = " AND ".join(where)
-        rows = self._facet_rows(field, where_sql, params)
+        total_values = self._facet_value_count(field, where_sql, params)
+        rows = self._facet_rows(field, where_sql, params, limit=limit)
         values = tuple(
             CorpusFacetValue(value=row["value"], count=int(row["count"])) for row in rows
         )
-        return CorpusFacetResult(query=normalized, field=field, values=values)
+        return CorpusFacetResult(
+            query=normalized,
+            field=field,
+            values=values,
+            total_values=total_values,
+            truncated=limit is not None and total_values > limit,
+            limit=limit,
+        )
 
     @_serialized
     def describe(self) -> CorpusDescription:
@@ -489,6 +504,8 @@ class StructuredCorpusSearch:
         excerpt_limit: int = 3,
     ) -> tuple[CorpusInspection, ...]:
         ids = tuple(dict.fromkeys(document_ids))
+        if not ids:
+            raise ValueError("at least 1 document must be inspected")
         if len(ids) > 20:
             raise ValueError("at most 20 documents may be inspected")
         if not 1 <= excerpt_limit <= 10:
@@ -893,8 +910,54 @@ class StructuredCorpusSearch:
             )
         return {document_id: tuple(values) for document_id, values in by_document.items()}
 
+    def _facet_value_count(self, field: FacetField, where_sql: str, params: list[object]) -> int:
+        filtered = (
+            "WITH filtered_documents AS MATERIALIZED "
+            f"(SELECT d.* FROM documents d WHERE {where_sql}) "
+        )
+        if field == "collection":
+            sql = filtered + "SELECT count(*) FROM ("
+            sql += "SELECT collection FROM filtered_documents GROUP BY collection)"
+            count_params = params
+        elif field == "language":
+            sql = filtered + "SELECT count(*) FROM ("
+            sql += (
+                "SELECT pl.language FROM filtered_documents fd "
+                "JOIN passages p ON p.document_id = fd.document_id "
+                "JOIN passage_languages pl ON pl.passage_id = p.passage_id "
+                "WHERE p.kind = 'edition' GROUP BY pl.language)"
+            )
+            count_params = params
+        elif field == "kind":
+            sql = filtered + "SELECT count(*) FROM ("
+            sql += (
+                "SELECT p.kind FROM filtered_documents fd "
+                "JOIN passages p ON p.document_id = fd.document_id GROUP BY p.kind)"
+            )
+            count_params = params
+        else:
+            sql = filtered + ", component_owners AS ("
+            sql += (
+                "SELECT fd.document_id, c.component_id FROM filtered_documents fd "
+                "JOIN components c ON c.document_id = fd.document_id "
+                "UNION SELECT fd.document_id, l.hgv_component_id FROM filtered_documents fd "
+                "JOIN components d ON d.document_id = fd.document_id "
+                "JOIN component_links l ON l.ddbdp_component_id = d.component_id"
+                ") SELECT count(*) FROM ("
+                "SELECT m.value FROM component_owners owners "
+                "JOIN metadata m ON m.component_id = owners.component_id "
+                "WHERE m.key = ? GROUP BY m.value)"
+            )
+            count_params = [*params, field]
+        return int(self._connection.execute(sql, count_params).fetchone()[0])
+
     def _facet_rows(
-        self, field: FacetField, where_sql: str, params: list[object]
+        self,
+        field: FacetField,
+        where_sql: str,
+        params: list[object],
+        *,
+        limit: int | None,
     ) -> list[sqlite3.Row]:
         # MATERIALIZED: component_owners references filtered_documents in both UNION
         # legs, and without it each leg re-evaluates the whole filter.
@@ -903,31 +966,35 @@ class StructuredCorpusSearch:
             f"(SELECT d.* FROM documents d WHERE {where_sql}) "
         )
         if field == "collection":
-            rows = self._connection.execute(
+            sql = self._connection.execute(
                 filtered + "SELECT collection AS value, count(*) AS count FROM filtered_documents "
-                "GROUP BY collection ORDER BY count DESC, value ASC",
-                params,
-            ).fetchall()
+                "GROUP BY collection ORDER BY count DESC, value ASC"
+                + (" LIMIT ?" if limit is not None else ""),
+                [*params, limit] if limit is not None else params,
+            )
+            rows = sql.fetchall()
         elif field == "language":
-            rows = self._connection.execute(
+            sql = self._connection.execute(
                 filtered + "SELECT pl.language AS value, count(DISTINCT fd.document_id) AS count "
                 "FROM filtered_documents fd "
                 "JOIN passages p ON p.document_id = fd.document_id "
                 "JOIN passage_languages pl ON pl.passage_id = p.passage_id "
                 "WHERE p.kind = 'edition' GROUP BY pl.language "
-                "ORDER BY count DESC, value ASC",
-                params,
-            ).fetchall()
+                "ORDER BY count DESC, value ASC" + (" LIMIT ?" if limit is not None else ""),
+                [*params, limit] if limit is not None else params,
+            )
+            rows = sql.fetchall()
         elif field == "kind":
-            rows = self._connection.execute(
+            sql = self._connection.execute(
                 filtered + "SELECT p.kind AS value, count(DISTINCT fd.document_id) AS count "
                 "FROM filtered_documents fd "
                 "JOIN passages p ON p.document_id = fd.document_id GROUP BY p.kind "
-                "ORDER BY count DESC, value ASC",
-                params,
-            ).fetchall()
+                "ORDER BY count DESC, value ASC" + (" LIMIT ?" if limit is not None else ""),
+                [*params, limit] if limit is not None else params,
+            )
+            rows = sql.fetchall()
         else:
-            rows = self._connection.execute(
+            sql = self._connection.execute(
                 filtered + ", component_owners AS ("
                 "SELECT fd.document_id, c.component_id FROM filtered_documents fd "
                 "JOIN components c ON c.document_id = fd.document_id "
@@ -937,9 +1004,11 @@ class StructuredCorpusSearch:
                 ") SELECT m.value AS value, count(DISTINCT owners.document_id) AS count "
                 "FROM component_owners owners "
                 "JOIN metadata m ON m.component_id = owners.component_id "
-                "WHERE m.key = ? GROUP BY m.value ORDER BY count DESC, value ASC",
-                [*params, field],
-            ).fetchall()
+                "WHERE m.key = ? GROUP BY m.value ORDER BY count DESC, value ASC"
+                + (" LIMIT ?" if limit is not None else ""),
+                [*params, field, limit] if limit is not None else [*params, field],
+            )
+            rows = sql.fetchall()
         return rows
 
 

@@ -61,8 +61,9 @@ def inspect_documents(
     document_ids: Annotated[
         list[str],
         Field(
+            min_length=1,
             max_length=20,
-            description="Document identifiers from corpus tool results, at most 20.",
+            description="Document identifiers from corpus tool results, from 1 to 20.",
         ),
     ],
     excerpt_limit: Annotated[
