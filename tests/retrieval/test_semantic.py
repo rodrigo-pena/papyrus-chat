@@ -50,7 +50,10 @@ def test_suggestions_fuse_local_vectors_and_report_scoped_coverage(
     assert suggestions[0].value == "Geld"
     assert suggestions[0].scoped_document_count == 1
     assert suggestions[0].scope_document_count == 1
-    assert suggestions[0].coverage == 1.0
+    assert suggestions[0].subject_annotated_document_count == 1
+    assert suggestions[0].label_prevalence == 1.0
+    assert suggestions[0].subject_annotation_coverage == 1.0
+    assert suggestions[0].model_dump()["label_prevalence"] == 1.0
     assert suggestions[0].strategy == "semantic"
     assert not any("subject.value IN" in statement for statement in statements)
     search.close()

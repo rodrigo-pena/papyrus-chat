@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from papyrus_chat.artifact.manifest import SemanticIndexInfo, load_manifest
 from papyrus_chat.retrieval.scope import document_scope_where
@@ -37,13 +37,23 @@ class SubjectSuggestion(BaseModel):
     document_count: int
     scoped_document_count: int
     scope_document_count: int
+    subject_annotated_document_count: int
 
+    @computed_field
     @property
-    def coverage(self) -> float:
-        """Fraction of scoped documents annotated with this subject label."""
+    def label_prevalence(self) -> float:
+        """Fraction of scoped documents carrying this exact subject label."""
         if self.scope_document_count == 0:
             return 0.0
         return self.scoped_document_count / self.scope_document_count
+
+    @computed_field
+    @property
+    def subject_annotation_coverage(self) -> float:
+        """Fraction of scoped documents carrying at least one subject annotation."""
+        if self.scope_document_count == 0:
+            return 0.0
+        return self.subject_annotated_document_count / self.scope_document_count
 
 
 @dataclass(frozen=True)
@@ -119,6 +129,7 @@ class SemanticSubjectSearch:
                     document_count=int(row["document_count"]),
                     scoped_document_count=scoped_count,
                     scope_document_count=scope_count,
+                    subject_annotated_document_count=scope_stats.annotated_document_count,
                 )
             )
             if len(suggestions) >= limit:

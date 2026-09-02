@@ -81,8 +81,8 @@ The builder stores normalized HGV subject labels, float32 vectors, the model
 snapshot, and file digests in the artifact. Chat-time queries use the same
 local model and fuse lexical vocabulary matches with dense ranking. Suggested
 labels are then applied as exact HGV subject filters, so the assistant can
-report both narrow and broader cohorts with exact counts and annotation
-coverage.
+report both narrow and broader cohorts with exact counts, label prevalence,
+and subject-annotation coverage.
 
 `papyrus-chat` validates the artifact, binds to `127.0.0.1:8000`, and opens
 the stock Pydantic AI chat UI. The UI provides persistent browser threads,
