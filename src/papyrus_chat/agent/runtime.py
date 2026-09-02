@@ -10,6 +10,7 @@ from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools
+from papyrus_chat.agent.web import search_web_terminology
 from papyrus_chat.chat.provider import ProviderConfig
 from papyrus_chat.retrieval.structured import CorpusDocumentMatch
 
@@ -139,6 +140,7 @@ def create_research_agent(
     *,
     model: Any | None = None,
     enable_native_web_search: bool = True,
+    enable_web_search: bool = False,
 ) -> Agent[Any, str]:
     """Construct an agent using the existing provider environment contract."""
     capabilities: list[NativeTool] = []
@@ -146,7 +148,11 @@ def create_research_agent(
     if selected_model is None:
         api_key = config.api_key.get_secret_value() if config.api_key is not None else None
         provider = OpenAIProvider(base_url=config.base_url, api_key=api_key)
-        if enable_native_web_search and model_supports_native_web_search(config.model):
+        if (
+            enable_web_search
+            and enable_native_web_search
+            and model_supports_native_web_search(config.model)
+        ):
             selected_model = OpenAIResponsesModel(
                 config.model.removeprefix("openai-responses:"), provider=provider
             )
@@ -163,6 +169,10 @@ def create_research_agent(
         retries=3,
     )
     register_corpus_tools(agent)
+    if enable_web_search and not (
+        enable_native_web_search and model_supports_native_web_search(config.model)
+    ):
+        agent.tool(search_web_terminology)
 
     @agent.output_validator
     def validate_output(ctx: RunContext[CorpusToolDeps], output: str) -> str:

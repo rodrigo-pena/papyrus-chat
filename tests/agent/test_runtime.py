@@ -81,6 +81,20 @@ def test_native_web_search_is_opted_in_only_for_responses_models() -> None:
     assert not model_supports_native_web_search("gpt-5.2")
 
 
+def test_provider_neutral_web_search_is_opt_in(tool_service: CorpusToolService) -> None:
+    model = TestModel(custom_output_text="background", call_tools=[])
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=model,
+        enable_web_search=True,
+    )
+    agent.run_sync("Describe the corpus.", deps=CorpusToolDeps(service=tool_service))
+    parameters = model.last_model_request_parameters
+    assert parameters is not None
+    assert any(tool.name == "search_web_terminology" for tool in parameters.function_tools)
+
+
 def test_output_validator_accepts_known_corpus_links_and_rejects_unknown_links() -> None:
     known = {"https://papyri.info/ddbdp/p.mich;8;480"}
     answer = "Corpus evidence: [1](https://papyri.info/ddbdp/p.mich;8;480)."

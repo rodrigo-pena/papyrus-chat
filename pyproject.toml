@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 semantic = ["fastembed>=0.4"]
+web = ["ddgs>=9.0"]
 
 [dependency-groups]
 dev = [
