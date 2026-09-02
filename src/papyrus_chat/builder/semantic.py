@@ -118,9 +118,12 @@ def _subject_rows(
             documents = {*documents, component.document_id}
         for value in values:
             subjects.setdefault(value, set()).update(documents)
+    ordered = sorted(
+        subjects.items(), key=lambda item: (normalize_identifier_value(item[0]), item[0])
+    )
     return [
         (f"subject-{index:06d}", value, normalize_identifier_value(value), len(documents))
-        for index, (value, documents) in enumerate(sorted(subjects.items()), start=1)
+        for index, (value, documents) in enumerate(ordered, start=1)
     ]
 
 
