@@ -9,6 +9,8 @@ from papyrus_chat.semantic.embeddings import (
     DEFAULT_EMBEDDING_MODEL,
     EmbeddingKind,
     LocalEmbeddingEncoder,
+    cosine_similarity,
+    normalize_embedding,
     prefixed_texts,
 )
 
@@ -46,6 +48,18 @@ def test_custom_model_prefixes_are_used() -> None:
 def test_empty_text_is_rejected() -> None:
     with pytest.raises(ValueError, match="empty"):
         prefixed_texts(("",), kind="query")
+
+
+def test_normalize_embedding_rejects_non_finite_values() -> None:
+    with pytest.raises(ValueError, match="non-finite"):
+        normalize_embedding((float("nan"), 1.0), dimensions=2)
+
+
+def test_cosine_similarity_is_scale_invariant() -> None:
+    left = normalize_embedding((3.0, 4.0), dimensions=2)
+    scaled = normalize_embedding((30.0, 40.0), dimensions=2)
+
+    assert cosine_similarity(left, scaled) == pytest.approx(1.0)
 
 
 class FakeEmbeddingModel:

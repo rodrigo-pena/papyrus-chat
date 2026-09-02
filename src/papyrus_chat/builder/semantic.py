@@ -10,7 +10,7 @@ from typing import Protocol
 from papyrus_chat.artifact.hashing import file_sha256
 from papyrus_chat.artifact.manifest import SemanticIndexInfo
 from papyrus_chat.artifact.records import ComponentLinkRecord, ComponentRecord
-from papyrus_chat.semantic.embeddings import EmbeddingKind, EmbeddingModelSpec
+from papyrus_chat.semantic.embeddings import EmbeddingKind, EmbeddingModelSpec, normalize_embedding
 from papyrus_chat.textnorm import normalize_identifier_value
 
 
@@ -39,12 +39,13 @@ def build_subject_index(
     """Write sorted subject labels, vectors, and a copied model snapshot."""
     rows = _subject_rows(components, links)
     labels = [row[1] for row in rows]
-    vectors = encoder.encode(labels, kind="passage") if labels else ()
-    if len(vectors) != len(rows):
+    raw_vectors = encoder.encode(labels, kind="passage") if labels else ()
+    if len(raw_vectors) != len(rows):
         raise ValueError("semantic encoder returned the wrong number of subject vectors")
-    for vector in vectors:
-        if len(vector) != encoder.model_spec.dimensions:
-            raise ValueError("semantic encoder returned the wrong subject dimensions")
+    vectors = tuple(
+        normalize_embedding(vector, dimensions=encoder.model_spec.dimensions)
+        for vector in raw_vectors
+    )
 
     semantic_dir = output_dir / "semantic"
     model_output = semantic_dir / "model"

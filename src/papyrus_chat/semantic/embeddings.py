@@ -9,7 +9,7 @@ artifacts do not require a model to start.
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
-from math import sqrt
+from math import isfinite, sqrt
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
@@ -30,6 +30,32 @@ class EmbeddingModelSpec:
     query_prefix: str = "query: "
     passage_prefix: str = "passage: "
     pooling: Literal["mean"] = "mean"
+
+
+def normalize_embedding(
+    vector: Sequence[float], *, dimensions: int
+) -> tuple[float, ...]:
+    """Validate and L2-normalize one embedding for cosine similarity."""
+    values = tuple(float(value) for value in vector)
+    if len(values) != dimensions:
+        raise ValueError(
+            f"embedding backend returned {len(values)} dimensions; expected {dimensions} dimensions"
+        )
+    if not all(isfinite(value) for value in values):
+        raise ValueError("embedding backend returned a non-finite value")
+    norm = sqrt(sum(value * value for value in values))
+    if norm == 0:
+        raise ValueError("embedding backend returned a zero vector")
+    return tuple(value / norm for value in values)
+
+
+def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
+    """Return cosine similarity for two already validated vectors."""
+    if len(left) != len(right):
+        raise ValueError("cosine vectors must have matching dimensions")
+    return sum(
+        left_value * right_value for left_value, right_value in zip(left, right, strict=True)
+    )
 
 
 DEFAULT_EMBEDDING_MODEL = EmbeddingModelSpec(
@@ -83,19 +109,9 @@ class LocalEmbeddingEncoder:
         vectors = tuple(self._model.embed(prepared))
         if len(vectors) != len(prepared):
             raise ValueError("embedding backend returned the wrong number of vectors")
-        normalized: list[tuple[float, ...]] = []
-        for vector in vectors:
-            values = tuple(float(value) for value in vector)
-            if len(values) != self.model_spec.dimensions:
-                raise ValueError(
-                    f"embedding backend returned {len(values)} dimensions; "
-                    f"expected {self.model_spec.dimensions} dimensions"
-                )
-            norm = sqrt(sum(value * value for value in values))
-            if norm == 0:
-                raise ValueError("embedding backend returned a zero vector")
-            normalized.append(tuple(value / norm for value in values))
-        return tuple(normalized)
+        return tuple(
+            normalize_embedding(vector, dimensions=self.model_spec.dimensions) for vector in vectors
+        )
 
     @staticmethod
     def _load_model(model_dir: Path, model_spec: EmbeddingModelSpec) -> Any:
@@ -153,5 +169,7 @@ __all__ = [
     "DEFAULT_EMBEDDING_MODEL",
     "EmbeddingModelSpec",
     "LocalEmbeddingEncoder",
+    "cosine_similarity",
+    "normalize_embedding",
     "prefixed_texts",
 ]

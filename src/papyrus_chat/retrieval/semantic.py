@@ -10,7 +10,12 @@ from pydantic import BaseModel, ConfigDict
 
 from papyrus_chat.artifact.manifest import SemanticIndexInfo, load_manifest
 from papyrus_chat.retrieval.structured import CorpusQuery
-from papyrus_chat.semantic.embeddings import EmbeddingKind, EmbeddingModelSpec
+from papyrus_chat.semantic.embeddings import (
+    EmbeddingKind,
+    EmbeddingModelSpec,
+    cosine_similarity,
+    normalize_embedding,
+)
 
 
 class QueryEncoder(Protocol):
@@ -206,17 +211,20 @@ class SemanticSubjectSearch:
                 self.artifact_root / "semantic/model", model_spec=model_spec
             )
             self._encoder = encoder
-        query_vector = encoder.encode([concept], kind="query")[0]
+        query_vector = normalize_embedding(
+            encoder.encode([concept], kind="query")[0], dimensions=semantic.dimensions
+        )
         raw = (self.artifact_root / semantic.embeddings_file).read_bytes()
         expected = len(rows) * semantic.dimensions * 4
         if len(raw) != expected:
             raise ValueError("semantic embedding file length does not match manifest")
         scores: list[tuple[float, str, int]] = []
         for index, row in enumerate(rows):
-            vector = struct.unpack_from(
+            raw_vector = struct.unpack_from(
                 f"<{semantic.dimensions}f", raw, index * semantic.dimensions * 4
             )
-            score = sum(left * right for left, right in zip(query_vector, vector, strict=True))
+            vector = normalize_embedding(raw_vector, dimensions=semantic.dimensions)
+            score = cosine_similarity(query_vector, vector)
             scores.append((score, row["value_norm"], index))
         scores.sort(key=lambda item: (-item[0], item[1], rows[item[2]]["value"]))
         return (

@@ -2,6 +2,8 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+import pytest
+
 from papyrus_chat.artifact.records import (
     ComponentLinkRecord,
     ComponentRecord,
@@ -19,6 +21,12 @@ class FakeEncoder:
     def encode(self, texts: Sequence[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
         assert kind == "passage"
         return tuple((float(index + 1), 0.0) for index, _ in enumerate(texts))
+
+
+class UnnormalizedEncoder(FakeEncoder):
+    def encode(self, texts: Sequence[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
+        assert kind == "passage"
+        return tuple((3.0, 4.0) for _ in texts)
 
 
 def component(
@@ -72,3 +80,25 @@ def test_subject_index_is_sorted_and_portable(tmp_path: Path) -> None:
     assert result.manifest.pooling == "mean"
     assert result.manifest.file_hashes["semantic/subjects.f32"].startswith("sha256:")
     assert len((output / "semantic/subjects.f32").read_bytes()) == 2 * 2 * 4
+
+
+def test_subject_index_normalizes_custom_encoder_vectors(tmp_path: Path) -> None:
+    model_dir = tmp_path / "source-model"
+    model_dir.mkdir()
+    (model_dir / "model.onnx").write_bytes(b"model")
+    output = tmp_path / "artifact"
+    output.mkdir()
+
+    result = build_subject_index(
+        output,
+        components=[component("hgv:1", document_id=None, subjects=("Liste",))],
+        links=[],
+        model_dir=model_dir,
+        encoder=UnnormalizedEncoder(),
+    )
+
+    import struct
+
+    vector = struct.unpack("<2f", (output / "semantic/subjects.f32").read_bytes())
+    assert vector == pytest.approx((0.6, 0.8))
+    assert result.manifest.dimensions == 2
