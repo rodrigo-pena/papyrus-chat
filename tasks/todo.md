@@ -1,8 +1,8 @@
 # Local STDIO MCP Server
 
-- [ ] Foundation extraction and compatibility
-- [ ] Bounded corpus discovery contracts
-- [ ] Local STDIO MCP server
-- [ ] `research-papyri` skill
-- [ ] Local MCP integration documentation
-- [ ] Final verification and local commits
+- [x] Foundation extraction and compatibility
+- [x] Bounded corpus discovery contracts
+- [x] Local STDIO MCP server
+- [x] `research-papyri` skill
+- [x] Local MCP integration documentation
+- [x] Final verification and local commits

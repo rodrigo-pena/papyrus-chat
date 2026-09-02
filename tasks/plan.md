@@ -24,42 +24,42 @@ retrieval only.
 
 ### Phase 1: Foundation
 
-- [ ] Extract `CorpusService`, shared result models, and projections.
-- [ ] Preserve chat/agent behavior through compatibility aliases.
+- [x] Extract `CorpusService`, shared result models, and projections.
+- [x] Preserve chat/agent behavior through compatibility aliases.
 
 ### Checkpoint: Foundation
 
-- [ ] Existing retrieval, agent, and web tests pass.
-- [ ] Read-only access and service cleanup are covered.
+- [x] Existing retrieval, agent, and web tests pass.
+- [x] Read-only access and service cleanup are covered.
 
 ### Phase 2: Discovery Contracts
 
-- [ ] Add corpus provenance/capability information.
-- [ ] Add bounded identifier lookup and SQL-bounded facets.
-- [ ] Add explicit semantic suggestion availability states.
-- [ ] Enforce the minimum inspection ID bound.
+- [x] Add corpus provenance/capability information.
+- [x] Add bounded identifier lookup and SQL-bounded facets.
+- [x] Add explicit semantic suggestion availability states.
+- [x] Enforce the minimum inspection ID bound.
 
 ### Checkpoint: Core Contracts
 
-- [ ] Focused corpus and retrieval tests pass.
-- [ ] Existing Pydantic-AI tool projections remain unchanged.
+- [x] Focused corpus and retrieval tests pass.
+- [x] Existing Pydantic-AI tool projections remain unchanged.
 
 ### Phase 3: MCP Server
 
-- [ ] Add optional MCP dependency and `papyrus-mcp` entry point.
-- [ ] Register six annotated structured-output tools over STDIO.
-- [ ] Test in-memory and subprocess MCP clients, including errors and no-network operation.
+- [x] Add optional MCP dependency and `papyrus-mcp` entry point.
+- [x] Register six annotated structured-output tools over STDIO.
+- [x] Test in-memory and subprocess MCP clients, including errors and no-network operation.
 
 ### Phase 4: User Guidance
 
-- [ ] Add the instruction-only `research-papyri` skill.
-- [ ] Add and link the local MCP integration guide.
+- [x] Add the instruction-only `research-papyri` skill.
+- [x] Add and link the local MCP integration guide.
 
 ### Checkpoint: Complete
 
-- [ ] Full test, lint, format, and type checks pass.
-- [ ] Five conventional commits are present locally.
-- [ ] No remote push is performed.
+- [x] Full test, lint, format, and type checks pass.
+- [x] Five conventional commits are present locally.
+- [x] No remote push is performed.
 
 ## Risks and Mitigations
 

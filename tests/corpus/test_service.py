@@ -1,12 +1,26 @@
 """Transport-neutral corpus service lifecycle tests."""
 
 import sqlite3
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
+from papyrus_chat.builder.pipeline import build_artifact
+from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import CorpusQuery
+from papyrus_chat.semantic.embeddings import EmbeddingModelSpec
+
+
+class _FixtureSubjectEncoder:
+    model_spec = EmbeddingModelSpec(
+        model_id="test/model", revision="d" * 40, dimensions=2, model_file="model.onnx"
+    )
+
+    def encode(self, texts: Sequence[str], *, kind: str) -> tuple[tuple[float, ...], ...]:
+        del kind
+        return tuple((1.0, 0.0) for _ in texts)
 
 
 def test_open_binds_a_read_only_sqlite_connection(corpus_artifact: Path) -> None:
@@ -46,6 +60,42 @@ def test_get_corpus_info_reports_manifest_provenance_and_capability(
         assert info.logical_content_hash.startswith("sha256:")
         assert info.semantic_capability.available is False
         assert "semantic" in (info.semantic_capability.unavailable_reason or "")
+    finally:
+        service.close()
+
+
+def test_semantic_suggestion_reports_each_availability_state(
+    tmp_path: Path, fixture_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "model.onnx").write_bytes(b"fixture model")
+    artifact = tmp_path / "semantic-corpus"
+    build_artifact(
+        ["ddbdp"],
+        output=artifact,
+        source=LocalGitSource(fixture_git_repo),
+        source_url="https://github.com/papyri/idp.data.git",
+        requested_ref="master",
+        semantic_model_dir=model_dir,
+        semantic_encoder=_FixtureSubjectEncoder(),
+    )
+    service = CorpusService.open(artifact)
+
+    try:
+        monkeypatch.setattr(
+            "papyrus_chat.corpus.service._semantic_runtime_available", lambda: False
+        )
+        unavailable = service.suggest_subjects("payments", scope=CorpusQuery(collections=["ddbdp"]))
+        assert unavailable.available is False
+        assert "[mcp,semantic]" in (unavailable.unavailable_reason or "")
+
+        monkeypatch.setattr("papyrus_chat.corpus.service._semantic_runtime_available", lambda: True)
+        service._search.semantic._encoder = _FixtureSubjectEncoder()  # noqa: SLF001
+        empty = service.suggest_subjects("payments", scope=CorpusQuery(collections=["dclp"]))
+        assert empty.available is True
+        assert empty.suggestions == ()
+        assert empty.unavailable_reason is None
     finally:
         service.close()
 

@@ -230,6 +230,9 @@ are deterministic: identical inputs produce the same logical content hash in
 `manifest.json` and the completion report. Reference measurements and known
 bottlenecks are recorded in [docs/performance.md](docs/performance.md).
 
+For connecting a built artifact to Codex or the ChatGPT desktop app, see the
+[local MCP integration guide](docs/local-mcp.md).
+
 ### Sample questions
 
 - How many Greek texts are lists related to tax payments from the Islamic period (from the Arab conquest of Egypt)?
