@@ -15,6 +15,7 @@ from papyrus_chat.artifact.records import (
     SourceReference,
 )
 from papyrus_chat.retrieval.evidence import snippet_for
+from papyrus_chat.retrieval.scope import document_scope_where
 from papyrus_chat.retrieval.search import build_fts_query
 
 CorpusField = Literal["title", "metadata", "transcription", "translation"]
@@ -536,49 +537,12 @@ class StructuredCorpusSearch:
         self._connection.close()
 
     def _where_clause(self, query: CorpusQuery) -> tuple[list[str], list[object]]:
-        where = ["1 = 1"]
-        params: list[object] = []
-        if query.collections:
-            placeholders = ", ".join("?" for _ in query.collections)
-            where.append(f"d.collection IN ({placeholders})")
-            params.extend(query.collections)
+        where, params = document_scope_where(query)
         for group in query.term_groups:
             alternatives = self._term_group_conditions(group, query.fields, params)
             where.append("(" + " OR ".join(alternatives) + ")" if alternatives else "0 = 1")
         for group in query.subject_groups:
             where.append(self._subject_group_condition(group, params))
-        if query.transcription_languages:
-            placeholders = ", ".join("?" for _ in query.transcription_languages)
-            where.append(
-                "EXISTS (SELECT 1 FROM passages p "
-                "WHERE p.document_id = d.document_id AND p.kind = 'edition' "
-                "AND EXISTS (SELECT 1 FROM passage_languages pl "
-                "WHERE pl.passage_id = p.passage_id "
-                f"AND pl.language IN ({placeholders})))"
-            )
-            params.extend(query.transcription_languages)
-        if query.date_interval is not None:
-            # Clamp open-ended ranges ("nach 244 v.Chr.") to their known bound so a
-            # terminus post quem alone cannot overlap an unrelated interval.
-            start = (
-                "CAST(COALESCE(NULLIF(date_row.not_before, ''), "
-                "NULLIF(date_row.not_after, ''), NULLIF(date_row.when_value, '')) AS INTEGER)"
-            )
-            end = (
-                "CAST(COALESCE(NULLIF(date_row.not_after, ''), "
-                "NULLIF(date_row.not_before, ''), NULLIF(date_row.when_value, '')) AS INTEGER)"
-            )
-            where.append(
-                "EXISTS ("
-                "SELECT 1 FROM components ddc "
-                "JOIN component_links link "
-                "ON link.ddbdp_component_id = ddc.component_id "
-                "JOIN dates date_row ON date_row.component_id = link.hgv_component_id "
-                "WHERE ddc.document_id = d.document_id AND ddc.kind = 'ddbdp' "
-                f"AND {start} <= ? AND {end} >= ?"
-                ")"
-            )
-            params.extend([query.date_interval.not_after, query.date_interval.not_before])
         return where, params
 
     @staticmethod
