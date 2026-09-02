@@ -9,6 +9,7 @@ from pydantic_ai import Agent, RunContext
 
 from papyrus_chat.artifact.records import ComponentRecord
 from papyrus_chat.retrieval.evidence import targeted_snippet_for
+from papyrus_chat.retrieval.semantic import SubjectSuggestion
 from papyrus_chat.retrieval.structured import (
     CorpusDescription,
     CorpusDocumentMatch,
@@ -59,6 +60,16 @@ class CorpusSearchSummary(BaseModel):
     truncated: bool
     hits: tuple[CorpusHitSummary, ...]
     group_candidate_counts: tuple[int, ...] | None = None
+
+
+class CorpusSubjectSuggestionSummary(BaseModel):
+    """Bounded semantic labels with exact scope coverage for cohort planning."""
+
+    model_config = ConfigDict(frozen=True)
+
+    concept: str
+    scope: CorpusQuery
+    suggestions: tuple[SubjectSuggestion, ...]
 
 
 class CorpusHgvContext(BaseModel):
@@ -144,6 +155,17 @@ class CorpusToolService:
     def facet_documents(self, query: CorpusQuery, field: FacetField) -> CorpusFacetResult:
         return self._search.facet_documents(query, field)
 
+    def suggest_subject_values(
+        self, concept: str, *, scope: CorpusQuery, limit: int = 20
+    ) -> CorpusSubjectSuggestionSummary:
+        return CorpusSubjectSuggestionSummary(
+            concept=concept,
+            scope=scope.model_copy(update={"term_groups": (), "subject_groups": ()}),
+            suggestions=self._search.semantic.suggest_subject_values(
+                concept, scope=scope, limit=limit
+            ),
+        )
+
     def document_for_citation(self, canonical_url: str) -> CorpusDocumentMatch | None:
         return self._search.document_for_citation(canonical_url)
 
@@ -220,6 +242,16 @@ def facet_documents(
 ) -> CorpusFacetResult:
     """Count distinct candidate documents by a safe corpus facet."""
     return ctx.deps.service.facet_documents(query, field)
+
+
+def suggest_subject_values(
+    ctx: RunContext[CorpusToolDeps],
+    concept: Annotated[str, Field(min_length=1, max_length=500)],
+    scope: CorpusQuery,
+    limit: Annotated[int, Field(ge=1, le=30)] = 20,
+) -> CorpusSubjectSuggestionSummary:
+    """Suggest exact HGV subject labels for a concept within a declared scope."""
+    return ctx.deps.service.suggest_subject_values(concept, scope=scope, limit=limit)
 
 
 def _remember_corpus_urls(deps: CorpusToolDeps, urls: Iterable[str | None]) -> None:
@@ -324,11 +356,12 @@ def _excerpt(
 
 
 def register_corpus_tools(agent: Agent[Any, Any]) -> None:
-    """Register exactly the four read-only corpus tools on an agent."""
+    """Register the read-only corpus tools on an agent."""
     agent.tool(describe_corpus)
     agent.tool(search_documents)
     agent.tool(inspect_documents)
     agent.tool(facet_documents)
+    agent.tool(suggest_subject_values)
 
 
 __all__ = [
@@ -339,6 +372,7 @@ __all__ = [
     "CorpusInspectionResult",
     "CorpusInspectionSummary",
     "CorpusSearchSummary",
+    "CorpusSubjectSuggestionSummary",
     "CorpusToolDeps",
     "CorpusToolService",
     "describe_corpus",
@@ -346,4 +380,5 @@ __all__ = [
     "inspect_documents",
     "register_corpus_tools",
     "search_documents",
+    "suggest_subject_values",
 ]

@@ -34,6 +34,13 @@ model-generated synthesis. Label calendar, historical, or other knowledge not
 present in corpus results as model-supplied background. If native web search is
 available, preserve its provider citations and never use web results as a
 replacement for local corpus evidence.
+
+For concepts such as document genres or administrative topics, call
+suggest_subject_values first with the declared scope. Use returned exact HGV
+labels to form a narrow subject_groups search and a broader related-label
+search, then report both exact candidate counts, annotation coverage, and the
+labels used. If the requested historical period is not bounded, ask for both
+inclusive lower and upper years before counting.
 """.strip()
 
 _PAPYRI_URL = re.compile(r"https://papyri\.info/[^\s)\]>]+")

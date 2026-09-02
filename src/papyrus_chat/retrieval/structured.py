@@ -339,6 +339,17 @@ class StructuredCorpusSearch:
     def __init__(self, database_path: Path) -> None:
         self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
+        self._database_path = database_path
+        self._semantic = None
+
+    @property
+    def semantic(self):
+        """Lazily open the optional semantic subject index beside this database."""
+        if self._semantic is None:
+            from papyrus_chat.retrieval.semantic import SemanticSubjectSearch
+
+            self._semantic = SemanticSubjectSearch(self._database_path)
+        return self._semantic
 
     def query(
         self,
@@ -520,6 +531,8 @@ class StructuredCorpusSearch:
         )
 
     def close(self) -> None:
+        if self._semantic is not None:
+            self._semantic.close()
         self._connection.close()
 
     def _where_clause(self, query: CorpusQuery) -> tuple[list[str], list[object]]:
