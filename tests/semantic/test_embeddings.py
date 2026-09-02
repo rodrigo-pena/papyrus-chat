@@ -10,6 +10,7 @@ from papyrus_chat.semantic.embeddings import (
     EmbeddingKind,
     LocalEmbeddingEncoder,
     cosine_similarity,
+    model_snapshot_path,
     normalize_embedding,
     prefixed_texts,
 )
@@ -66,6 +67,16 @@ def test_empty_text_is_rejected() -> None:
 def test_normalize_embedding_rejects_non_finite_values() -> None:
     with pytest.raises(ValueError, match="non-finite"):
         normalize_embedding((float("nan"), 1.0), dimensions=2)
+
+
+@pytest.mark.parametrize("model_file", ["/tmp/model.onnx", "../model.onnx", ""])
+def test_model_snapshot_path_rejects_unsafe_or_missing_paths(
+    tmp_path: Path, model_file: str
+) -> None:
+    spec = replace(DEFAULT_EMBEDDING_MODEL, model_file=model_file)
+
+    with pytest.raises(ValueError, match="model file"):
+        model_snapshot_path(tmp_path, spec)
 
 
 def test_cosine_similarity_is_scale_invariant() -> None:

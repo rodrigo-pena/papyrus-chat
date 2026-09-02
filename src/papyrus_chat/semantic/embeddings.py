@@ -56,6 +56,19 @@ def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
     )
 
 
+def model_snapshot_path(model_dir: Path, model_spec: EmbeddingModelSpec) -> Path:
+    """Resolve a model file while keeping it inside its supplied snapshot."""
+    relative = Path(model_spec.model_file)
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise ValueError(f"semantic model file must be a relative snapshot path: {relative}")
+    path = model_dir / relative
+    if not path.is_file():
+        raise ValueError(
+            f"semantic model snapshot is missing the configured model file: {model_spec.model_file}"
+        )
+    return path
+
+
 DEFAULT_EMBEDDING_MODEL = EmbeddingModelSpec(
     model_id="intfloat/multilingual-e5-small",
     # This revision contains the optimized ONNX file configured below. Keep
@@ -126,12 +139,7 @@ class LocalEmbeddingEncoder:
                 "semantic search requires the fastembed dependency; install the semantic extra"
             ) from error
 
-        model_path = model_dir / model_spec.model_file
-        if not model_path.is_file():
-            raise ValueError(
-                "semantic model snapshot is missing the configured model file: "
-                f"{model_spec.model_file}"
-            )
+        model_snapshot_path(model_dir, model_spec)
 
         registration_key = (
             model_spec.model_id,
@@ -168,6 +176,7 @@ __all__ = [
     "EmbeddingModelSpec",
     "LocalEmbeddingEncoder",
     "cosine_similarity",
+    "model_snapshot_path",
     "normalize_embedding",
     "prefixed_texts",
 ]
