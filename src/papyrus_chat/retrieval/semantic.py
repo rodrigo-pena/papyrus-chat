@@ -2,10 +2,12 @@
 
 import sqlite3
 import struct
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
-from typing import Protocol
+from threading import RLock
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
@@ -25,6 +27,15 @@ class QueryEncoder(Protocol):
     def encode(
         self, texts: Sequence[str], *, kind: EmbeddingKind
     ) -> tuple[tuple[float, ...], ...]: ...
+
+
+def _serialized(method: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(method)
+    def wrapper(self: "SemanticSubjectSearch", *args: Any, **kwargs: Any) -> Any:
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class SubjectSuggestion(BaseModel):
@@ -67,14 +78,31 @@ class SubjectScopeStats:
 class SemanticSubjectSearch:
     """Fuse lexical vocabulary matching with local dense vectors and scope counts."""
 
-    def __init__(self, database_path: Path, *, encoder: QueryEncoder | None = None) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        *,
+        encoder: QueryEncoder | None = None,
+        read_only: bool = True,
+        lock: Any = None,
+    ) -> None:
         self.database_path = database_path
         self.artifact_root = database_path.parent
-        self._connection = sqlite3.connect(database_path, check_same_thread=False)
+        if read_only:
+            self._connection = sqlite3.connect(
+                f"{database_path.resolve().as_uri()}?mode=ro",
+                uri=True,
+                check_same_thread=False,
+            )
+        else:
+            self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._manifest = load_manifest(self.artifact_root / "manifest.json")
         self._encoder = encoder
+        self._lock = lock or RLock()
+        self._closed = False
 
+    @_serialized
     def suggest_subject_values(
         self,
         concept: str,
@@ -137,8 +165,12 @@ class SemanticSubjectSearch:
                 break
         return tuple(suggestions)
 
+    @_serialized
     def close(self) -> None:
+        if self._closed:
+            return
         self._connection.close()
+        self._closed = True
 
     def _scope_where(self, scope: CorpusQuery) -> tuple[str, list[object]]:
         where, params = document_scope_where(scope)

@@ -6,6 +6,10 @@ a local Pydantic AI chat. The assistant discloses its search scope, separates
 local transcription evidence from web-sourced and model-supplied background,
 and links cited records to papyri.info.
 
+> See the [local MCP integration guide](docs/local-mcp.md) for instructions on
+> setting up a local MCP server for interacting with Papyri.info data from your
+> own chatbot or coding agent interface.
+
 ## Quick start
 
 This is the lowest-effort route for using Papyrus Chat: install

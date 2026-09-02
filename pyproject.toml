@@ -1,6 +1,6 @@
 [project]
 name = "papyrus-chat"
-version = "0.2.0"
+version = "0.3.0"
 description = "Searchable corpus artifact and evidence-grounded chat over papyri/idp.data collections (proof of concept)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,12 +14,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+mcp = ["mcp>=2,<3"]
 semantic = ["fastembed>=0.4"]
 web = ["ddgs>=9.0"]
 
 [dependency-groups]
 dev = [
     "lxml-stubs>=0.5.1",
+    "mcp>=2,<3",
     "pytest>=8.2",
     "ruff>=0.5",
     "ty>=0.0.1a5",
@@ -28,6 +30,7 @@ dev = [
 [project.scripts]
 papyrus-corpus-build = "papyrus_chat.builder.cli:app"
 papyrus-chat = "papyrus_chat.chat.cli:app"
+papyrus-mcp = "papyrus_chat.mcp_server:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -54,3 +57,4 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 # Typer's dependency-injection API requires function calls in parameter defaults.
 "src/papyrus_chat/*/cli.py" = ["B008"]
+"src/papyrus_chat/mcp_server.py" = ["B008"]
