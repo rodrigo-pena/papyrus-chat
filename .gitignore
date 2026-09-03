@@ -1,3 +1,6 @@
+# Local ngrok sharing policy contains a Basic Auth credential
+/conf/ngrok-policy.yml
+
 # Data, models, and artifacts
 data/
 models/

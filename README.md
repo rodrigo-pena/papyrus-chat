@@ -251,6 +251,9 @@ uv run ruff format --check .
 uv run ty check
 ```
 
+For a browser-only demo with a collaborator, see the [authenticated ngrok
+sharing guide](docs/demo-for-others.md).
+
 Test fixtures are pinned to an upstream commit with recorded provenance
 ([tests/fixtures/idp.data/PROVENANCE.md](tests/fixtures/idp.data/PROVENANCE.md));
 `scripts/refresh_fixtures.py` lets an informed user re-pin them to HEAD of
