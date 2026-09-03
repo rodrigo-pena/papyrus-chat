@@ -52,6 +52,31 @@ class TestRemoteAcquisition:
         translations_dir = source.worktree / "Translations"
         assert not translations_dir.exists() or not any(translations_dir.iterdir())
 
+    def test_checkout_does_not_validate_paths_outside_sparse_selection(
+        self,
+        tmp_path: Path,
+        remote_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        source = RemoteGitSource("file://" + str(remote_repo), cache_dir=tmp_path / "cache")
+        source.resolve_commit("master")
+        run_git = source_module._run_git
+
+        def reject_unscoped_checkout(
+            args: list[str], *, cwd: Path | None = None, check: bool = True
+        ) -> str:
+            # Git for Windows rejects trailing-dot entries even when they are
+            # outside the sparse selection if checkout is commit-wide.
+            if args[:2] == ["checkout", "--force"] and "--" not in args:
+                raise BuildError("checkout inspected a path outside the sparse selection")
+            return run_git(args, cwd=cwd, check=check)
+
+        monkeypatch.setattr(source_module, "_run_git", reject_unscoped_checkout)
+
+        source.ensure_sparse_checkout(["dclp"])
+
+        assert source.read_bytes("DCLP/23/23702.xml")
+
     def test_sparse_checkout_reads_do_not_spawn_per_file_git_processes(
         self,
         tmp_path: Path,

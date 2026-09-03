@@ -116,8 +116,9 @@ class RemoteGitSource:
 
     Only the selected collections' blobs are downloaded (blob:none filter +
     sparse checkout, SPEC 6.2). The cache lives outside the artifact and the
-    selected commit is force-checked-out to hydrate its blobs, then records are
-    read from that commit through one persistent ``git cat-file`` process.
+    selected directories are checked out from the resolved commit to hydrate
+    their blobs, then records are read from that commit through one persistent
+    ``git cat-file`` process.
     Dirty or concurrent working-tree changes therefore cannot alter a build.
     """
 
@@ -203,14 +204,14 @@ class RemoteGitSource:
     def ensure_sparse_checkout(self, collections: list[str]) -> None:
         """Limit the working tree to the selected collections' directories.
 
-        Uses cone-mode sparse checkout plus a full checkout of the resolved
-        commit: only the selected collections' blobs are fetched from the
-        promisor remote.
+        Uses cone-mode sparse checkout plus a path-limited checkout of the
+        resolved commit: only the selected collections' blobs are fetched from
+        the promisor remote.
         """
         dirs = sorted(self.COLLECTION_DIRS.get(c, c) for c in {col.lower() for col in collections})
         _run_git(["sparse-checkout", "set", "--cone", *dirs], cwd=self.worktree)
         commit = self._require_commit()
-        _run_git(["checkout", "--force", commit], cwd=self.worktree)
+        _run_git(["checkout", "--force", commit, "--", *dirs], cwd=self.worktree)
         self._start_batch_reader()
 
     def xml_files(self, upstream_dir: str) -> list[str]:
