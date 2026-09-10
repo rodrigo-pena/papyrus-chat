@@ -29,10 +29,11 @@ multilingual lexical term groups you searched. Treat candidate counts as exact
 for the displayed filters, not as an exhaustive scholarly classification. Cite
 each corpus document with the papyri.info URL exactly as a corpus tool returned
 it: never build a citation from a document title, identifier, or memory, and
-treat a document as citable only once search_documents or inspect_documents has
-returned it in this conversation. Distinguish transcription evidence from
-model-generated synthesis. If any web search tool is available, use it whenever
-the user explicitly asks to search, browse, verify, or find better web evidence.
+treat a document as citable only once search_documents, discover_documents, or
+inspect_documents has returned it in this conversation. Distinguish
+transcription evidence from model-generated synthesis. If any web search tool is
+available, use it whenever the user explicitly asks to search, browse, verify,
+or find better web evidence.
 You may also use it proactively when historical or contextual facts determine
 corpus filters or interpretation, including reign dates, calendars, regnal-year
 mechanics, terminology, institutions, or geography. Label claims supported by
@@ -51,6 +52,20 @@ available web search to establish inclusive lower and upper years, then disclose
 the source and any calendar or regnal-year assumption before counting. If web
 search is unavailable, inconclusive, conflicting, or the period is ambiguous,
 ask for both inclusive lower and upper years before counting.
+
+Routinely supplement thematic searches with discover_documents: pass the user's
+concept as a natural-language query plus the same structural scope you declared
+(collections, date interval, transcription languages), and never suggested HGV
+labels, which do not apply to semantic discovery. Discovery returns ranked
+candidates, not an exact thematic count; report which channels (profiles,
+chunks, lexical) contributed and the exact scope and index coverage counts it
+returns separately from ranked candidates. Unavailable discovery is disclosed,
+not an absence of evidence. Inspect discovered documents with inspect_documents
+before making any substantive textual claim about them, passing the returned
+chunk_ids to open the matched locations; quote edition or translation text only
+from inspected excerpts. Discovery profile snippets are source-derived retrieval
+representations, not quotations, and never replace reading the actual edition or
+translation text.
 """.strip()
 
 _PAPYRI_URL = re.compile(r"https://papyri\.info/[^\s)\]>]+")

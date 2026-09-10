@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from papyrus_chat.artifact.hashing import logical_content_hash
+from papyrus_chat.artifact.hashing import file_sha256, logical_content_hash
 from papyrus_chat.artifact.manifest import (
     ARTIFACT_SCHEMA_VERSION,
     ArtifactManifest,
@@ -48,6 +48,7 @@ from papyrus_chat.builder.integrity import validate_record_graph
 from papyrus_chat.builder.semantic import SemanticIndexBuild, SubjectEncoder, build_subject_index
 from papyrus_chat.builder.source import CorpusSource
 from papyrus_chat.semantic.embeddings import LocalEmbeddingEncoder
+from papyrus_chat.semantic.tokenization import ContentTokenizer
 
 BUILDER_NAME = "papyrus-corpus-build"
 BUILDER_VERSION = "0.3.0"
@@ -99,7 +100,11 @@ def build_artifact(
     force: bool = False,
     semantic_model_dir: Path | None = None,
     semantic_encoder: SubjectEncoder | None = None,
+    semantic_content: bool = False,
+    semantic_tokenizer: ContentTokenizer | None = None,
 ) -> BuildResult:
+    if semantic_content and semantic_model_dir is None:
+        raise BuildError("--semantic-content requires --semantic-model-dir")
     started = time.monotonic()
     canonical = sorted({c.lower() for c in collections})
     LOGGER.info(
@@ -235,6 +240,50 @@ def build_artifact(
                 encoder=encoder,
             )
             writer.insert_semantic_subjects(semantic_build.subject_rows)
+            if semantic_content:
+                from papyrus_chat.builder.content.indexes import (
+                    build_chunk_index,
+                    build_profile_index,
+                )
+                from papyrus_chat.semantic.tokenization import LocalTokenizer
+
+                tokenizer = semantic_tokenizer or LocalTokenizer(semantic_model_dir)
+                chunks = build_chunk_index(
+                    staging,
+                    passages=passages,
+                    writer=writer,
+                    encoder=encoder,
+                    tokenizer=tokenizer,
+                )
+                profiles = build_profile_index(
+                    staging,
+                    documents=documents,
+                    passages=passages,
+                    components=components,
+                    links=links,
+                    writer=writer,
+                    encoder=encoder,
+                    tokenizer=tokenizer,
+                )
+                semantic_build = SemanticIndexBuild(
+                    subject_rows=semantic_build.subject_rows,
+                    manifest=semantic_build.manifest.model_copy(
+                        update={
+                            "chunks": chunks,
+                            "profiles": profiles,
+                            "tokenizer_file": "tokenizer.json",
+                            "file_hashes": {
+                                **semantic_build.manifest.file_hashes,
+                                chunks.embeddings_file: file_sha256(
+                                    staging / chunks.embeddings_file
+                                ),
+                                profiles.embeddings_file: file_sha256(
+                                    staging / profiles.embeddings_file
+                                ),
+                            },
+                        }
+                    ),
+                )
         writer.commit()
         writer.close()
 

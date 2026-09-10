@@ -76,6 +76,35 @@ uv run papyrus-corpus-build ddbdp \
 The artifact-size increase is expected: the portable semantic model snapshot
 is bundled alongside the corpus, subject vocabulary, and float32 embeddings.
 
+## Schema-v4 DDbDP semantic content build
+
+The opt-in content indexes (text chunks and document profiles for semantic
+discovery) were built and measured on the same machine, same source commit
+`ffc23d0174e8`, and same pinned model as the schema-v3 subject build:
+
+```bash
+uv run papyrus-corpus-build ddbdp \
+  --ref ffc23d0174e810ff338bd1048ed0e5882a816fdc \
+  --semantic-model-dir ./models/multilingual-e5-small \
+  --semantic-content \
+  --output ./data/ddbdp-semantic-v4
+```
+
+| Measurement          | Subject-only build | Content build          |
+| -------------------- | ------------------ | ---------------------- |
+| Build duration       | 109.2 s            | 5,587.8 s (1 h 33 min) |
+| Artifact size        | 2,616,790,653 B    | 3,042,059,012 B        |
+| Peak resident memory | 6.96 GB            | 9.60 GB                |
+
+Content indexing adds 120,215 passage chunks and 67,980 document profiles
+encoded at ≈ 37 chunks/s and ≈ 31 profiles/s; the artifact grows by ≈ 425 MB
+(≈ 16%), mostly the chunks and profiles float32 files plus their rows in
+`corpus.sqlite`. Warm discovery over the full artifact measured p50 = 0.325 s
+and p95 = 0.344 s (80 samples, target < 2 s), with a 3.2 s cold start from
+interpreter start to the first result. Stage details, the retrieval
+evaluation, and capability/rebuild rules are documented in
+[semantic retrieval](semantic-retrieval.md).
+
 ## v2 validation
 
 The automated coverage builds the paired real-source DDbDP/HGV fixture,

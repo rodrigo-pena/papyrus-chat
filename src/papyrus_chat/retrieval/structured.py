@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable
 from functools import wraps
 from pathlib import Path
 from threading import RLock
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -19,6 +19,9 @@ from papyrus_chat.artifact.records import (
 from papyrus_chat.retrieval.evidence import snippet_for
 from papyrus_chat.retrieval.scope import document_scope_where
 from papyrus_chat.retrieval.search import build_fts_query
+
+if TYPE_CHECKING:
+    from papyrus_chat.retrieval.semantic import QueryEncoder
 
 
 def _serialized(method: Callable[..., Any]) -> Callable[..., Any]:
@@ -268,6 +271,9 @@ class CorpusHit(BaseModel):
     components: tuple[ComponentRecord, ...] = ()
     source: SourceReference
     canonical_url: str | None = None
+    chunk_id: str | None = None
+    chunk_char_start: int | None = None
+    chunk_char_end: int | None = None
 
 
 class CorpusSearchResult(BaseModel):
@@ -352,7 +358,14 @@ class CorpusDocumentMatch(BaseModel):
 class StructuredCorpusSearch:
     """Read-only structured query service for an artifact SQLite database."""
 
-    def __init__(self, database_path: Path, *, read_only: bool = False, lock: Any = None) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        *,
+        read_only: bool = False,
+        lock: Any = None,
+        semantic_encoder: "QueryEncoder | None" = None,
+    ) -> None:
         if read_only:
             self._connection = sqlite3.connect(
                 f"{database_path.resolve().as_uri()}?mode=ro",
@@ -366,6 +379,8 @@ class StructuredCorpusSearch:
         self._read_only = read_only
         self._lock = lock or RLock()
         self._semantic = None
+        self._discovery = None
+        self._semantic_encoder = semantic_encoder
         self._closed = False
 
     @property
@@ -379,8 +394,56 @@ class StructuredCorpusSearch:
                     self._database_path,
                     read_only=self._read_only,
                     lock=self._lock,
+                    encoder=self.embedding_encoder,
                 )
             return self._semantic
+
+    @property
+    def embedding_encoder(self) -> "QueryEncoder":
+        with self._lock:
+            if self._semantic_encoder is None:
+                from papyrus_chat.artifact.manifest import load_manifest
+                from papyrus_chat.semantic.embeddings import EmbeddingModelSpec, LazyLocalEncoder
+
+                semantic = load_manifest(
+                    self._database_path.parent / "manifest.json"
+                ).semantic_index
+                if semantic is None:
+                    raise RuntimeError("artifact has no semantic model")
+                spec = EmbeddingModelSpec(
+                    model_id=semantic.model_id,
+                    revision=semantic.revision,
+                    dimensions=semantic.dimensions,
+                    model_file=semantic.model_file,
+                    query_prefix=semantic.query_prefix,
+                    passage_prefix=semantic.passage_prefix,
+                    pooling=semantic.pooling,
+                )
+                self._semantic_encoder = LazyLocalEncoder(
+                    self._database_path.parent / "semantic/model",
+                    model_spec=spec,
+                )
+            return self._semantic_encoder
+
+    @property
+    def discovery(self):
+        with self._lock:
+            if self._discovery is None:
+                from papyrus_chat.artifact.manifest import load_manifest
+                from papyrus_chat.retrieval.discovery.search import SemanticDocumentSearch
+
+                semantic = load_manifest(
+                    self._database_path.parent / "manifest.json"
+                ).semantic_index
+                if semantic is None:
+                    raise RuntimeError("artifact has no semantic content index")
+                self._discovery = SemanticDocumentSearch(
+                    self._database_path.parent,
+                    self._connection,
+                    semantic,
+                    self.embedding_encoder,
+                )
+            return self._discovery
 
     @_serialized
     def query(
@@ -502,6 +565,7 @@ class StructuredCorpusSearch:
         document_ids: Iterable[str],
         *,
         excerpt_limit: int = 3,
+        chunk_ids: Iterable[str] = (),
     ) -> tuple[CorpusInspection, ...]:
         ids = tuple(dict.fromkeys(document_ids))
         if not ids:
@@ -510,8 +574,27 @@ class StructuredCorpusSearch:
             raise ValueError("at most 20 documents may be inspected")
         if not 1 <= excerpt_limit <= 10:
             raise ValueError("excerpt_limit must be between 1 and 10")
-        if not ids:
-            return ()
+        selected_chunks = tuple(dict.fromkeys(chunk_ids))
+        if len(selected_chunks) > 40:
+            raise ValueError("at most 40 chunk ids may be inspected")
+        focused: dict[str, list[sqlite3.Row]] = {}
+        if selected_chunks:
+            chunk_placeholders = ", ".join("?" for _ in selected_chunks)
+            chunks = {
+                row["chunk_id"]: row
+                for row in self._connection.execute(
+                    "SELECT p.*, pl.language, c.chunk_id, c.char_start, c.char_end "
+                    "FROM semantic_chunks c JOIN passages p USING (passage_id) "
+                    "LEFT JOIN passage_languages pl USING (passage_id) "
+                    f"WHERE c.chunk_id IN ({chunk_placeholders})",
+                    selected_chunks,
+                )
+            }
+            for chunk_id in selected_chunks:
+                chunk = chunks.get(chunk_id)
+                if chunk is None or chunk["document_id"] not in ids:
+                    raise ValueError("chunk ids must exist and belong to the requested documents")
+                focused.setdefault(chunk["document_id"], []).append(chunk)
         placeholders = ", ".join("?" for _ in ids)
         rows = self._connection.execute(
             f"SELECT * FROM documents WHERE document_id IN ({placeholders})", ids
@@ -524,12 +607,18 @@ class StructuredCorpusSearch:
             row = by_id.get(document_id)
             if row is None:
                 continue
-            passages = self._connection.execute(
+            ordinary_passages = self._connection.execute(
                 "SELECT p.*, pl.language FROM passages p "
                 "LEFT JOIN passage_languages pl ON pl.passage_id = p.passage_id "
                 "WHERE p.document_id = ? ORDER BY p.sequence LIMIT ?",
-                (document_id, excerpt_limit),
+                (document_id, excerpt_limit + len(focused.get(document_id, ()))),
             ).fetchall()
+            selected = focused.get(document_id, [])[:excerpt_limit]
+            selected_passage_ids = {p["passage_id"] for p in selected}
+            passages = [
+                *selected,
+                *(p for p in ordinary_passages if p["passage_id"] not in selected_passage_ids),
+            ][:excerpt_limit]
             source = SourceReference(
                 repository_url=row["source_url"],
                 commit=row["source_commit"],
@@ -552,6 +641,18 @@ class StructuredCorpusSearch:
                             query,
                             passage=passage,
                             components=components.get(document_id, ()),
+                        ).model_copy(
+                            update={
+                                "chunk_id": passage["chunk_id"]
+                                if "chunk_id" in passage.keys()
+                                else None,
+                                "chunk_char_start": passage["char_start"]
+                                if "char_start" in passage.keys()
+                                else None,
+                                "chunk_char_end": passage["char_end"]
+                                if "char_end" in passage.keys()
+                                else None,
+                            }
                         )
                         for passage in passages
                     ),
@@ -586,6 +687,9 @@ class StructuredCorpusSearch:
             return
         if self._semantic is not None:
             self._semantic.close()
+        if self._discovery is not None:
+            self._discovery.close()
+        self._semantic_encoder = None
         self._connection.close()
         self._closed = True
 

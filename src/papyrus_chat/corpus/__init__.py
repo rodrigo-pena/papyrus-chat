@@ -24,8 +24,11 @@ from papyrus_chat.corpus.models import (
     SubjectSuggestion,
 )
 from papyrus_chat.corpus.service import CorpusService
+from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryResult
 
 __all__ = [
+    "DiscoveryQuery",
+    "DiscoveryResult",
     "CorpusDateInterval",
     "CorpusDescription",
     "CorpusDocumentMatch",

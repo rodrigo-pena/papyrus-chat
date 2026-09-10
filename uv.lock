@@ -1137,6 +1137,8 @@ mcp = [
 ]
 semantic = [
     { name = "fastembed" },
+    { name = "numpy" },
+    { name = "tokenizers" },
 ]
 web = [
     { name = "ddgs" },
@@ -1157,9 +1159,11 @@ requires-dist = [
     { name = "fastembed", marker = "extra == 'semantic'", specifier = ">=0.4" },
     { name = "lxml", specifier = ">=5.2" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2,<3" },
+    { name = "numpy", marker = "extra == 'semantic'", specifier = ">=1.26" },
     { name = "platformdirs", specifier = ">=4.2" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-ai-slim", extras = ["openai", "web"], specifier = ">=2,<3" },
+    { name = "tokenizers", marker = "extra == 'semantic'", specifier = ">=0.15" },
     { name = "typer", specifier = ">=0.12" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]

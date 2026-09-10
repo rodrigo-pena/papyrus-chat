@@ -7,6 +7,9 @@ from pathlib import Path
 import pytest
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.tools import RunContext
+from pydantic_ai.usage import RunUsage
+from tests.retrieval.test_discovery import content_service as content_service
 
 from papyrus_chat.agent.tools import (
     CorpusToolDeps,
@@ -15,6 +18,9 @@ from papyrus_chat.agent.tools import (
     _inspection_outcome,  # noqa: PLC2701 - projection unit test
     _inspection_summaries,  # noqa: PLC2701 - projection unit test
     _search_summary,  # noqa: PLC2701 - projection unit test
+    describe_corpus,
+    discover_documents,
+    inspect_documents,
     register_corpus_tools,
 )
 from papyrus_chat.artifact.records import (
@@ -25,6 +31,7 @@ from papyrus_chat.artifact.records import (
 )
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
+from papyrus_chat.retrieval.discovery.models import DiscoveryQuery
 from papyrus_chat.retrieval.structured import (
     CorpusHit,
     CorpusInspection,
@@ -32,6 +39,10 @@ from papyrus_chat.retrieval.structured import (
     CorpusSearchResult,
     StructuredCorpusSearch,
 )
+
+
+def _tool_ctx(deps: CorpusToolDeps) -> RunContext[CorpusToolDeps]:
+    return RunContext(deps=deps, model=TestModel(), usage=RunUsage())
 
 
 def _source() -> SourceReference:
@@ -378,6 +389,7 @@ def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
         "describe_corpus",
         "search_documents",
         "inspect_documents",
+        "discover_documents",
         "facet_documents",
         "suggest_subject_values",
     }
@@ -408,7 +420,103 @@ def test_tool_schemas_state_inspection_bounds_and_facet_options(
     assert focus["maxItems"] == 8
     assert focus["items"]["minLength"] == 1
     assert focus["items"]["maxLength"] == 200
+    chunks = inspection["chunk_ids"]
+    assert chunks["maxItems"] == 40
+    assert chunks["items"]["minLength"] == 1
+    assert chunks["items"]["maxLength"] == 300
+
+    discovery = schemas["discover_documents"]
+    assert discovery["required"] == ["text"]
+    text = discovery["properties"]["text"]
+    assert text["minLength"] == 1
+    assert text["maxLength"] == 500
+    limit = discovery["properties"]["limit"]
+    assert limit["minimum"] == 1
+    assert limit["maximum"] == 100
+    assert limit["default"] == 20
+    kinds = discovery["properties"]["passage_kinds"]
+    assert set(kinds["items"]["enum"]) == {"edition", "translation"}
 
     field = schemas["facet_documents"]["properties"]["field"]
     assert set(field["enum"]) == {"collection", "language", "subject", "material", "origin", "kind"}
     assert "HGV component metadata" in field["description"]
+
+
+def test_discovery_tool_returns_ranked_candidates_and_registers_citations(
+    content_service: CorpusToolService,
+) -> None:
+    deps = CorpusToolDeps(service=content_service)
+    result = discover_documents(
+        _tool_ctx(deps), DiscoveryQuery(text="judicial complaints", limit=2)
+    )
+
+    assert result.available
+    assert result.scope_document_count == 5
+    assert result.indexed_document_count == 5
+    assert len(result.hits) == 2
+    assert result.hits[0].canonical_url is not None
+    assert result.hits[0].channels
+    assert result.hits[0].channel_scores
+    assert "candidate_count" not in result.model_dump()
+    assert deps.known_corpus_urls == {hit.canonical_url for hit in result.hits if hit.canonical_url}
+
+
+def test_discovery_tool_reports_unavailable_capability_without_counts(
+    corpus_tools: CorpusToolService,
+) -> None:
+    deps = CorpusToolDeps(service=corpus_tools)
+
+    result = discover_documents(_tool_ctx(deps), DiscoveryQuery(text="complaints"))
+
+    assert not result.available
+    assert result.unavailable_reason
+    assert result.scope_document_count is None
+    assert not result.hits
+    assert not deps.known_corpus_urls
+
+
+def test_inspection_tool_opens_discovery_chunk_locations(
+    content_service: CorpusToolService,
+) -> None:
+    document_id = "translations:Translations/3/3643-1.xml"
+    discovery = content_service.discover_documents(DiscoveryQuery(text="complaints", limit=1))
+    hit = discovery.hits[0]
+    deps = CorpusToolDeps(service=content_service)
+
+    outcome = inspect_documents(
+        _tool_ctx(deps),
+        [document_id],
+        excerpt_limit=1,
+        chunk_ids=tuple(chunk.chunk_id for chunk in hit.chunks),
+    )
+
+    assert outcome.missing == ()
+    excerpt = outcome.inspections[0].passages[0]
+    assert excerpt.chunk_id is not None
+    assert excerpt.char_start is not None and excerpt.char_end is not None
+    assert excerpt.source is not None
+    assert excerpt.kind == hit.chunks[0].passage_kind
+
+
+def test_inspection_tool_rejects_chunk_ids_from_other_documents(
+    content_service: CorpusToolService,
+) -> None:
+    chunk_id = content_service._connection.execute(  # noqa: SLF001 - fixture access
+        "SELECT chunk_id FROM semantic_chunks LIMIT 1"
+    ).fetchone()[0]
+
+    with pytest.raises(ValueError, match="chunk"):
+        inspect_documents(
+            _tool_ctx(CorpusToolDeps(service=content_service)),
+            ["wrong-document"],
+            chunk_ids=(chunk_id,),
+        )
+
+
+def test_describe_and_search_tools_still_project_lean_summaries(
+    corpus_tools: CorpusToolService,
+) -> None:
+    deps = CorpusToolDeps(service=corpus_tools)
+
+    description = describe_corpus(_tool_ctx(deps))
+    assert description.collections == ("ddbdp",)

@@ -135,7 +135,7 @@ class TestSchemaCompatibility:
             load_manifest(path)
 
         message = str(excinfo.value)
-        assert "3" in message
+        assert "4" in message
         assert "1" in message
 
 

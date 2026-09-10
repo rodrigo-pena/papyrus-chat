@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from papyrus_chat.artifact.manifest import BuilderInfo, ManifestSource, Statistics
+from papyrus_chat.artifact.records import SourceReference
 from papyrus_chat.retrieval.semantic import SubjectSuggestion
 from papyrus_chat.retrieval.structured import (
     CorpusDateInterval,
@@ -19,6 +20,14 @@ from papyrus_chat.retrieval.structured import (
 )
 
 
+class SemanticIndexCapability(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    available: bool = False
+    count: int = 0
+    unavailable_reason: str | None = "artifact has no bundled index"
+
+
 class CorpusSemanticCapability(BaseModel):
     """Whether semantic subject suggestions can run in this process."""
 
@@ -29,6 +38,9 @@ class CorpusSemanticCapability(BaseModel):
     revision: str | None = None
     subject_count: int = 0
     unavailable_reason: str | None = None
+    subjects: SemanticIndexCapability = Field(default_factory=SemanticIndexCapability)
+    profiles: SemanticIndexCapability = Field(default_factory=SemanticIndexCapability)
+    chunks: SemanticIndexCapability = Field(default_factory=SemanticIndexCapability)
 
 
 class CorpusInfo(BaseModel):
@@ -149,6 +161,11 @@ class CorpusExcerpt(BaseModel):
     language: str | None = None
     line_reference: str | None = None
     excerpt: str | None = None
+    passage_id: str | None = None
+    chunk_id: str | None = None
+    char_start: int | None = None
+    char_end: int | None = None
+    source: SourceReference | None = None
 
 
 class CorpusInspectionSummary(BaseModel):

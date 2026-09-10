@@ -137,7 +137,7 @@ diagnostic logging.
 
 Selecting `ddbdp` automatically fetches both `DDbDP/` and the linked
 `HGV_meta_EpiDoc/` records. HGV is stored as documentary metadata, not as a
-separate user-facing collection. The artifact is schema v3; an older artifact
+separate user-facing collection. The artifact is schema v4; an older artifact
 is rejected with an actionable rebuild message.
 
 To bundle semantic subject suggestions, install the semantic extra and point the builder at a
@@ -153,12 +153,20 @@ uv run papyrus-corpus-build dclp ddbdp translations \
   --output ./data/papyrus-corpus
 ```
 
+Add `--semantic-content` to the build command to also index text chunks and
+document profiles for semantic discovery (it always requires
+`--semantic-model-dir`; see [semantic retrieval](docs/semantic-retrieval.md) for
+what it costs and what it adds). Omit it to keep subject-suggestion-only builds.
+
 The builder stores normalized HGV subject labels, float32 vectors, the model
 snapshot, and file digests in the artifact. Chat-time queries use the same
 local model and fuse lexical vocabulary matches with dense ranking. Suggested
 labels are then applied as exact HGV subject filters, so the assistant can
 report both narrow and broader cohorts with exact counts, label prevalence,
-and subject-annotation coverage.
+and subject-annotation coverage. With content indexes, the chat and MCP tools
+additionally expose `discover_documents` for ranked semantic candidates and
+chunk-focused inspection; see the same page for the capability reporting and
+rebuild rules.
 
 `papyrus-chat` validates the artifact, binds to `127.0.0.1:8000`, and opens
 the stock Pydantic AI chat UI. The UI provides persistent browser threads,
@@ -223,6 +231,8 @@ uv run papyrus-corpus-build COLLECTION... [OPTIONS]
 # --ref           branch, tag, or commit to build from (default master)
 # --force         replace an existing artifact at exactly the given path
 # --semantic-model-dir  local FastEmbed model snapshot to bundle for subject suggestions
+# --semantic-content     also build chunk/profile indexes for semantic discovery
+#                        (requires --semantic-model-dir); see docs/semantic-retrieval.md
 # --list-collections
 # -v, --verbose   include detailed diagnostic logging
 ```

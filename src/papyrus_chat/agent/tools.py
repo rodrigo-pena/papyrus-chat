@@ -32,6 +32,7 @@ from papyrus_chat.corpus.projections import (
     _inspection_summaries,
     _search_summary,
 )
+from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryResult
 from papyrus_chat.retrieval.structured import FacetField
 
 
@@ -54,6 +55,16 @@ def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> Cor
     result = ctx.deps.service.search_documents(query)
     _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
     return _search_summary(result)
+
+
+def discover_documents(
+    ctx: RunContext[CorpusToolDeps],
+    query: DiscoveryQuery,
+) -> DiscoveryResult:
+    """Discover semantically related documents with ranked candidates for inspection."""
+    result = ctx.deps.service.discover_documents(query)
+    _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
+    return result
 
 
 def inspect_documents(
@@ -89,9 +100,24 @@ def inspect_documents(
             ),
         ),
     ] = (),
+    chunk_ids: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=300)], ...],
+        Field(
+            max_length=40,
+            description=(
+                "Optional chunk identifiers returned by discover_documents; matching "
+                "chunks are shown first and centered as bounded excerpts. Chunk ids "
+                "must belong to the requested documents. At most 40 identifiers."
+            ),
+        ),
+    ] = (),
 ) -> CorpusInspectionOutcome:
     """Inspect at most 20 selected documents with bounded excerpts and HGV context."""
-    result = ctx.deps.service.inspect_documents(document_ids, excerpt_limit=excerpt_limit)
+    result = ctx.deps.service.inspect_documents(
+        document_ids,
+        excerpt_limit=excerpt_limit,
+        chunk_ids=chunk_ids,
+    )
     _remember_corpus_urls(ctx.deps, (inspection.canonical_url for inspection in result.inspections))
     return _inspection_outcome(
         result.inspections,
@@ -138,6 +164,7 @@ def register_corpus_tools(agent: Agent[Any, Any]) -> None:
     agent.tool(describe_corpus)
     agent.tool(search_documents)
     agent.tool(inspect_documents)
+    agent.tool(discover_documents)
     agent.tool(facet_documents)
     agent.tool(suggest_subject_values)
 
@@ -153,6 +180,8 @@ __all__ = [
     "CorpusSubjectSuggestionSummary",
     "CorpusToolDeps",
     "CorpusToolService",
+    "DiscoveryQuery",
+    "DiscoveryResult",
     "_excerpt",
     "_hgv_context",
     "_hit_summary",
@@ -160,6 +189,7 @@ __all__ = [
     "_inspection_summaries",
     "_search_summary",
     "describe_corpus",
+    "discover_documents",
     "facet_documents",
     "inspect_documents",
     "register_corpus_tools",

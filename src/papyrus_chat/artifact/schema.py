@@ -20,10 +20,12 @@ from papyrus_chat.artifact.records import (
     DocumentRecord,
     IdentifierRecord,
     PassageRecord,
+    SemanticChunkRecord,
+    SemanticProfileRecord,
 )
 from papyrus_chat.textnorm import normalize_identifier_value, normalize_search_text
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _SCHEMA = """
 CREATE TABLE documents (
@@ -66,6 +68,37 @@ CREATE TABLE passages (
     locator        TEXT
 );
 CREATE INDEX passages_by_document ON passages(document_id, sequence);
+
+CREATE TABLE semantic_chunks (
+    chunk_id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL REFERENCES documents(document_id),
+    passage_id TEXT NOT NULL REFERENCES passages(passage_id),
+    char_start INTEGER NOT NULL CHECK (char_start >= 0),
+    char_end INTEGER NOT NULL CHECK (char_end > char_start),
+    vector_row INTEGER NOT NULL UNIQUE CHECK (vector_row >= 0)
+);
+CREATE INDEX semantic_chunks_document ON semantic_chunks(document_id);
+CREATE INDEX semantic_chunks_passage ON semantic_chunks(passage_id);
+
+CREATE TABLE semantic_profiles (
+    profile_id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL UNIQUE REFERENCES documents(document_id),
+    profile_text TEXT NOT NULL CHECK (length(profile_text) > 0),
+    metadata_only INTEGER NOT NULL CHECK (metadata_only IN (0, 1)),
+    vector_row INTEGER NOT NULL UNIQUE CHECK (vector_row >= 0)
+);
+CREATE TABLE semantic_profile_passages (
+    profile_id TEXT NOT NULL REFERENCES semantic_profiles(profile_id),
+    passage_id TEXT NOT NULL REFERENCES passages(passage_id),
+    char_start INTEGER NOT NULL CHECK (char_start >= 0),
+    char_end INTEGER NOT NULL CHECK (char_end > char_start),
+    PRIMARY KEY (profile_id, passage_id, char_start)
+);
+CREATE TABLE semantic_profile_components (
+    profile_id TEXT NOT NULL REFERENCES semantic_profiles(profile_id),
+    component_id TEXT NOT NULL REFERENCES components(component_id),
+    PRIMARY KEY (profile_id, component_id)
+);
 
 CREATE TABLE passage_languages (
     passage_id TEXT PRIMARY KEY REFERENCES passages(passage_id),
@@ -304,6 +337,53 @@ class ArtifactWriter:
                 (normalize_search_text(value), subject_id)
                 for subject_id, value, _value_norm, _count in records
             ],
+        )
+
+    def insert_semantic_chunks(
+        self,
+        records: Sequence[SemanticChunkRecord],
+        *,
+        first_row: int,
+    ) -> None:
+        self._connection.executemany(
+            "INSERT INTO semantic_chunks VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (r.chunk_id, r.document_id, r.passage_id, r.char_start, r.char_end, first_row + i)
+                for i, r in enumerate(records)
+            ],
+        )
+
+    def semantic_content_hash(self, kind: str) -> str:
+        from papyrus_chat.artifact.content import content_rows_hash
+
+        if kind not in ("chunks", "profiles"):
+            raise ValueError("unknown semantic content kind")
+        return content_rows_hash(self._connection, kind)
+
+    def insert_semantic_profiles(
+        self,
+        records: Sequence[SemanticProfileRecord],
+        *,
+        first_row: int,
+    ) -> None:
+        self._connection.executemany(
+            "INSERT INTO semantic_profiles VALUES (?, ?, ?, ?, ?)",
+            [
+                (r.profile_id, r.document_id, r.profile_text, int(r.metadata_only), first_row + i)
+                for i, r in enumerate(records)
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO semantic_profile_passages VALUES (?, ?, ?, ?)",
+            [
+                (r.profile_id, p.passage_id, p.char_start, p.char_end)
+                for r in records
+                for p in r.passages
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO semantic_profile_components VALUES (?, ?)",
+            [(r.profile_id, component_id) for r in records for component_id in r.component_ids],
         )
 
     def insert_components(

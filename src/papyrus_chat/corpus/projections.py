@@ -112,6 +112,29 @@ def excerpt(
     excerpt_chars: int = INSPECT_EXCERPT_CHARS,
 ) -> CorpusExcerpt:
     """Create a bounded excerpt centered on any requested focus terms."""
+    if (
+        passage.passage_text is not None
+        and passage.chunk_char_start is not None
+        and passage.chunk_char_end is not None
+    ):
+        text = passage.passage_text
+        width = max(1, excerpt_chars - 2)
+        middle = (passage.chunk_char_start + passage.chunk_char_end) // 2
+        start = max(0, middle - width // 2)
+        end = min(len(text), start + width)
+        start = max(0, end - width)
+        excerpt_text = ("…" if start else "") + text[start:end] + ("…" if end < len(text) else "")
+        return CorpusExcerpt(
+            kind=passage.passage_kind,
+            language=passage.passage_language,
+            line_reference=passage.line_reference,
+            excerpt=excerpt_text,
+            passage_id=passage.passage_id,
+            chunk_id=passage.chunk_id,
+            char_start=start,
+            char_end=end,
+            source=passage.source,
+        )
     excerpt_text = (
         targeted_snippet_for(passage.passage_text, terms=focus_terms, length=excerpt_chars)
         if passage.passage_text is not None
@@ -122,6 +145,7 @@ def excerpt(
         language=passage.passage_language,
         line_reference=passage.line_reference,
         excerpt=excerpt_text,
+        passage_id=passage.passage_id,
     )
 
 

@@ -48,6 +48,11 @@ def build(
         "--semantic-model-dir",
         help="Local FastEmbed model snapshot to bundle for semantic subject search.",
     ),
+    semantic_content: bool = typer.Option(
+        False,
+        "--semantic-content",
+        help="Build local text/profile embeddings; requires --semantic-model-dir.",
+    ),
     list_collections: bool = typer.Option(
         False, "--list-collections", help="Print supported collection names and exit."
     ),
@@ -83,6 +88,9 @@ def build(
         raise typer.Exit(code=2)
 
     context.call_on_close(configure_cli_logging(verbose=verbose))
+    if semantic_content and semantic_model_dir is None:
+        typer.echo("--semantic-content requires --semantic-model-dir", err=True)
+        raise typer.Exit(code=2)
     try:
         result = build_artifact(
             collections,
@@ -94,6 +102,7 @@ def build(
             semantic_model_dir=Path(semantic_model_dir).expanduser()
             if semantic_model_dir is not None
             else None,
+            semantic_content=semantic_content,
         )
     except BuildError as error:
         LOGGER.error("Corpus build failed: %s", error)

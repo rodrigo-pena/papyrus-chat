@@ -15,7 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=2,<3"]
-semantic = ["fastembed>=0.4"]
+semantic = ["fastembed>=0.4", "numpy>=1.26", "tokenizers>=0.15"]
 web = ["ddgs>=9.0"]
 
 [dependency-groups]
