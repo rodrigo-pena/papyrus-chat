@@ -38,7 +38,10 @@ explicitly excluded: discovery eligibility never depends on curated labels.
 Ranking applies structural scope first, then fuses three channels with
 equal-weight reciprocal rank fusion (constant 60, top 200 distinct documents
 per channel): profile cosine, best-chunk cosine, and passage BM25 with safely
-quoted OR query tokens. Ties break by collection and document ID, documents
+quoted OR query tokens. Lexical BM25 matches are collected only for documents
+covered by the eligible chunk index, so lexical hits on un-indexed documents do
+not appear in discovery results; exact `search_documents` still reaches them.
+Ties break by collection and document ID, documents
 contribute at most two matched chunks, and mixed-content profiles are omitted
 when passage restrictions apply. The result separates:
 
