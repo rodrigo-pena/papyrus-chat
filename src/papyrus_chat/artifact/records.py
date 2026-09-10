@@ -109,3 +109,22 @@ class SemanticChunkRecord(BaseModel):
     passage_id: str
     char_start: int = Field(ge=0)
     char_end: int = Field(gt=0)
+
+
+class ProfilePassageReference(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    passage_id: str
+    char_start: int = Field(ge=0)
+    char_end: int = Field(gt=0)
+
+
+class SemanticProfileRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    profile_id: str
+    document_id: str
+    profile_text: str
+    metadata_only: bool
+    passages: tuple[ProfilePassageReference, ...] = ()
+    component_ids: tuple[str, ...] = ()

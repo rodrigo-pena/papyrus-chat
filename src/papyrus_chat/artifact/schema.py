@@ -21,6 +21,7 @@ from papyrus_chat.artifact.records import (
     IdentifierRecord,
     PassageRecord,
     SemanticChunkRecord,
+    SemanticProfileRecord,
 )
 from papyrus_chat.textnorm import normalize_identifier_value, normalize_search_text
 
@@ -358,6 +359,32 @@ class ArtifactWriter:
         if kind not in ("chunks", "profiles"):
             raise ValueError("unknown semantic content kind")
         return content_rows_hash(self._connection, kind)
+
+    def insert_semantic_profiles(
+        self,
+        records: Sequence[SemanticProfileRecord],
+        *,
+        first_row: int,
+    ) -> None:
+        self._connection.executemany(
+            "INSERT INTO semantic_profiles VALUES (?, ?, ?, ?, ?)",
+            [
+                (r.profile_id, r.document_id, r.profile_text, int(r.metadata_only), first_row + i)
+                for i, r in enumerate(records)
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO semantic_profile_passages VALUES (?, ?, ?, ?)",
+            [
+                (r.profile_id, p.passage_id, p.char_start, p.char_end)
+                for r in records
+                for p in r.passages
+            ],
+        )
+        self._connection.executemany(
+            "INSERT INTO semantic_profile_components VALUES (?, ?)",
+            [(r.profile_id, component_id) for r in records for component_id in r.component_ids],
+        )
 
     def insert_components(
         self,

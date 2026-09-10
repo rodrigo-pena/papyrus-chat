@@ -241,7 +241,10 @@ def build_artifact(
             )
             writer.insert_semantic_subjects(semantic_build.subject_rows)
             if semantic_content:
-                from papyrus_chat.builder.content.indexes import build_chunk_index
+                from papyrus_chat.builder.content.indexes import (
+                    build_chunk_index,
+                    build_profile_index,
+                )
                 from papyrus_chat.semantic.tokenization import LocalTokenizer
 
                 tokenizer = semantic_tokenizer or LocalTokenizer(semantic_model_dir)
@@ -252,16 +255,30 @@ def build_artifact(
                     encoder=encoder,
                     tokenizer=tokenizer,
                 )
+                profiles = build_profile_index(
+                    staging,
+                    documents=documents,
+                    passages=passages,
+                    components=components,
+                    links=links,
+                    writer=writer,
+                    encoder=encoder,
+                    tokenizer=tokenizer,
+                )
                 semantic_build = SemanticIndexBuild(
                     subject_rows=semantic_build.subject_rows,
                     manifest=semantic_build.manifest.model_copy(
                         update={
                             "chunks": chunks,
+                            "profiles": profiles,
                             "tokenizer_file": "tokenizer.json",
                             "file_hashes": {
                                 **semantic_build.manifest.file_hashes,
                                 chunks.embeddings_file: file_sha256(
                                     staging / chunks.embeddings_file
+                                ),
+                                profiles.embeddings_file: file_sha256(
+                                    staging / profiles.embeddings_file
                                 ),
                             },
                         }

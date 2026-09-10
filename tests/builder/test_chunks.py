@@ -101,3 +101,21 @@ def test_chunk_build_is_local_portable_and_optional(
             ).fetchone()[0]
             == 0
         )
+    assert manifest.semantic_index.profiles is not None
+    assert manifest.semantic_index.profiles.count == manifest.statistics.documents
+    rebuilt = tmp_path / "rebuilt"
+    build_artifact(
+        ["translations", "dclp", "ddbdp"],
+        output=rebuilt,
+        source=LocalGitSource(fixture_git_repo),
+        source_url="url",
+        requested_ref="master",
+        semantic_model_dir=model,
+        semantic_encoder=FakeEncoder(),
+        semantic_content=True,
+        semantic_tokenizer=CharacterTokenizer(),
+    )
+    assert (
+        load_manifest(rebuilt / "manifest.json").logical_content_hash
+        == manifest.logical_content_hash
+    )
