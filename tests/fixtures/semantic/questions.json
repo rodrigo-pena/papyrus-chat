@@ -1,0 +1,692 @@
+[
+  {
+    "case_id": "semantic-01",
+    "query": "A son reports to his father about difficulties registering handwritten documents.",
+    "query_language": "en",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The letter addresses the father and says the handwriting differs and cannot be registered without the archidikastes."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-02",
+    "query": "Daily prayers for the health of an absent parent.",
+    "query_language": "en",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The opening wishes the father health and describes daily worship before local gods."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-03",
+    "query": "Ein Sohn schreibt seinem Vater über Probleme mit Handschriften und Registrierung.",
+    "query_language": "de",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The letter addresses the father and describes differing handwriting and registration."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-04",
+    "query": "Une lettre évoquant des démarches auprès du juge en chef.",
+    "query_language": "fr",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The text mentions a memorandum to the archidikastes."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-05",
+    "query": "χειρόγραφα ἀνόμοια ἀρχιδικαστοῦ",
+    "query_language": "grc",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The passage contains these handwriting and chief-judge terms, with editorial damage."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-06",
+    "query": "Paying thirty-two additional drachmas during a documentary dispute.",
+    "query_language": "en",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The damaged passage includes other drachmas thirty-two; the precise purpose is uncertain."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-07",
+    "query": "A promise to return money if the recipient or his father disapproves.",
+    "query_language": "en",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The letter reports a conditional offer to take back what was paid."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-08",
+    "query": "Hoping to send completed documents after administrative delays.",
+    "query_language": "en",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The closing expresses hope to receive them completed and forward them."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-09",
+    "query": "Des salutations et des nouvelles de santé entre un fils et son père.",
+    "query_language": "fr",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The letter opens with paternal address and reciprocal statements about health."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-10",
+    "query": "Eine Eingabe an den obersten Richter wegen schriftlicher Unterlagen.",
+    "query_language": "de",
+    "collection": "ddbdp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 2,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "The fragment mentions a hypomnema to the archidikastes in a discussion of documents."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-11",
+    "query": "The moon in Capricorn with degrees and planetary boundaries.",
+    "query_language": "en",
+    "collection": "dclp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The edition places the moon in Capricorn and lists degrees, Saturn house and Venus boundaries."
+      },
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 0,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-12",
+    "query": "Un horoscope donnant les positions des planètes dans les signes du zodiaque.",
+    "query_language": "fr",
+    "collection": "dclp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The text lists moon, sun, Saturn and Jupiter with zodiac signs."
+      },
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 0,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-13",
+    "query": "Die Position des Jupiter im Krebs und die Grenzen des Merkur.",
+    "query_language": "de",
+    "collection": "dclp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The edition places Zeus in Cancer and mentions Hermes boundaries."
+      },
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 0,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-14",
+    "query": "Σελήνη Αἰγόκερωι Κρόνου Ἀφροδίτης",
+    "query_language": "grc",
+    "collection": "dclp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The edition associates the moon in Capricorn with Saturn and Venus."
+      },
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 0,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-15",
+    "query": "A date equating Pachon with an older Egyptian calendar reckoning.",
+    "query_language": "en",
+    "collection": "dclp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The opening equates Pachon 18 with Payni 5 according to the ancients."
+      },
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 0,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-16",
+    "query": "Astronomical degrees expressed with fractional numbers.",
+    "query_language": "en",
+    "collection": "dclp",
+    "category": "textual-nuance",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The planetary positions include visible fractional numeral signs."
+      },
+      {
+        "document_id": "ddbdp:DDbDP/27/27093.xml",
+        "grade": 0,
+        "source_path": "DDbDP/27/27093.xml",
+        "source_commit": "027a4a3a2d8a669bed692ed5d918892bdb7ea1b3",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-17",
+    "query": "A possible writing exercise found and written at Myos Hormos.",
+    "query_language": "en",
+    "collection": "dclp",
+    "category": "metadata-only",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23702.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23702.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The header identifies writing exercise? and Myos Hormos; no edition is present."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-18",
+    "query": "Eine mögliche Schreibübung auf Papyrus aus Myos Hormos.",
+    "query_language": "de",
+    "collection": "dclp",
+    "category": "metadata-only",
+    "judgments": [
+      {
+        "document_id": "dclp:DCLP/23/23702.xml",
+        "grade": 2,
+        "source_path": "DCLP/23/23702.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The descriptive header provides the tentative writing-exercise classification and location."
+      },
+      {
+        "document_id": "dclp:DCLP/23/23944.xml",
+        "grade": 0,
+        "source_path": "DCLP/23/23944.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-19",
+    "query": "Accounts for timber procurement and rafting on the river.",
+    "query_language": "en",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The French translation opens with provision of wood for rafting and itemized expenses."
+      },
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-20",
+    "query": "Frais de bateau entre Hérakléopolis et Oxyrhynchos.",
+    "query_language": "fr",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The translation records boat freight upstream and downstream between those places."
+      },
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-21",
+    "query": "Täglicher Unterhalt für Bootsbesatzungen und Schiffbauer.",
+    "query_language": "de",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The French account itemizes per-person daily allowances for crews and a naupegos."
+      },
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-22",
+    "query": "A banker advances 120 drachmas for procuring wood.",
+    "query_language": "en",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The opening records receipt of 120 drachmas from banker Amenneus for wood."
+      },
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-23",
+    "query": "Salaire d’Andronikos et droit de garde sur le fleuve.",
+    "query_language": "fr",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The second passage names Andronikos salary and a river guard charge."
+      },
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-24",
+    "query": "A debtor balance after wages and river transport expenses.",
+    "query_language": "en",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The second passage totals expenses and states a solde debiteur."
+      },
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-25",
+    "query": "Officials are forbidden to hear complaints against finance administration subordinates.",
+    "query_language": "en",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The English decree prohibits officials receiving those complaints or compelling appearance."
+      },
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-26",
+    "query": "Les plaintes contre les agents des finances sont transmises au dioikète.",
+    "query_language": "fr",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The decree directs complaints and case information to Eirenaios the dioiketes."
+      },
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-27",
+    "query": "Beschwerden gegen Finanzbeamte sollen an Eirenaios weitergeleitet werden.",
+    "query_language": "de",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The translated decree names Eirenaios as recipient of complaints."
+      },
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-28",
+    "query": "A royal decree limits jurisdiction over finance personnel.",
+    "query_language": "en",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The sovereigns restrict judicial officials and others from hearing these cases."
+      },
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-29",
+    "query": "The king’s cousin serves as dioiketes and receives complaints.",
+    "query_language": "en",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The decree explicitly calls Eirenaios the king cousin and dioiketes."
+      },
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  },
+  {
+    "case_id": "semantic-30",
+    "query": "A decree dated to year three on Phamenoth 23.",
+    "query_language": "en",
+    "collection": "translations",
+    "category": "translation-only",
+    "judgments": [
+      {
+        "document_id": "translations:Translations/3/3643-1.xml",
+        "grade": 2,
+        "source_path": "Translations/3/3643-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "The published translation ends with this regnal-year and month-day formula."
+      },
+      {
+        "document_id": "translations:Translations/3/3227-1.xml",
+        "grade": 0,
+        "source_path": "Translations/3/3227-1.xml",
+        "source_commit": "04568cb5ea3775d8113bb6e7edfd9c7168cf7e88",
+        "rationale": "Related corpus material, but the source does not attest the specific situation asked about."
+      }
+    ]
+  }
+]

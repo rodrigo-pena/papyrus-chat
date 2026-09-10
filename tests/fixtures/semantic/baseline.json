@@ -1,0 +1,479 @@
+[
+  {
+    "case_id": "semantic-01",
+    "ranked_ids": [
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-02",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-03",
+    "ranked_ids": [
+      "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "candidate_count": 1,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-04",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "dclp:DCLP/23/23702.xml",
+      "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.5,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-05",
+    "ranked_ids": [
+      "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "candidate_count": 1,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-06",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.5,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-07",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml",
+      "translations:Translations/3/3227-1.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-08",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-09",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "dclp:DCLP/23/23702.xml",
+      "translations:Translations/3/3643-1.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 0.0,
+      "ndcg": 0.0,
+      "additional_relevant": []
+    }
+  },
+  {
+    "case_id": "semantic-10",
+    "ranked_ids": [
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "ddbdp:DDbDP/27/27093.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-11",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "translations:Translations/3/3227-1.xml"
+    ],
+    "candidate_count": 2,
+    "metrics": {
+      "recall": 0.0,
+      "ndcg": 0.0,
+      "additional_relevant": []
+    }
+  },
+  {
+    "case_id": "semantic-12",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml",
+      "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "candidate_count": 4,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "dclp:DCLP/23/23944.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-13",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 2,
+    "metrics": {
+      "recall": 0.0,
+      "ndcg": 0.0,
+      "additional_relevant": []
+    }
+  },
+  {
+    "case_id": "semantic-14",
+    "ranked_ids": [
+      "dclp:DCLP/23/23944.xml"
+    ],
+    "candidate_count": 1,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "dclp:DCLP/23/23944.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-15",
+    "ranked_ids": [
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.4306765580733931,
+      "additional_relevant": [
+        "dclp:DCLP/23/23944.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-16",
+    "ranked_ids": [],
+    "candidate_count": 0,
+    "metrics": {
+      "recall": 0.0,
+      "ndcg": 0.0,
+      "additional_relevant": []
+    }
+  },
+  {
+    "case_id": "semantic-17",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "dclp:DCLP/23/23702.xml",
+      "translations:Translations/3/3227-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "dclp:DCLP/23/23944.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "dclp:DCLP/23/23702.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-18",
+    "ranked_ids": [
+      "dclp:DCLP/23/23702.xml",
+      "dclp:DCLP/23/23944.xml",
+      "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "dclp:DCLP/23/23702.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-19",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "translations:Translations/3/3227-1.xml",
+      "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "translations:Translations/3/3227-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-20",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml",
+      "dclp:DCLP/23/23702.xml",
+      "dclp:DCLP/23/23944.xml"
+    ],
+    "candidate_count": 4,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3227-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-21",
+    "ranked_ids": [],
+    "candidate_count": 0,
+    "metrics": {
+      "recall": 0.0,
+      "ndcg": 0.0,
+      "additional_relevant": []
+    }
+  },
+  {
+    "case_id": "semantic-22",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "translations:Translations/3/3227-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "translations:Translations/3/3227-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-23",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3227-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-24",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3227-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-25",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3643-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-26",
+    "ranked_ids": [
+      "translations:Translations/3/3227-1.xml",
+      "translations:Translations/3/3643-1.xml",
+      "dclp:DCLP/23/23702.xml",
+      "dclp:DCLP/23/23944.xml",
+      "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 0.6309297535714574,
+      "additional_relevant": [
+        "translations:Translations/3/3643-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-27",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml"
+    ],
+    "candidate_count": 3,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3643-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-28",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "dclp:DCLP/23/23702.xml",
+      "translations:Translations/3/3227-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "dclp:DCLP/23/23944.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3643-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-29",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "translations:Translations/3/3227-1.xml"
+    ],
+    "candidate_count": 2,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3643-1.xml"
+      ]
+    }
+  },
+  {
+    "case_id": "semantic-30",
+    "ranked_ids": [
+      "translations:Translations/3/3643-1.xml",
+      "ddbdp:DDbDP/27/27093.xml",
+      "translations:Translations/3/3227-1.xml",
+      "dclp:DCLP/23/23944.xml",
+      "dclp:DCLP/23/23702.xml"
+    ],
+    "candidate_count": 5,
+    "metrics": {
+      "recall": 1.0,
+      "ndcg": 1.0,
+      "additional_relevant": [
+        "translations:Translations/3/3643-1.xml"
+      ]
+    }
+  }
+]
