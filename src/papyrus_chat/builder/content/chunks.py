@@ -26,6 +26,11 @@ def passage_chunks(
         char_end = len(text) if token_end == len(offsets) else offsets[token_end - 1][1]
         # Subword boundaries (including multiple tokens for one Unicode character)
         # can change when a slice is encoded independently. Never rely on truncation.
+        # Budgets are computed against the raw slice; embedding later collapses
+        # whitespace (prefixed_texts), which can shift subword boundaries. That is
+        # safe only because 384 content tokens plus the 2-token E5 prefix leave
+        # ~126 tokens of headroom below the model's 512-token limit, so no
+        # normalized slice can be truncated.
         while token_end > token_start and tokenizer.count(text[char_start:char_end]) > CHUNK_TOKENS:
             token_end -= 1
             char_end = offsets[token_end - 1][1] if token_end > token_start else char_start

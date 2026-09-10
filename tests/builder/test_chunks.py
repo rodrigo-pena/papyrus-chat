@@ -59,6 +59,16 @@ def test_short_passage_is_kept_intact() -> None:
     assert [(c.char_start, c.char_end) for c in chunks] == [(0, 7)]
 
 
+def test_whitespace_normalized_slices_stay_within_the_model_token_limit() -> None:
+    text = " ".join(["ζημία\tκατά\n γῆς"] * 200)
+    chunks = list(passage_chunks(passage(text), CharacterTokenizer()))
+    assert len(chunks) > 1
+    for chunk in chunks:
+        raw_slice = text[chunk.char_start : chunk.char_end]
+        normalized = " ".join(raw_slice.split())
+        assert 0 < len(normalized) + len("passage: ") <= 512
+
+
 def test_content_requires_model_before_source_access() -> None:
     result = CliRunner().invoke(app, ["ddbdp", "--semantic-content", "--source", "missing"])
     assert result.exit_code == 2
