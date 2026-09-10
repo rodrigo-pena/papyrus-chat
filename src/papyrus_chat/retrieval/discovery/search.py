@@ -114,8 +114,7 @@ class SemanticDocumentSearch:
         )
         channel_scores: dict[DiscoveryChannel, dict[str, float]] = {}
         best_chunks: dict[str, list[tuple[float, str]]] = {}
-        if profile_rows and "profiles" in channels:
-            assert self._manifest.profiles is not None
+        if profile_rows and self._manifest.profiles is not None and "profiles" in channels:
             scores = self._vectors.scores(
                 self._manifest.profiles.embeddings_file,
                 count=self._manifest.profiles.count,
@@ -126,8 +125,7 @@ class SemanticDocumentSearch:
             channel_scores["profiles"] = {
                 row["document_id"]: score for row, score in zip(profile_rows, scores, strict=True)
             }
-        if chunk_rows:
-            assert self._manifest.chunks is not None
+        if chunk_rows and self._manifest.chunks is not None:
             # Even profile-only evaluation returns real inspectable source locations.
             scores = self._vectors.scores(
                 self._manifest.chunks.embeddings_file,
