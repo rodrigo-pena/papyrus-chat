@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 MANIFEST_FILENAME = "manifest.json"
-ARTIFACT_SCHEMA_VERSION = 3
+ARTIFACT_SCHEMA_VERSION = 4
 
 
 class ArtifactInvalid(Exception):
@@ -39,8 +39,19 @@ class Statistics(BaseModel):
     parse_errors: int
 
 
+class ContentIndexInfo(BaseModel):
+    """One content vector matrix and its ordered SQLite row mapping."""
+
+    model_config = ConfigDict(frozen=True)
+
+    count: int = Field(ge=0)
+    embeddings_file: str
+    rows_hash: str
+    preprocessing_version: Literal["chunks-v1", "profiles-v1"]
+
+
 class SemanticIndexInfo(BaseModel):
-    """Portable semantic vocabulary index bundled with a schema-v3 artifact."""
+    """Portable semantic indexes sharing one bundled local model."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -58,6 +69,9 @@ class SemanticIndexInfo(BaseModel):
     embeddings_file: str
     model_files: list[str] = Field(default_factory=list)
     file_hashes: dict[str, str] = Field(default_factory=dict)
+    tokenizer_file: str | None = None
+    chunks: ContentIndexInfo | None = None
+    profiles: ContentIndexInfo | None = None
 
 
 class ArtifactManifest(BaseModel):

@@ -51,7 +51,7 @@ def test_get_corpus_info_reports_manifest_provenance_and_capability(
 
     try:
         info = service.get_corpus_info()
-        assert info.artifact_schema_version == 3
+        assert info.artifact_schema_version == 4
         assert info.builder.name == "papyrus-corpus-build"
         assert info.source.resolved_commit
         assert info.collections == ("dclp", "translations")

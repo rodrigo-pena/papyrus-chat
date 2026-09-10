@@ -46,7 +46,7 @@ def test_mcp_server_returns_structured_results_for_every_tool(corpus_artifact: P
         async with Client(create_mcp_server(service)) as client:
             info = await client.call_tool("get_corpus_info", {})
             assert info.is_error is False
-            assert info.structured_content["artifact_schema_version"] == 3
+            assert info.structured_content["artifact_schema_version"] == 4
 
             suggestions = await client.call_tool(
                 "suggest_subjects", {"concept": "taxes", "scope": {}, "limit": 3}

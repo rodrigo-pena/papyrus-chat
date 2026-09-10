@@ -6,6 +6,7 @@ import sqlite3
 import struct
 from pathlib import Path
 
+from papyrus_chat.artifact.content import validate_content_index
 from papyrus_chat.artifact.hashing import file_sha256
 from papyrus_chat.artifact.manifest import (
     ARTIFACT_SCHEMA_VERSION,
@@ -28,6 +29,10 @@ REQUIRED_TABLES = {
     "metadata",
     "semantic_subjects",
     "semantic_subjects_fts",
+    "semantic_chunks",
+    "semantic_profiles",
+    "semantic_profile_passages",
+    "semantic_profile_components",
     "dates",
     "languages",
     "component_links",
@@ -72,6 +77,10 @@ def validate_artifact(root: Path) -> None:
         manifest = load_manifest(root / MANIFEST_FILENAME)
         if manifest.semantic_index is not None:
             _validate_semantic_index(root, connection, manifest.semantic_index)
+        else:
+            for table in ("semantic_chunks", "semantic_profiles"):
+                if connection.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
+                    raise ArtifactInvalid("Content rows exist without a semantic manifest")
         violations = connection.execute("PRAGMA foreign_key_check").fetchall()
         if violations:
             raise ArtifactInvalid(f"Foreign-key violations in {database}: {len(violations)} row(s)")
@@ -89,6 +98,12 @@ def _validate_semantic_index(root: Path, connection: sqlite3.Connection, semanti
         semantic.embeddings_file,
         *semantic.model_files,
     ]
+    for kind in ("chunks", "profiles"):
+        index = getattr(semantic, kind)
+        if index is not None:
+            indexed_files.append(index.embeddings_file)
+        elif connection.execute(f"SELECT 1 FROM semantic_{kind} LIMIT 1").fetchone():
+            raise ArtifactInvalid(f"Content {kind} rows exist without an index manifest")
     if len(set(indexed_files)) != len(indexed_files):
         raise ArtifactInvalid("Semantic index files must be unique")
     for relative in indexed_files:
@@ -98,6 +113,10 @@ def _validate_semantic_index(root: Path, connection: sqlite3.Connection, semanti
                 f"Semantic index file path must stay inside the artifact: {relative}"
             )
         candidate = root / relative
+        if not candidate.resolve().is_relative_to(root.resolve()):
+            raise ArtifactInvalid(
+                f"Semantic index file path must stay inside the artifact: {relative}"
+            )
         if not candidate.is_file():
             raise ArtifactInvalid(f"Semantic index file is missing: {relative}")
     expected_files = set(indexed_files)
@@ -121,6 +140,17 @@ def _validate_semantic_index(root: Path, connection: sqlite3.Connection, semanti
         raise ArtifactInvalid(
             f"Semantic model file is not included in model_files: {semantic.model_file}"
         )
+    if semantic.chunks is not None or semantic.profiles is not None:
+        if (
+            not semantic.tokenizer_file
+            or (Path("semantic/model") / semantic.tokenizer_file).as_posix()
+            not in semantic.model_files
+        ):
+            raise ArtifactInvalid("Content index tokenizer must be included in model_files")
+        for kind in ("chunks", "profiles"):
+            index = getattr(semantic, kind)
+            if index is not None:
+                validate_content_index(root, connection, kind, index, semantic.dimensions)
     subjects_path = root / semantic.subjects_file
     try:
         subject_rows = [
