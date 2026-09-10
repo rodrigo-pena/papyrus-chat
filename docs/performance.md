@@ -90,11 +90,11 @@ uv run papyrus-corpus-build ddbdp \
   --output ./data/ddbdp-semantic-v4
 ```
 
-| Measurement                              | Subject-only build | Content build          |
-| ---------------------------------------- | ------------------ | ---------------------- |
-| Build duration                           | 109.2 s            | 5,587.8 s (1 h 33 min) |
-| Artifact size                            | 2,616,790,653 B    | 3,042,059,012 B        |
-| Peak resident memory                     | 6.96 GB            | 9.60 GB                |
+| Measurement          | Subject-only build | Content build          |
+| -------------------- | ------------------ | ---------------------- |
+| Build duration       | 109.2 s            | 5,587.8 s (1 h 33 min) |
+| Artifact size        | 2,616,790,653 B    | 3,042,059,012 B        |
+| Peak resident memory | 6.96 GB            | 9.60 GB                |
 
 Content indexing adds 120,215 passage chunks and 67,980 document profiles
 encoded at ≈ 37 chunks/s and ≈ 31 profiles/s; the artifact grows by ≈ 425 MB

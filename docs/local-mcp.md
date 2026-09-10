@@ -275,15 +275,15 @@ metadata, model configuration, or network behavior.
 
 The server exposes exactly seven tools:
 
-| Tool                | Purpose                                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_corpus_info`   | Return schema, builder/source provenance, collections, statistics, languages, hash, creation time, and semantic capability.                       |
-| `suggest_subjects`  | Return bounded exact HGV subject labels, scoped prevalence/coverage, and semantic availability.                                                   |
-| `search_documents`  | Accept `CorpusQuery`; return exact candidate counts and at most 100 lean hits with located snippets and canonical URLs.                           |
-| `facet_documents`   | Count a bounded collection, language, subject, material, origin, or passage-kind facet with exact `total_values` and truncation.                  |
-| `lookup_document`   | Normalize an identifier and return exact match counts plus bounded, deterministic lean matches.                                                   |
+| Tool                 | Purpose                                                                                                                                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get_corpus_info`    | Return schema, builder/source provenance, collections, statistics, languages, hash, creation time, and semantic capability.                                                                                                                |
+| `suggest_subjects`   | Return bounded exact HGV subject labels, scoped prevalence/coverage, and semantic availability.                                                                                                                                            |
+| `search_documents`   | Accept `CorpusQuery`; return exact candidate counts and at most 100 lean hits with located snippets and canonical URLs.                                                                                                                    |
+| `facet_documents`    | Count a bounded collection, language, subject, material, origin, or passage-kind facet with exact `total_values` and truncation.                                                                                                           |
+| `lookup_document`    | Normalize an identifier and return exact match counts plus bounded, deterministic lean matches.                                                                                                                                            |
 | `discover_documents` | Return ranked semantically related candidates for a natural-language query within structural filters, with channels, matched chunk locations, exact scope and index coverage counts, and availability; never an exhaustive thematic count. |
-| `inspect_documents` | Inspect 1-20 selected IDs with 1-10 passages, 200-2000-character excerpts, up to 8 focus terms, up to 40 discovery chunk IDs, HGV context, line references, and canonical URLs. |
+| `inspect_documents`  | Inspect 1-20 selected IDs with 1-10 passages, 200-2000-character excerpts, up to 8 focus terms, up to 40 discovery chunk IDs, HGV context, line references, and canonical URLs.                                                            |
 
 For a question about an identifier, look it up first and inspect the returned
 document IDs. For a conceptual question, inspect corpus information when

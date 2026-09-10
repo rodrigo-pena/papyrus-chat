@@ -117,10 +117,6 @@ Reading of the smoke result:
   smoke behavior, not corpus-scale ranking quality. Judgments have not been
   independently reviewed by a papyrologist.
 
-Content indexing stays opt-in until evaluation on a larger, independently
-reviewed judgment set demonstrates added relevant evidence beyond this smoke
-signal.
-
 ## Local performance
 
 Measured on an Apple M5 Max (128 GB RAM), macOS, Python 3.13, FastEmbed ONNX
@@ -140,25 +136,25 @@ uv run python scripts/benchmark_discovery.py --artifact data/ddbdp-semantic-v4 \
 uv run python scripts/benchmark_discovery.py --artifact data/ddbdp-semantic-v4 --cold
 ```
 
-| Measurement                                | Result                                | Target     | Status |
-| ------------------------------------------ | ------------------------------------- | ---------- | ------ |
-| Subject-only build (same builder, no content) | 109.2 s                            | ≤ 2 min    | pass   |
-| Full content build (chunks + profiles)     | 5,587.8 s (1 h 33 min)                | observe    | —      |
-| Chunk encoding (120,215 chunks)            | ~54 min 40 s (≈ 37 chunks/s)          | observe    | —      |
-| Profile encoding (67,980 profiles)         | ~36 min 30 s (≈ 31 profiles/s)        | observe    | —      |
-| Artifact size, subject-only                | 2.62 GB                               | observe    | —      |
-| Artifact size, with content indexes        | 3.04 GB (+425 MB, ≈ +16%)             | observe    | —      |
-| Content float32 files                      | chunks 192 MB + profiles 112 MB       | observe    | —      |
-| Peak memory during content build           | ≈ 9.6 GB                              | observe    | —      |
-| Cold start (interpreter → first discovery result) | 3.2 s (2.5 s from service open; encoder init dominates) | ≤ 5 s | pass |
-| Warm discovery p50 (80 samples)            | 0.325 s                               | observe    | —      |
-| Warm discovery p95                         | 0.344 s                               | < 2 s      | pass   |
+| Measurement                                       | Result                                                  | Target  | Status |
+| ------------------------------------------------- | ------------------------------------------------------- | ------- | ------ |
+| Subject-only build (same builder, no content)     | 109.2 s                                                 | ≤ 2 min | pass   |
+| Full content build (chunks + profiles)            | 5,587.8 s (1 h 33 min)                                  | observe | —      |
+| Chunk encoding (120,215 chunks)                   | ~54 min 40 s (≈ 37 chunks/s)                            | observe | —      |
+| Profile encoding (67,980 profiles)                | ~36 min 30 s (≈ 31 profiles/s)                          | observe | —      |
+| Artifact size, subject-only                       | 2.62 GB                                                 | observe | —      |
+| Artifact size, with content indexes               | 3.04 GB (+425 MB, ≈ +16%)                               | observe | —      |
+| Content float32 files                             | chunks 192 MB + profiles 112 MB                         | observe | —      |
+| Peak memory during content build                  | ≈ 9.6 GB                                                | observe | —      |
+| Cold start (interpreter → first discovery result) | 3.2 s (2.5 s from service open; encoder init dominates) | ≤ 5 s   | pass   |
+| Warm discovery p50 (80 samples)                   | 0.325 s                                                 | observe | —      |
+| Warm discovery p95                                | 0.344 s                                                 | < 2 s   | pass   |
 
 Notes:
 
 - The content build is roughly 51 times the subject-only build; chunk and
-  profile encoding are the cost, not parsing or SQLite writes. The encoder
-  used about 5 GB resident steady-state with multi-threaded ONNX.
+  profile encoding are what adds to the cost, not parsing or SQLite writes.
+  The encoder used about 5 GB resident steady-state with multi-threaded ONNX.
 - The artifact bundles one model snapshot (~1.6 GB) shared by subjects,
   profiles, and chunks; the float32 vector files for content add ~304 MB, and
   the remaining growth is chunk/profile rows in `corpus.sqlite`.
