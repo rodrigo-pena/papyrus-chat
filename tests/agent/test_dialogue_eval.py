@@ -14,12 +14,19 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from tests.retrieval.test_discovery import content_service as content_service
 
 from papyrus_chat.agent.runtime import create_research_agent
-from papyrus_chat.agent.tools import CorpusSearchSummary, CorpusToolDeps, CorpusToolService
+from papyrus_chat.agent.tools import (
+    CorpusInspectionOutcome,
+    CorpusSearchSummary,
+    CorpusToolDeps,
+    CorpusToolService,
+)
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryResult
 from papyrus_chat.retrieval.structured import (
     CorpusDateInterval,
     StructuredCorpusSearch,
@@ -639,3 +646,128 @@ def test_dialogue_labels_insufficient_evidence_and_background(
 
     assert "no corpus evidence" in result.output
     assert "Model-supplied background" in result.output
+
+
+class DiscoveryInspectionDialogue:
+    """Discover thematically, then inspect the matched chunk location before claiming."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, Any]] = []
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        returned = _returned_tool_names(messages)
+        if "discover_documents" not in returned:
+            arguments = {
+                "text": "judicial complaints about sovereigns",
+                "collections": ["ddbdp", "dclp", "translations"],
+                "limit": 2,
+            }
+            self.calls.append(("discover_documents", arguments))
+            return ModelResponse(
+                [ToolCallPart("discover_documents", arguments, tool_call_id="discover-1")]
+            )
+        if "inspect_documents" not in returned:
+            discovery_return = next(
+                part
+                for message in messages
+                if isinstance(message, ModelRequest)
+                for part in message.parts
+                if isinstance(part, ToolReturnPart) and part.tool_name == "discover_documents"
+            )
+            assert isinstance(discovery_return.content, DiscoveryResult)
+            hits = discovery_return.content.hits
+            document_id = hits[0].document_id
+            chunk_ids = [chunk.chunk_id for chunk in hits[0].chunks]
+            arguments = {"document_ids": [document_id], "chunk_ids": chunk_ids}
+            self.calls.append(("inspect_documents", arguments))
+            return ModelResponse(
+                [ToolCallPart("inspect_documents", arguments, tool_call_id="inspect-1")]
+            )
+        assert returned == ["discover_documents", "inspect_documents"]
+        inspect_return = next(
+            part
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, ToolReturnPart) and part.tool_name == "inspect_documents"
+        )
+        assert isinstance(inspect_return.content, CorpusInspectionOutcome)
+        citation = inspect_return.content.inspections[0].canonical_url
+        return ModelResponse(
+            [
+                TextPart(
+                    "Scope and method: semantic discovery over ddbdp, dclp, and translations "
+                    "returned ranked candidates, not an exact count; the inspected document is "
+                    f"{citation} with its matched chunk excerpts."
+                )
+            ]
+        )
+
+
+def test_discovery_dialogue_inspects_matched_chunks_within_citation_guard(
+    content_service,
+) -> None:
+    script = DiscoveryInspectionDialogue()
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        content_service,
+        model=FunctionModel(script),
+    )
+    deps = CorpusToolDeps(service=content_service)
+
+    result = agent.run_sync("Find documents related to complaints about sovereigns.", deps=deps)
+
+    assert [name for name, _ in script.calls] == ["discover_documents", "inspect_documents"]
+    assert script.calls[1][1]["chunk_ids"]
+    assert not _retry_parts(result.all_messages())
+    assert result.output.startswith("Scope and method:")
+    discovery = content_service.discover_documents(
+        DiscoveryQuery(text="judicial complaints", limit=2)
+    )
+    assert deps.known_corpus_urls >= {
+        hit.canonical_url for hit in discovery.hits if hit.canonical_url
+    }
+
+
+class UnavailableDiscoveryDialogue:
+    """Discovery is unavailable; the dialogue must disclose it, not treat it as absence."""
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        if not _returned_tool_names(messages):
+            return ModelResponse(
+                [
+                    ToolCallPart(
+                        "discover_documents",
+                        {"text": "judicial complaints"},
+                        tool_call_id="discover-1",
+                    )
+                ]
+            )
+        return ModelResponse(
+            [
+                TextPart(
+                    "Scope and method: semantic discovery was unavailable, which is not "
+                    "evidence that no documents match. Model-supplied background only."
+                )
+            ]
+        )
+
+
+def test_unavailable_discovery_is_disclosed_without_a_false_absence(
+    tool_service: CorpusToolService,
+) -> None:
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        tool_service,
+        model=FunctionModel(UnavailableDiscoveryDialogue()),
+    )
+
+    result = agent.run_sync(
+        "Discover documents about complaints.", deps=CorpusToolDeps(service=tool_service)
+    )
+
+    assert not _retry_parts(result.all_messages())
+    assert "unavailable" in result.output
+    assert "not evidence" in result.output

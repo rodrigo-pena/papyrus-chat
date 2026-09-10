@@ -22,10 +22,11 @@ search results, document IDs, counts, excerpts, or papyri.info URLs. General
 historical background can still be provided when clearly labeled as external
 background or model synthesis.
 
-Semantic subject suggestions may be unavailable even when the server is
-connected. Continue with explicit lexical alternatives in that case and state
-that semantic discovery was unavailable; do not treat an unavailable result as
-evidence that a subject is absent from the corpus.
+Semantic subject suggestions and semantic discovery may be unavailable even when
+the server is connected. Continue with explicit lexical alternatives in that case
+and state that the semantic capability was unavailable; do not treat an
+unavailable result as evidence that a subject or document is absent from the
+corpus.
 
 ## Research workflow
 
@@ -46,25 +47,37 @@ evidence that a subject is absent from the corpus.
    language, subject, material, origin, or passage kind. Facets describe the
    currently filtered candidate set; they are not independent scholarly
    classifications.
-5. Use `search_documents` before `inspect_documents`. Search returns exact
+5. For thematic questions, supplement the exact searches with
+   `discover_documents`: pass the concept as a natural-language query plus the
+   same structural scope (collections, dates, transcription languages). Do not
+   pass suggested HGV subject labels to discovery; semantic matching does not use
+   them. Discovery returns ranked candidates with contributing channels and
+   matched chunk locations — never an exhaustive thematic count. Report the
+   scope and index coverage counts it returns separately from ranked candidates,
+   and disclose when discovery is unavailable.
+6. Use `search_documents` before `inspect_documents`. Search returns exact
    candidate counts for the displayed filters and bounded lean hits. Select
    relevant IDs from those hits, then inspect only the selected records.
-6. For an identifier question, call `lookup_document` with the identifier as
+7. For an identifier question, call `lookup_document` with the identifier as
    written by the user. Use the returned normalized identifier, exact count,
    stable document IDs, and canonical URLs. An empty or ambiguous lookup is a
    successful result and should be explained rather than silently resolved.
-7. Use `inspect_documents` for bounded excerpts, line references, linked HGV
+8. Use `inspect_documents` for bounded excerpts, line references, linked HGV
    context, and citation URLs. Keep requested IDs, passage counts, excerpt
    lengths, and focus terms within the tool schema limits. Unknown document IDs
-   are normal successful results.
-8. Disclose the scope and method in the answer: artifact/collections, date
+   are normal successful results. For discovery results, pass the returned
+   `chunk_ids` so excerpts open at the matched locations, and make no
+   substantive textual claim about a discovered document before inspecting it.
+   Discovery profile snippets are source-derived retrieval representations, not
+   quotations; distinguish profile representations, editions, and translations.
+9. Disclose the scope and method in the answer: artifact/collections, date
    interval, language and passage choices, lexical or subject filters, and
-   whether semantic suggestions were available. Distinguish three layers:
-   corpus evidence, external background, and model synthesis.
-9. Cite a document only with the canonical `papyri.info` URL returned by a tool.
-   Never construct a citation URL from an identifier or memory. Tie claims to
-   the returned excerpt, line reference, metadata, or exact count and note
-   when a conclusion is an inference from the corpus results.
+   whether semantic suggestions and discovery were available. Distinguish three
+   layers: corpus evidence, external background, and model synthesis.
+10. Cite a document only with the canonical `papyri.info` URL returned by a tool.
+    Never construct a citation URL from an identifier or memory. Tie claims to
+    the returned excerpt, line reference, metadata, or exact count and note
+    when a conclusion is an inference from the corpus results.
 
 ## Tool contract
 
@@ -81,9 +94,15 @@ The connected server exposes exactly these read-only tools:
   order, exact `total_values`, and truncation status.
 - `lookup_document(identifier, limit)` — normalized identifier, exact match
   count, truncation status, and bounded lean matches.
-- `inspect_documents(document_ids, excerpt_limit, excerpt_chars, focus_terms)`
-  — 1-20 selected IDs, 1-10 passages, 200-2000-character excerpts, at most
-  eight focus terms, HGV context, line references, and canonical URLs.
+- `discover_documents(query)` — a natural-language query up to 500 characters
+  with optional collections, date interval, transcription languages, passage
+  kinds, passage languages, and a 1-100 limit (default 20); ranked candidates
+  with channels, chunk locations, profile snippets, exact scope and index
+  coverage counts, and `available`/`unavailable_reason`.
+- `inspect_documents(document_ids, excerpt_limit, excerpt_chars, focus_terms,
+  chunk_ids)` — 1-20 selected IDs, 1-10 passages, 200-2000-character excerpts,
+  at most eight focus terms, at most 40 chunk IDs that belong to the requested
+  documents, HGV context, line references, and canonical URLs.
 
 Invalid schemas, fields, date intervals, or limits are tool errors and should
 be corrected. Empty search, lookup, facet, and inspection results are valid

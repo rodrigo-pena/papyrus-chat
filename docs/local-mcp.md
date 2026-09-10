@@ -241,7 +241,7 @@ current configuration options.
 
 Look for an MCP, Tools, Integrations, or Developer settings page and choose a
 local, STDIO, or command-based server. Map its fields to the table above, restart
-or reload the client, and verify that it discovers exactly the six tools listed
+or reload the client, and verify that it discovers exactly the seven tools listed
 in [Tool contract and workflow](#tool-contract-and-workflow).
 
 Config-file locations and schemas are client-specific. User-level configuration
@@ -267,7 +267,7 @@ metadata, model configuration, or network behavior.
 
 ## Tool contract and workflow
 
-The server exposes exactly six tools:
+The server exposes exactly seven tools:
 
 | Tool                | Purpose                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -276,14 +276,21 @@ The server exposes exactly six tools:
 | `search_documents`  | Accept `CorpusQuery`; return exact candidate counts and at most 100 lean hits with located snippets and canonical URLs.                           |
 | `facet_documents`   | Count a bounded collection, language, subject, material, origin, or passage-kind facet with exact `total_values` and truncation.                  |
 | `lookup_document`   | Normalize an identifier and return exact match counts plus bounded, deterministic lean matches.                                                   |
-| `inspect_documents` | Inspect 1-20 selected IDs with 1-10 passages, 200-2000-character excerpts, up to 8 focus terms, HGV context, line references, and canonical URLs. |
+| `discover_documents` | Return ranked semantically related candidates for a natural-language query within structural filters, with channels, matched chunk locations, exact scope and index coverage counts, and availability; never an exhaustive thematic count. |
+| `inspect_documents` | Inspect 1-20 selected IDs with 1-10 passages, 200-2000-character excerpts, up to 8 focus terms, up to 40 discovery chunk IDs, HGV context, line references, and canonical URLs. |
 
 For a question about an identifier, look it up first and inspect the returned
 document IDs. For a conceptual question, inspect corpus information when
 needed, build multilingual lexical alternatives, ask for subject suggestions,
 evaluate refinements with facets, search, and then inspect selected records.
+Routinely supplement thematic searches with discovery: pass the concept as a
+natural-language query plus the same structural scope, never suggested HGV
+labels, and inspect the matched chunk locations before quoting any discovered
+document. Discovery profile snippets are source-derived retrieval
+representations, not quotations.
 Disclose collections, inclusive date interval, language, passage kind, lexical
-groups, subject filters, and whether semantic suggestions were available.
+groups, subject filters, and whether semantic suggestions and discovery were
+available.
 
 Keep three kinds of statements separate:
 
@@ -306,6 +313,9 @@ Example requests to the connected host:
 - "Find documentary texts with a monthly list structure. Search the relevant
   Greek and English terms, compare collection and passage-kind facets, and
   cite only inspected records."
+- "Discover documents thematically related to judicial complaints across all
+  collections, open the matched locations with chunk-focused inspection, and
+  keep ranked candidates separate from exact scope counts."
 
 ## Rebuilding the artifact safely
 
@@ -338,12 +348,13 @@ the entry. If the first `uvx` launch times out while installing dependencies,
 run the pre-warming command above and reconnect. The first semantic suggestion
 can also be slower while the local encoder initializes.
 
-### Semantic suggestions unavailable
+### Semantic suggestions or discovery unavailable
 
 Check `get_corpus_info` first. No semantic index means the artifact was built
 without `--semantic-model-dir`; a missing runtime means the server was started
 without the semantic extra. Neither state prevents lexical search, facets,
-identifier lookup, or inspection.
+identifier lookup, or inspection; discovery reports its own
+`available`/`unavailable_reason` instead of returning empty results.
 
 ### STDIO protocol errors or malformed JSON
 

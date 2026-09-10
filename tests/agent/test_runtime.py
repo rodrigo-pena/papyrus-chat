@@ -84,6 +84,7 @@ def test_runtime_registers_tools_without_a_real_model_call(
         "describe_corpus",
         "search_documents",
         "inspect_documents",
+        "discover_documents",
         "facet_documents",
         "suggest_subject_values",
     }
