@@ -97,3 +97,15 @@ class PassageRecord(BaseModel):
     search_text: str
     source: SourceReference
     uncertainty: dict[str, int] = Field(default_factory=dict)
+
+
+class SemanticChunkRecord(BaseModel):
+    """An exact character window within one preserved passage."""
+
+    model_config = ConfigDict(frozen=True)
+
+    chunk_id: str
+    document_id: str
+    passage_id: str
+    char_start: int = Field(ge=0)
+    char_end: int = Field(gt=0)

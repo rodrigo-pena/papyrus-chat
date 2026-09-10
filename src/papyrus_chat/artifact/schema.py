@@ -20,6 +20,7 @@ from papyrus_chat.artifact.records import (
     DocumentRecord,
     IdentifierRecord,
     PassageRecord,
+    SemanticChunkRecord,
 )
 from papyrus_chat.textnorm import normalize_identifier_value, normalize_search_text
 
@@ -336,6 +337,27 @@ class ArtifactWriter:
                 for subject_id, value, _value_norm, _count in records
             ],
         )
+
+    def insert_semantic_chunks(
+        self,
+        records: Sequence[SemanticChunkRecord],
+        *,
+        first_row: int,
+    ) -> None:
+        self._connection.executemany(
+            "INSERT INTO semantic_chunks VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (r.chunk_id, r.document_id, r.passage_id, r.char_start, r.char_end, first_row + i)
+                for i, r in enumerate(records)
+            ],
+        )
+
+    def semantic_content_hash(self, kind: str) -> str:
+        from papyrus_chat.artifact.content import content_rows_hash
+
+        if kind not in ("chunks", "profiles"):
+            raise ValueError("unknown semantic content kind")
+        return content_rows_hash(self._connection, kind)
 
     def insert_components(
         self,
