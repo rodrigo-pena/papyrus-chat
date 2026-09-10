@@ -218,11 +218,13 @@ class CorpusService:
         document_ids: Iterable[str],
         *,
         excerpt_limit: int = 3,
+        chunk_ids: Iterable[str] = (),
     ) -> CorpusInspectionResult:
         return CorpusInspectionResult(
             inspections=self._search.inspect_documents(
                 document_ids,
                 excerpt_limit=excerpt_limit,
+                chunk_ids=chunk_ids,
             )
         )
 

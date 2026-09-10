@@ -271,6 +271,9 @@ class CorpusHit(BaseModel):
     components: tuple[ComponentRecord, ...] = ()
     source: SourceReference
     canonical_url: str | None = None
+    chunk_id: str | None = None
+    chunk_char_start: int | None = None
+    chunk_char_end: int | None = None
 
 
 class CorpusSearchResult(BaseModel):
@@ -562,6 +565,7 @@ class StructuredCorpusSearch:
         document_ids: Iterable[str],
         *,
         excerpt_limit: int = 3,
+        chunk_ids: Iterable[str] = (),
     ) -> tuple[CorpusInspection, ...]:
         ids = tuple(dict.fromkeys(document_ids))
         if not ids:
@@ -570,8 +574,27 @@ class StructuredCorpusSearch:
             raise ValueError("at most 20 documents may be inspected")
         if not 1 <= excerpt_limit <= 10:
             raise ValueError("excerpt_limit must be between 1 and 10")
-        if not ids:
-            return ()
+        selected_chunks = tuple(dict.fromkeys(chunk_ids))
+        if len(selected_chunks) > 40:
+            raise ValueError("at most 40 chunk ids may be inspected")
+        focused: dict[str, list[sqlite3.Row]] = {}
+        if selected_chunks:
+            chunk_placeholders = ", ".join("?" for _ in selected_chunks)
+            chunks = {
+                row["chunk_id"]: row
+                for row in self._connection.execute(
+                    "SELECT p.*, pl.language, c.chunk_id, c.char_start, c.char_end "
+                    "FROM semantic_chunks c JOIN passages p USING (passage_id) "
+                    "LEFT JOIN passage_languages pl USING (passage_id) "
+                    f"WHERE c.chunk_id IN ({chunk_placeholders})",
+                    selected_chunks,
+                )
+            }
+            for chunk_id in selected_chunks:
+                chunk = chunks.get(chunk_id)
+                if chunk is None or chunk["document_id"] not in ids:
+                    raise ValueError("chunk ids must exist and belong to the requested documents")
+                focused.setdefault(chunk["document_id"], []).append(chunk)
         placeholders = ", ".join("?" for _ in ids)
         rows = self._connection.execute(
             f"SELECT * FROM documents WHERE document_id IN ({placeholders})", ids
@@ -584,12 +607,18 @@ class StructuredCorpusSearch:
             row = by_id.get(document_id)
             if row is None:
                 continue
-            passages = self._connection.execute(
+            ordinary_passages = self._connection.execute(
                 "SELECT p.*, pl.language FROM passages p "
                 "LEFT JOIN passage_languages pl ON pl.passage_id = p.passage_id "
                 "WHERE p.document_id = ? ORDER BY p.sequence LIMIT ?",
-                (document_id, excerpt_limit),
+                (document_id, excerpt_limit + len(focused.get(document_id, ()))),
             ).fetchall()
+            selected = focused.get(document_id, [])[:excerpt_limit]
+            selected_passage_ids = {p["passage_id"] for p in selected}
+            passages = [
+                *selected,
+                *(p for p in ordinary_passages if p["passage_id"] not in selected_passage_ids),
+            ][:excerpt_limit]
             source = SourceReference(
                 repository_url=row["source_url"],
                 commit=row["source_commit"],
@@ -612,6 +641,18 @@ class StructuredCorpusSearch:
                             query,
                             passage=passage,
                             components=components.get(document_id, ()),
+                        ).model_copy(
+                            update={
+                                "chunk_id": passage["chunk_id"]
+                                if "chunk_id" in passage.keys()
+                                else None,
+                                "chunk_char_start": passage["char_start"]
+                                if "char_start" in passage.keys()
+                                else None,
+                                "chunk_char_end": passage["char_end"]
+                                if "char_end" in passage.keys()
+                                else None,
+                            }
                         )
                         for passage in passages
                     ),

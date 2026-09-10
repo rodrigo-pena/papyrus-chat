@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from papyrus_chat.artifact.manifest import BuilderInfo, ManifestSource, Statistics
+from papyrus_chat.artifact.records import SourceReference
 from papyrus_chat.retrieval.semantic import SubjectSuggestion
 from papyrus_chat.retrieval.structured import (
     CorpusDateInterval,
@@ -160,6 +161,11 @@ class CorpusExcerpt(BaseModel):
     language: str | None = None
     line_reference: str | None = None
     excerpt: str | None = None
+    passage_id: str | None = None
+    chunk_id: str | None = None
+    char_start: int | None = None
+    char_end: int | None = None
+    source: SourceReference | None = None
 
 
 class CorpusInspectionSummary(BaseModel):
