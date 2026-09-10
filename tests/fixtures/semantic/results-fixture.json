@@ -1,0 +1,1677 @@
+{
+ "summary": {
+  "baseline": {
+   "cases": 30,
+   "recall@20": 0.8333,
+   "ndcg@20": 0.6826,
+   "additional_relevant_docs": 0
+  },
+  "profiles": {
+   "cases": 30,
+   "recall@20": 1.0,
+   "ndcg@20": 0.8997,
+   "additional_relevant_docs": 5
+  },
+  "chunks": {
+   "cases": 30,
+   "recall@20": 0.9333,
+   "ndcg@20": 0.8308,
+   "additional_relevant_docs": 5
+  },
+  "fusion": {
+   "cases": 30,
+   "recall@20": 1.0,
+   "ndcg@20": 0.7563,
+   "additional_relevant_docs": 5
+  }
+ },
+ "by_collection": {
+  "dclp": {
+   "baseline": {
+    "cases": 8,
+    "recall@20": 0.625,
+    "ndcg@20": 0.4616,
+    "additional_relevant_docs": 0
+   },
+   "profiles": {
+    "cases": 8,
+    "recall@20": 1.0,
+    "ndcg@20": 1.0,
+    "additional_relevant_docs": 3
+   },
+   "chunks": {
+    "cases": 8,
+    "recall@20": 0.75,
+    "ndcg@20": 0.75,
+    "additional_relevant_docs": 3
+   },
+   "fusion": {
+    "cases": 8,
+    "recall@20": 1.0,
+    "ndcg@20": 0.6756,
+    "additional_relevant_docs": 3
+   }
+  },
+  "ddbdp": {
+   "baseline": {
+    "cases": 10,
+    "recall@20": 0.9,
+    "ndcg@20": 0.6893,
+    "additional_relevant_docs": 0
+   },
+   "profiles": {
+    "cases": 10,
+    "recall@20": 1.0,
+    "ndcg@20": 0.7492,
+    "additional_relevant_docs": 1
+   },
+   "chunks": {
+    "cases": 10,
+    "recall@20": 1.0,
+    "ndcg@20": 0.7292,
+    "additional_relevant_docs": 1
+   },
+   "fusion": {
+    "cases": 10,
+    "recall@20": 1.0,
+    "ndcg@20": 0.5653,
+    "additional_relevant_docs": 1
+   }
+  },
+  "translations": {
+   "baseline": {
+    "cases": 12,
+    "recall@20": 0.9167,
+    "ndcg@20": 0.8244,
+    "additional_relevant_docs": 0
+   },
+   "profiles": {
+    "cases": 12,
+    "recall@20": 1.0,
+    "ndcg@20": 0.9583,
+    "additional_relevant_docs": 1
+   },
+   "chunks": {
+    "cases": 12,
+    "recall@20": 1.0,
+    "ndcg@20": 0.9692,
+    "additional_relevant_docs": 1
+   },
+   "fusion": {
+    "cases": 12,
+    "recall@20": 1.0,
+    "ndcg@20": 0.9692,
+    "additional_relevant_docs": 1
+   }
+  }
+ },
+ "cases": {
+  "semantic-01": {
+   "query": "A son reports to his father about difficulties registering handwritten documents.",
+   "query_language": "en",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   }
+  },
+  "semantic-02": {
+   "query": "Daily prayers for the health of an absent parent.",
+   "query_language": "en",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   }
+  },
+  "semantic-03": {
+   "query": "Ein Sohn schreibt seinem Vater über Probleme mit Handschriften und Registrierung.",
+   "query_language": "de",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-04": {
+   "query": "Une lettre évoquant des démarches auprès du juge en chef.",
+   "query_language": "fr",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   }
+  },
+  "semantic-05": {
+   "query": "χειρόγραφα ἀνόμοια ἀρχιδικαστοῦ",
+   "query_language": "grc",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-06": {
+   "query": "Paying thirty-two additional drachmas during a documentary dispute.",
+   "query_language": "en",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   }
+  },
+  "semantic-07": {
+   "query": "A promise to return money if the recipient or his father disapproves.",
+   "query_language": "en",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   }
+  },
+  "semantic-08": {
+   "query": "Hoping to send completed documents after administrative delays.",
+   "query_language": "en",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   }
+  },
+  "semantic-09": {
+   "query": "Des salutations et des nouvelles de santé entre un fils et son père.",
+   "query_language": "fr",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 0.0,
+    "ndcg": 0.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": [
+     "ddbdp:DDbDP/27/27093.xml"
+    ]
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": [
+     "ddbdp:DDbDP/27/27093.xml"
+    ]
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": [
+     "ddbdp:DDbDP/27/27093.xml"
+    ]
+   }
+  },
+  "semantic-10": {
+   "query": "Eine Eingabe an den obersten Richter wegen schriftlicher Unterlagen.",
+   "query_language": "de",
+   "collection": "ddbdp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   }
+  },
+  "semantic-11": {
+   "query": "The moon in Capricorn with degrees and planetary boundaries.",
+   "query_language": "en",
+   "collection": "dclp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 0.0,
+    "ndcg": 0.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   },
+   "chunks": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   }
+  },
+  "semantic-12": {
+   "query": "Un horoscope donnant les positions des planètes dans les signes du zodiaque.",
+   "query_language": "fr",
+   "collection": "dclp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-13": {
+   "query": "Die Position des Jupiter im Krebs und die Grenzen des Merkur.",
+   "query_language": "de",
+   "collection": "dclp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 0.0,
+    "ndcg": 0.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   },
+   "chunks": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   }
+  },
+  "semantic-14": {
+   "query": "Σελήνη Αἰγόκερωι Κρόνου Ἀφροδίτης",
+   "query_language": "grc",
+   "collection": "dclp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-15": {
+   "query": "A date equating Pachon with an older Egyptian calendar reckoning.",
+   "query_language": "en",
+   "collection": "dclp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.4306765580733931,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   }
+  },
+  "semantic-16": {
+   "query": "Astronomical degrees expressed with fractional numbers.",
+   "query_language": "en",
+   "collection": "dclp",
+   "category": "textual-nuance",
+   "baseline": {
+    "ranked_ids": [],
+    "recall": 0.0,
+    "ndcg": 0.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   },
+   "chunks": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   },
+   "fusion": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "dclp:DCLP/23/23944.xml"
+    ]
+   }
+  },
+  "semantic-17": {
+   "query": "A possible writing exercise found and written at Myos Hormos.",
+   "query_language": "en",
+   "collection": "dclp",
+   "category": "metadata-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23702.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 0.0,
+    "ndcg": 0.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.38685280723454163,
+    "additional_relevant": []
+   }
+  },
+  "semantic-18": {
+   "query": "Eine mögliche Schreibübung auf Papyrus aus Myos Hormos.",
+   "query_language": "de",
+   "collection": "dclp",
+   "category": "metadata-only",
+   "baseline": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23702.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23702.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 0.0,
+    "ndcg": 0.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.38685280723454163,
+    "additional_relevant": []
+   }
+  },
+  "semantic-19": {
+   "query": "Accounts for timber procurement and rafting on the river.",
+   "query_language": "en",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-20": {
+   "query": "Frais de bateau entre Hérakléopolis et Oxyrhynchos.",
+   "query_language": "fr",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "dclp:DCLP/23/23944.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-21": {
+   "query": "Täglicher Unterhalt für Bootsbesatzungen und Schiffbauer.",
+   "query_language": "de",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [],
+    "recall": 0.0,
+    "ndcg": 0.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "translations:Translations/3/3227-1.xml"
+    ]
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "translations:Translations/3/3227-1.xml"
+    ]
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": [
+     "translations:Translations/3/3227-1.xml"
+    ]
+   }
+  },
+  "semantic-22": {
+   "query": "A banker advances 120 drachmas for procuring wood.",
+   "query_language": "en",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.5,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-23": {
+   "query": "Salaire d’Andronikos et droit de garde sur le fleuve.",
+   "query_language": "fr",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-24": {
+   "query": "A debtor balance after wages and river transport expenses.",
+   "query_language": "en",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   }
+  },
+  "semantic-25": {
+   "query": "Officials are forbidden to hear complaints against finance administration subordinates.",
+   "query_language": "en",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-26": {
+   "query": "Les plaintes contre les agents des finances sont transmises au dioikète.",
+   "query_language": "fr",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3227-1.xml",
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 0.6309297535714574,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-27": {
+   "query": "Beschwerden gegen Finanzbeamte sollen an Eirenaios weitergeleitet werden.",
+   "query_language": "de",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-28": {
+   "query": "A royal decree limits jurisdiction over finance personnel.",
+   "query_language": "en",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23944.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-29": {
+   "query": "The king’s cousin serves as dioiketes and receives complaints.",
+   "query_language": "en",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  },
+  "semantic-30": {
+   "query": "A decree dated to year three on Phamenoth 23.",
+   "query_language": "en",
+   "collection": "translations",
+   "category": "translation-only",
+   "baseline": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "profiles": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "dclp:DCLP/23/23702.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "chunks": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "translations:Translations/3/3227-1.xml",
+     "ddbdp:DDbDP/27/27093.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   },
+   "fusion": {
+    "ranked_ids": [
+     "translations:Translations/3/3643-1.xml",
+     "translations:Translations/3/3227-1.xml",
+     "dclp:DCLP/23/23944.xml",
+     "ddbdp:DDbDP/27/27093.xml",
+     "dclp:DCLP/23/23702.xml"
+    ],
+    "recall": 1.0,
+    "ndcg": 1.0,
+    "additional_relevant": []
+   }
+  }
+ }
+}

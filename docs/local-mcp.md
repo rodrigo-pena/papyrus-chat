@@ -30,6 +30,11 @@ uvx --from 'papyrus-chat[mcp,semantic] @ git+https://github.com/rodrigo-pena/pap
   --output ./data/papyrus-corpus
 ```
 
+Add `--semantic-content` to the same command to also build the text-chunk and
+profile indexes for `discover_documents`; it still requires
+`--semantic-model-dir`. See [semantic retrieval](semantic-retrieval.md) for the
+build cost, evaluation, and limitations before enabling it.
+
 From a local checkout, install the extras and run the same builder:
 
 ```bash
@@ -64,12 +69,13 @@ diagnostics to stderr. STDOUT is reserved for MCP frames. There are no model,
 provider, API-key, web-search, host, or port options.
 
 The `[mcp]` extra installs only the protocol SDK. Add `[semantic]` as well when
-the artifact contains a semantic index and you want subject suggestions. A
-server can still serve the other five tools without the semantic runtime. If
-the artifact has no semantic index, `suggest_subjects` returns
-`available: false`; if the index exists but the runtime is missing, its reason
-names the `[mcp,semantic]` extras. An available index with no matching labels
-returns `available: true` and an empty list.
+the artifact contains semantic indexes and you want subject suggestions and
+discovery. A server can still serve the other tools without the semantic
+runtime. If the artifact has no semantic index, `suggest_subjects` returns
+`available: false` and `discover_documents` reports its own unavailable reason;
+if an index exists but the runtime is missing, its reason names the
+`[mcp,semantic]` extras. An available index with no matching labels returns
+`available: true` and an empty list.
 
 ## Register the MCP server
 
@@ -336,7 +342,7 @@ local checkout, rerun `uv run --extra mcp --extra semantic papyrus-mcp ...`.
 ### Invalid artifact or unsupported schema
 
 Pass the artifact root, not `manifest.json`, and confirm that all three required
-files are present. The artifact must be a supported schema-v3 build. Rebuild it
+files are present. The artifact must be a supported schema-v4 build. Rebuild it
 with the builder commands above if validation reports a missing file, bad
 manifest, incompatible schema, or integrity problem.
 
