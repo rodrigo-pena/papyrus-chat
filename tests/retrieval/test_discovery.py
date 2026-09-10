@@ -170,6 +170,46 @@ def test_missing_optional_runtime_is_not_a_zero_match(content_service, monkeypat
     assert "[semantic]" in result.unavailable_reason
 
 
+def test_transient_discovery_failure_does_not_stick_to_capabilities(
+    content_service, monkeypatch
+) -> None:
+    service = content_service
+    real = service._search.discovery
+    failing = False
+
+    class FlakyDiscovery:
+        def search(self, query, *, channels=("profiles", "chunks", "lexical")):
+            if failing:
+                raise RuntimeError("transient encoder failure")
+            return real.search(query, channels=channels)
+
+        def close(self) -> None:
+            real.close()
+
+    monkeypatch.setattr(service._search, "_discovery", FlakyDiscovery())
+
+    capability = service.get_corpus_info().semantic_capability
+    assert capability.profiles.available and capability.chunks.available
+
+    failing = True
+    result = service.discover_documents(DiscoveryQuery(text="complaints"))
+    assert not result.available
+    assert "transient encoder failure" in result.unavailable_reason
+    capability = service.get_corpus_info().semantic_capability
+    assert not capability.profiles.available
+    assert "transient encoder failure" in capability.profiles.unavailable_reason
+    assert not capability.chunks.available
+
+    failing = False
+    result = service.discover_documents(DiscoveryQuery(text="complaints"))
+    assert result.available
+    capability = service.get_corpus_info().semantic_capability
+    assert capability.profiles.available
+    assert capability.profiles.unavailable_reason is None
+    assert capability.chunks.available
+    assert capability.chunks.unavailable_reason is None
+
+
 def test_closed_discovery_releases_read_only_memory_maps(content_service) -> None:
     content_service.discover_documents(DiscoveryQuery(text="complaints"))
     store = content_service._search.discovery._vectors

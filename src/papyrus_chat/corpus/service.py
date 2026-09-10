@@ -129,6 +129,10 @@ class CorpusService:
     def discover_documents(self, query: DiscoveryQuery) -> DiscoveryResult:
         query = DiscoveryQuery.model_validate(query)
         with self._lock:
+            # Re-evaluate transient runtime failures on every attempt instead of
+            # letting one error disable discovery or capability reporting for
+            # the rest of the process.
+            self._content_failure = None
             capabilities = [self._content_capability("chunks")]
             if not query.passage_languages and not query.passage_kinds:
                 capabilities.append(self._content_capability("profiles"))
@@ -144,7 +148,7 @@ class CorpusService:
                     ),
                 )
             try:
-                return self._search.discovery.search(query)
+                result = self._search.discovery.search(query)
             except (ImportError, RuntimeError) as error:
                 self._content_failure = f"Local semantic discovery unavailable: {error}"
                 return DiscoveryResult(
@@ -152,6 +156,8 @@ class CorpusService:
                     available=False,
                     unavailable_reason=self._content_failure,
                 )
+            self._content_failure = None
+            return result
 
     def lookup_document(self, identifier: str, *, limit: int = 20) -> CorpusIdentifierLookupResult:
         """Look up exact normalized identifier values with bounded lean matches."""
