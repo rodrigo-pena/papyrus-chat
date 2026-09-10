@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from math import isfinite, sqrt
 from pathlib import Path
-from threading import Lock
+from threading import Lock, RLock
 from typing import Any, Literal
 
 EmbeddingKind = Literal["query", "passage"]
@@ -169,6 +169,22 @@ class LocalEmbeddingEncoder:
             specific_model_path=str(model_dir),
             local_files_only=True,
         )
+
+
+class LazyLocalEncoder:
+    """Share one local model across tools, loading only on the first encoding."""
+
+    def __init__(self, model_dir: Path, *, model_spec: EmbeddingModelSpec) -> None:
+        self.model_dir = model_dir
+        self.model_spec = model_spec
+        self._encoder: LocalEmbeddingEncoder | None = None
+        self._lock = RLock()
+
+    def encode(self, texts: Sequence[str], *, kind: EmbeddingKind) -> tuple[tuple[float, ...], ...]:
+        with self._lock:
+            if self._encoder is None:
+                self._encoder = LocalEmbeddingEncoder(self.model_dir, model_spec=self.model_spec)
+            return self._encoder.encode(texts, kind=kind)
 
 
 __all__ = [

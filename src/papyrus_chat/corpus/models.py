@@ -19,6 +19,14 @@ from papyrus_chat.retrieval.structured import (
 )
 
 
+class SemanticIndexCapability(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    available: bool = False
+    count: int = 0
+    unavailable_reason: str | None = "artifact has no bundled index"
+
+
 class CorpusSemanticCapability(BaseModel):
     """Whether semantic subject suggestions can run in this process."""
 
@@ -29,6 +37,9 @@ class CorpusSemanticCapability(BaseModel):
     revision: str | None = None
     subject_count: int = 0
     unavailable_reason: str | None = None
+    subjects: SemanticIndexCapability = Field(default_factory=SemanticIndexCapability)
+    profiles: SemanticIndexCapability = Field(default_factory=SemanticIndexCapability)
+    chunks: SemanticIndexCapability = Field(default_factory=SemanticIndexCapability)
 
 
 class CorpusInfo(BaseModel):
