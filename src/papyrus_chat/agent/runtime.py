@@ -9,6 +9,7 @@ from pydantic_ai.capabilities import NativeTool
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
+from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
 from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools
 from papyrus_chat.agent.web import search_web_background
 from papyrus_chat.chat.provider import ProviderConfig
@@ -163,10 +164,12 @@ def create_research_agent(
     service: CorpusToolService,
     *,
     model: Any | None = None,
+    policy: ResearchPolicy | None = None,
     enable_native_web_search: bool = True,
     enable_web_search: bool = False,
 ) -> Agent[Any, str]:
     """Construct an agent using the existing provider environment contract."""
+    policy = policy or load_research_policy(config.model)
     capabilities: list[NativeTool] = []
     selected_model = model
     if selected_model is None:

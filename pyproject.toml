@@ -5,6 +5,7 @@ description = "Searchable corpus artifact and evidence-grounded chat over papyri
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "genai-prices>=0.1.5,<0.2",
     "lxml>=5.2",
     "platformdirs>=4.2",
     "pydantic>=2.7",

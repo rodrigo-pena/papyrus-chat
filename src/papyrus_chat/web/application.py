@@ -5,6 +5,7 @@ from typing import Any
 
 from starlette.applications import Starlette
 
+from papyrus_chat.agent.context import load_research_policy
 from papyrus_chat.agent.runtime import create_research_agent
 from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.artifact.manifest import load_manifest
@@ -35,8 +36,9 @@ def validate_startup(
         raise StartupError(f"The corpus artifact {artifact} is not usable: {error}") from error
 
     try:
-        load_provider_config(env, required=require_provider)
-    except ProviderError as error:
+        provider = load_provider_config(env, required=require_provider)
+        load_research_policy(provider.model, env)
+    except (ProviderError, ValueError) as error:
         raise StartupError(str(error)) from error
 
 
@@ -60,7 +62,11 @@ def load_app(
     provider_config = load_provider_config(env, required=False)
     tool_service = CorpusService.open(artifact)
     agent = create_research_agent(
-        provider_config, tool_service, model=model, enable_web_search=enable_web_search
+        provider_config,
+        tool_service,
+        model=model,
+        enable_web_search=enable_web_search,
+        policy=load_research_policy(provider_config.model, env),
     )
     deps = CorpusToolDeps(service=tool_service)
     app = agent.to_web(
