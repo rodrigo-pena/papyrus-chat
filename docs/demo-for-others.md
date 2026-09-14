@@ -34,6 +34,20 @@ uv run papyrus-chat --artifact ./data/papyrus-corpus \
 Keeping the bind address at `127.0.0.1` means the application is not directly
 listening on the local network. Leave this terminal running.
 
+Chat research is bounded by default: each user turn allows 16 model requests
+(including up to 3 summaries) and reserves 2 final-answer attempts. The same
+configured model performs summaries, so they add latency and usage. A run that
+reaches its budget returns a partial answer with an incomplete research notice.
+Each follow-up starts a fresh budget; browser-held history may need summarizing
+again. Separate chat requests do not share citation eligibility or budgets.
+
+Check the startup log's context capacity before sharing a local or proxied
+model. Set `LLM_CONTEXT_WINDOW` to your server's actual capacity if automatic
+metadata or the 32,768-token fallback is incorrect. See
+[context management and research limits](../README.md#context-management-and-research-limits)
+for settings, overhead, and troubleshooting. Compaction cannot recover an
+unavailable model endpoint.
+
 ## 2. Configure the ngrok Traffic Policy
 
 Create `conf/ngrok-policy.yml` and replace the placeholder with the password
