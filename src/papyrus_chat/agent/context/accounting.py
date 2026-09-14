@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from pydantic_ai.models import ModelRequestParameters
+from pydantic_ai.tools import ToolDefinition
 from pydantic_core import to_jsonable_python
 
 
@@ -18,7 +19,25 @@ def message_text(message: ModelMessage) -> str:
 
 
 def parameter_text(parameters: ModelRequestParameters) -> str:
-    return json.dumps(to_jsonable_python(parameters), ensure_ascii=False)
+    def tool_payload(tool: ToolDefinition) -> dict[str, object]:
+        # Return schemas and framework metadata are not part of function-tool requests.
+        return {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": tool.parameters_json_schema,
+            "strict": tool.strict,
+        }
+
+    return json.dumps(
+        {
+            "tools": [tool_payload(tool) for tool in parameters.function_tools],
+            "native_tools": to_jsonable_python(parameters.native_tools),
+            "output_tools": [tool_payload(tool) for tool in parameters.output_tools],
+            "output_object": to_jsonable_python(parameters.output_object),
+            "instructions": [part.content for part in parameters.instruction_parts or []],
+        },
+        ensure_ascii=False,
+    )
 
 
 @dataclass

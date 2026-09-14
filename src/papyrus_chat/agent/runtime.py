@@ -10,6 +10,7 @@ from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
+from papyrus_chat.agent.context.runtime import BoundedResearch
 from papyrus_chat.agent.context.tracking import EvidenceTracking
 from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools
 from papyrus_chat.agent.web import search_web_background
@@ -171,7 +172,10 @@ def create_research_agent(
 ) -> Agent[Any, str]:
     """Construct an agent using the existing provider environment contract."""
     policy = policy or load_research_policy(config.model)
-    capabilities: list[AbstractCapability[CorpusToolDeps]] = [EvidenceTracking()]
+    capabilities: list[AbstractCapability[CorpusToolDeps]] = [
+        EvidenceTracking(),
+        BoundedResearch(policy),
+    ]
     selected_model = model
     if selected_model is None:
         api_key = config.api_key.get_secret_value() if config.api_key is not None else None
