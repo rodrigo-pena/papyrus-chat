@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from pydantic import Field
 from pydantic_ai import Agent, RunContext
 
+from papyrus_chat.agent.context.state import ResearchRunState
 from papyrus_chat.corpus import (
     CorpusDescription,
     CorpusFacetResult,
@@ -36,10 +37,11 @@ from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryRes
 from papyrus_chat.retrieval.structured import FacetField
 
 
-@dataclass(frozen=True)
+@dataclass
 class CorpusToolDeps:
     service: CorpusService
     known_corpus_urls: set[str] = field(default_factory=set)
+    research_state: ResearchRunState = field(default_factory=ResearchRunState)
 
 
 CorpusToolService = CorpusService

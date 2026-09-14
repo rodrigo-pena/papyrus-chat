@@ -5,11 +5,12 @@ from collections.abc import Callable
 from typing import Any
 
 from pydantic_ai import Agent, ModelRetry, RunContext, WebSearchTool
-from pydantic_ai.capabilities import NativeTool
+from pydantic_ai.capabilities import AbstractCapability, NativeTool
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
+from papyrus_chat.agent.context.tracking import EvidenceTracking
 from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools
 from papyrus_chat.agent.web import search_web_background
 from papyrus_chat.chat.provider import ProviderConfig
@@ -170,7 +171,7 @@ def create_research_agent(
 ) -> Agent[Any, str]:
     """Construct an agent using the existing provider environment contract."""
     policy = policy or load_research_policy(config.model)
-    capabilities: list[NativeTool] = []
+    capabilities: list[AbstractCapability[CorpusToolDeps]] = [EvidenceTracking()]
     selected_model = model
     if selected_model is None:
         api_key = config.api_key.get_secret_value() if config.api_key is not None else None

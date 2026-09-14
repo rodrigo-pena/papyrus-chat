@@ -12,6 +12,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 
+from papyrus_chat.agent.tools import CorpusToolDeps
+
 JSON_MEDIA_TYPE = "application/json"
 SDK_VERSION = 7
 
@@ -111,7 +113,7 @@ def install_validated_chat_route(app: Any, agent: Agent[Any, str], deps: Any) ->
             request,
             agent=agent,
             sdk_version=SDK_VERSION,
-            deps=deps,
+            deps=CorpusToolDeps(service=deps.service),
         )
 
     index, _route = matches[0]
