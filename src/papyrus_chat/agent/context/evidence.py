@@ -7,8 +7,8 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 from pydantic_ai.messages import (
     ModelMessage,
-    ModelRequest,
-    ModelResponse,
+    NativeToolCallPart,
+    NativeToolReturnPart,
     ToolCallPart,
     ToolReturnPart,
 )
@@ -51,7 +51,7 @@ class EvidenceRecord:
                 "tool": self.tool_name,
                 "call_id": self.call_id,
                 "source": "web background"
-                if self.tool_name == "search_web_background"
+                if self.tool_name in {"search_web_background", "web_search"}
                 else "corpus",
                 "arguments": self.arguments,
                 "result": self.result,
@@ -68,46 +68,55 @@ class EvidenceLedger:
     seen: set[str] = field(default_factory=set)
 
     def ingest(self, messages: list[ModelMessage]) -> None:
-        calls: dict[str, ToolCallPart] = {}
+        calls: dict[str, ToolCallPart | NativeToolCallPart] = {}
         schemas = result_schemas()
         for message in messages:
-            if isinstance(message, ModelResponse):
-                for part in message.parts:
-                    if isinstance(part, ToolCallPart):
-                        calls[part.tool_call_id] = part
-            elif isinstance(message, ModelRequest):
-                for part in message.parts:
-                    if not isinstance(part, ToolReturnPart):
-                        continue
-                    call = calls.pop(part.tool_call_id, None)
-                    schema = schemas.get(part.tool_name)
-                    if call is None or call.tool_name != part.tool_name or schema is None:
-                        continue
-                    try:
-                        content = part.content
+            for part in message.parts:
+                if isinstance(part, (ToolCallPart, NativeToolCallPart)):
+                    calls[part.tool_call_id] = part
+                    continue
+                if not isinstance(part, (ToolReturnPart, NativeToolReturnPart)):
+                    continue
+                call = calls.pop(part.tool_call_id, None)
+                if call is None or call.tool_name != part.tool_name:
+                    continue
+                try:
+                    if isinstance(part, NativeToolReturnPart):
+                        if (
+                            part.tool_name != "web_search"
+                            or not isinstance(call, NativeToolCallPart)
+                            or not isinstance(part.content, dict)
+                        ):
+                            continue
+                        result = part.content
+                    else:
+                        schema = schemas.get(part.tool_name)
+                        if schema is None or not isinstance(call, ToolCallPart):
+                            continue
                         parsed = (
-                            schema.model_validate_json(content)
-                            if isinstance(content, str)
-                            else schema.model_validate(content)
+                            schema.model_validate_json(part.content)
+                            if isinstance(part.content, str)
+                            else schema.model_validate(part.content)
                         )
-                        record = EvidenceRecord(
-                            part.tool_name,
-                            part.tool_call_id,
-                            call.args_as_dict(),
-                            parsed.model_dump(mode="json"),
-                        )
-                    except (ValidationError, ValueError, TypeError):
-                        continue
+                        result = parsed.model_dump(mode="json")
+                    record = EvidenceRecord(
+                        part.tool_name,
+                        part.tool_call_id,
+                        call.args_as_dict(),
+                        result,
+                    )
                     key = record.render()
-                    if key in self.seen:
-                        continue
-                    self.seen.add(key)
-                    self.records.append(record)
-                    if part.tool_name in {
-                        "search_documents",
-                        "discover_documents",
-                        "inspect_documents",
-                    }:
-                        for item in record.result.get("hits", record.result.get("inspections", [])):
-                            if url := item.get("canonical_url"):
-                                self.corpus_urls.add(url)
+                except (ValidationError, ValueError, TypeError):
+                    continue
+                if key in self.seen:
+                    continue
+                self.seen.add(key)
+                self.records.append(record)
+                if part.tool_name in {
+                    "search_documents",
+                    "discover_documents",
+                    "inspect_documents",
+                }:
+                    for item in record.result.get("hits", record.result.get("inspections", [])):
+                        if url := item.get("canonical_url"):
+                            self.corpus_urls.add(url)

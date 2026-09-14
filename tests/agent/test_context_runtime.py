@@ -218,3 +218,62 @@ def test_followup_resets_budget_even_with_reused_python_dependencies(service: Co
     agent.run_sync("Continue", deps=deps, message_history=first.all_messages())
     assert dialogue.research_requests == 2
     assert dialogue.final_requests == 2
+
+
+def test_cancellation_during_summary_does_not_generate_final_answer(service: CorpusToolService):
+    import asyncio
+
+    async def scenario():
+        started = asyncio.Event()
+        final_requests = 0
+
+        async def dialogue(messages, info):
+            nonlocal final_requests
+            if info.function_tools:
+                return ModelResponse(
+                    [
+                        TextPart("πάπυρος " * 10000),
+                        ToolCallPart("describe_corpus", {}, "inventory"),
+                    ]
+                )
+            if "papyrologist" not in (info.instructions or ""):
+                started.set()
+                await asyncio.Event().wait()
+            final_requests += 1
+            return ModelResponse([TextPart("Unexpected answer after cancellation")])
+
+        agent = create_research_agent(
+            ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+            service,
+            model=FunctionModel(dialogue),
+            policy=ResearchPolicy(),
+        )
+        task = asyncio.create_task(agent.run("Investigate", deps=CorpusToolDeps(service)))
+        try:
+            await asyncio.wait_for(started.wait(), timeout=5)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            assert final_requests == 0
+        finally:
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(scenario())
+
+
+def test_budget_limited_answer_always_discloses_incomplete_research(service: CorpusToolService):
+    def dialogue(messages, info):
+        if info.function_tools:
+            return ModelResponse([ToolCallPart("describe_corpus", {}, "inventory")])
+        return ModelResponse([TextPart("Only the corpus inventory has been checked.")])
+
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        service,
+        model=FunctionModel(dialogue),
+        policy=ResearchPolicy(research_request_limit=1),
+    )
+    result = agent.run_sync("Investigate", deps=CorpusToolDeps(service))
+    assert "incomplete" in result.output.lower()

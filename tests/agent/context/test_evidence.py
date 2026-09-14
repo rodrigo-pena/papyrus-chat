@@ -54,3 +54,30 @@ def test_ledgers_do_not_share_evidence():
     first.ingest(history())
     assert not second.records
     assert not second.corpus_urls
+
+
+def test_native_web_sources_are_preserved_as_background_not_corpus_evidence():
+    from pydantic_ai.messages import NativeToolCallPart, NativeToolReturnPart
+
+    ledger = EvidenceLedger()
+    ledger.ingest(
+        [
+            ModelResponse(
+                parts=[
+                    NativeToolCallPart(
+                        "web_search", {"query": "reign dates"}, "web-1", provider_name="openai"
+                    ),
+                    NativeToolReturnPart(
+                        "web_search",
+                        {"status": "completed", "sources": [{"url": URL}]},
+                        "web-1",
+                        provider_name="openai",
+                    ),
+                ]
+            )
+        ]
+    )
+    assert len(ledger.records) == 1
+    assert "web background" in ledger.records[0].render()
+    assert URL in ledger.records[0].render()
+    assert not ledger.corpus_urls

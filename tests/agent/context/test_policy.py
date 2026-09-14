@@ -57,3 +57,20 @@ def test_accounting_anchors_usage_but_rebaselines_changed_history():
     assert accounting.estimate([second], params) < 2000
     assert baseline < 2000
     assert estimate_text("α" * 100) > estimate_text("a" * 100)
+
+
+def test_accounting_counts_instructions_once_and_excludes_return_schemas():
+    from pydantic_ai.messages import InstructionPart
+    from pydantic_ai.tools import ToolDefinition
+
+    instructions = "Research instructions. " * 1000
+    params = ModelRequestParameters(instruction_parts=[InstructionPart(instructions)])
+    plain = ModelRequest(parts=[UserPromptPart("Question")])
+    recorded = ModelRequest(parts=plain.parts, instructions=instructions)
+    accounting = RequestAccounting()
+    assert accounting.estimate([recorded], params) == accounting.estimate([plain], params)
+    tool = ToolDefinition(name="search", parameters_json_schema={})
+    with_tool = ModelRequestParameters(function_tools=[tool])
+    before = accounting.estimate([plain], with_tool)
+    tool.return_schema = {"description": "metadata only" * 10000}
+    assert accounting.estimate([plain], with_tool) == before

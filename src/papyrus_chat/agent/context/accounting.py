@@ -1,9 +1,9 @@
 """Conservative, provider-independent request estimates with usage anchors."""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
+from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter, ModelRequest
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.tools import ToolDefinition
 from pydantic_core import to_jsonable_python
@@ -16,6 +16,14 @@ def estimate_text(text: str) -> int:
 
 def message_text(message: ModelMessage) -> str:
     return ModelMessagesTypeAdapter.dump_json([message]).decode()
+
+
+def accounting_text(message: ModelMessage) -> str:
+    # Instructions are recorded on each request for traces but sent through the
+    # current request parameters once, not replayed once per historical request.
+    if isinstance(message, ModelRequest):
+        message = replace(message, instructions=None)
+    return message_text(message)
 
 
 def parameter_text(parameters: ModelRequestParameters) -> str:
@@ -47,7 +55,7 @@ class RequestAccounting:
     input_tokens: int = 0
 
     def estimate(self, messages: list[ModelMessage], parameters: ModelRequestParameters) -> int:
-        rendered = tuple(message_text(message) for message in messages)
+        rendered = tuple(accounting_text(message) for message in messages)
         config = parameter_text(parameters)
         raw = 128 + estimate_text(config) + sum(estimate_text(text) for text in rendered)
         if (
@@ -64,6 +72,6 @@ class RequestAccounting:
     def anchor(
         self, messages: list[ModelMessage], parameters: ModelRequestParameters, input_tokens: int
     ) -> None:
-        self.prefix = tuple(message_text(message) for message in messages)
+        self.prefix = tuple(accounting_text(message) for message in messages)
         self.parameters = parameter_text(parameters)
         self.input_tokens = input_tokens

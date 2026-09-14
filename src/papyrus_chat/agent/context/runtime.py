@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Never
 
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
@@ -176,6 +176,27 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
             response.usage.input_tokens,
         )
         return response
+
+    async def on_run_error(
+        self,
+        ctx: RunContext["CorpusToolDeps"],
+        *,
+        error: BaseException,
+    ) -> Never:
+        state = ctx.deps.research_state
+        LOGGER.warning(
+            "Research run ended with %s",
+            type(error).__name__,
+            extra={
+                "event": "research_run_failed",
+                "run_id": ctx.run_id,
+                "error_type": type(error).__name__,
+                "phase": state.phase,
+                "research_requests": state.research_requests,
+                "final_requests": state.final_requests,
+            },
+        )
+        raise error
 
     async def before_tool_execute(
         self,

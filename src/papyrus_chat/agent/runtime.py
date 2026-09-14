@@ -205,10 +205,16 @@ def create_research_agent(
 
     @agent.output_validator
     def validate_output(ctx: RunContext[CorpusToolDeps], output: str) -> str:
-        return validate_research_output(
+        validated = validate_research_output(
             output,
             ctx.deps.known_corpus_urls,
             citation_lookup=ctx.deps.service.document_for_citation,
         )
+        if ctx.deps.research_state.phase == "finalize":
+            return (
+                "Research is incomplete; this answer reflects the evidence collected so far.\n\n"
+                + validated
+            )
+        return validated
 
     return agent

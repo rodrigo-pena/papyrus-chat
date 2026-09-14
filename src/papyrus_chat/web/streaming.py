@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator
 from typing import Any
 
-from pydantic_ai import Agent, AgentRunResultEvent
+from pydantic_ai import Agent, AgentRunResultEvent, UsageLimits
 from pydantic_ai.messages import TextPart, TextPartDelta
 from pydantic_ai.ui._web.api import ChatRequestExtra, validate_request_options
 from pydantic_ai.ui.vercel_ai import VercelAIAdapter, VercelAIEventStream
@@ -12,6 +12,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 
+from papyrus_chat.agent.context import ResearchPolicy
 from papyrus_chat.agent.tools import CorpusToolDeps
 
 JSON_MEDIA_TYPE = "application/json"
@@ -66,7 +67,9 @@ class ValidatedVercelAIAdapter(VercelAIAdapter[Any, str]):
         )
 
 
-def install_validated_chat_route(app: Any, agent: Agent[Any, str], deps: Any) -> None:
+def install_validated_chat_route(
+    app: Any, agent: Agent[Any, str], deps: CorpusToolDeps, policy: ResearchPolicy
+) -> None:
     """Replace the stock chat POST route without dropping its outer host guard."""
     api_mounts = [
         route for route in app.routes if isinstance(route, Mount) and route.path == "/api"
@@ -114,6 +117,7 @@ def install_validated_chat_route(app: Any, agent: Agent[Any, str], deps: Any) ->
             agent=agent,
             sdk_version=SDK_VERSION,
             deps=CorpusToolDeps(service=deps.service),
+            usage_limits=UsageLimits(request_limit=policy.hard_request_limit),
         )
 
     index, _route = matches[0]

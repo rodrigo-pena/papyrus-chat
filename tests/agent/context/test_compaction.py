@@ -81,3 +81,41 @@ def test_failed_summary_preserves_last_checkpoint_and_counts_request():
     assert asyncio.run(compact_history(context, request, state, ResearchPolicy())) is None
     assert state.summary == "Last valid summary"
     assert state.summary_requests == state.research_requests == 1
+
+
+def test_checkpoint_preserves_exact_scoped_counts_and_inspected_lines():
+    from papyrus_chat.agent.context.compaction import bounded_history
+    from papyrus_chat.agent.context.evidence import EvidenceRecord
+
+    question = ModelRequest(parts=[UserPromptPart("What evidence exists?")])
+    state = ResearchRunState(question=question, summary="Tentative: the cohort may be relevant.")
+    state.ledger.records = [
+        EvidenceRecord(
+            "search_documents",
+            "search",
+            {"query": {"collections": ["ddbdp"]}},
+            {"candidate_count": 7, "query": {"collections": ["ddbdp"]}},
+        ),
+        EvidenceRecord(
+            "inspect_documents",
+            "inspect",
+            {"document_ids": ["doc-1"]},
+            {
+                "document_id": "doc-1",
+                "canonical_url": "https://papyri.info/ddbdp/p.mich;8;480",
+                "passages": [{"line_reference": "3-4", "excerpt": "δραχμὰς δέκα"}],
+            },
+        ),
+        EvidenceRecord("describe_corpus", "oversized", {}, {"huge": "OMIT_ME" * 10000}),
+    ]
+    checkpoint = bounded_history(
+        [question], state, ModelRequestParameters(), 5000, keep_recent=False
+    )
+    text = str(checkpoint)
+    assert '"candidate_count": 7' in text
+    assert '"collections": ["ddbdp"]' in text
+    assert '"line_reference": "3-4"' in text
+    assert "δραχμὰς δέκα" in text
+    assert "https://papyri.info/ddbdp/p.mich;8;480" in text
+    assert "Whole evidence records omitted: 1" in text
+    assert "OMIT_ME" not in text

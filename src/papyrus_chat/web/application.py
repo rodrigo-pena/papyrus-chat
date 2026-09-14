@@ -61,23 +61,25 @@ def load_app(
     manifest = load_manifest(artifact / "manifest.json")
     provider_config = load_provider_config(env, required=False)
     tool_service = CorpusService.open(artifact)
+    policy = load_research_policy(provider_config.model, env)
     agent = create_research_agent(
         provider_config,
         tool_service,
         model=model,
         enable_web_search=enable_web_search,
-        policy=load_research_policy(provider_config.model, env),
+        policy=policy,
     )
     deps = CorpusToolDeps(service=tool_service)
     app = agent.to_web(
         deps=deps,
         html_source=html_source,
     )
-    install_validated_chat_route(app, agent, deps)
+    install_validated_chat_route(app, agent, deps, policy)
     app.state.artifact = artifact
     app.state.manifest = manifest
     app.state.search = tool_service
     app.state.tool_service = tool_service
     app.state.agent = agent
     app.state.provider_config = provider_config
+    app.state.research_policy = policy
     return app
