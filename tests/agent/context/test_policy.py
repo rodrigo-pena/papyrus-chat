@@ -11,15 +11,17 @@ def test_policy_defaults_and_explicit_override():
     policy = load_research_policy("unknown-local-model", {})
     assert policy.context_window == 32768
     assert policy.capacity_source == "fallback"
-    assert policy.research_request_limit == 16
-    assert policy.hard_request_limit == 18
-    assert policy.output_tokens == 16384
-    assert policy.summary_output_tokens == 8192
+    assert policy.research_request_limit is None
+    assert policy.hard_request_limit is None
+    assert policy.output_tokens is None
+    assert policy.summary_output_tokens is None
+    assert policy.trigger_tokens == int(32768 * 0.65)
+    assert policy.target_tokens == int(32768 * 0.45)
     override = load_research_policy("gpt-5.2", {"LLM_CONTEXT_WINDOW": "8192"})
     assert override.context_window == 8192
     assert override.capacity_source == "explicit"
-    assert override.output_tokens == 4096
-    assert override.summary_output_tokens == 2048
+    assert override.output_tokens is None
+    assert override.summary_output_tokens is None
 
 
 def test_known_model_capacity():
@@ -34,7 +36,6 @@ def test_known_model_capacity():
         {"LLM_CONTEXT_WINDOW": "0"},
         {"LLM_CONTEXT_WINDOW": "not a number"},
         {"PAPYRUS_RESEARCH_REQUEST_LIMIT": "0"},
-        {"PAPYRUS_COMPACTION_LIMIT": "-1"},
         {"LLM_MAX_TOKENS": "0"},
         {"PAPYRUS_SUMMARY_MAX_TOKENS": "-1"},
         {"LLM_CONTEXT_WINDOW": "32768", "LLM_MAX_TOKENS": "32000"},
@@ -93,3 +94,11 @@ def test_accounting_counts_instructions_once_and_excludes_return_schemas():
     before = accounting.estimate([plain], with_tool)
     tool.return_schema = {"description": "metadata only" * 10000}
     assert accounting.estimate([plain], with_tool) == before
+
+
+def test_deprecated_compaction_limit_is_ignored(caplog):
+    policy = load_research_policy(
+        "unknown", {"PAPYRUS_COMPACTION_LIMIT": "invalid", "LLM_MAX_TOKENS": "10000"}
+    )
+    assert "deprecated and ignored" in caplog.text
+    assert policy.summary_output_tokens == 10000

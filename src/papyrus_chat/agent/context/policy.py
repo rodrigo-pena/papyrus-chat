@@ -16,8 +16,7 @@ class ResearchPolicy(BaseModel):
 
     context_window: int = Field(default=32768, ge=4096)
     capacity_source: Literal["explicit", "registry", "fallback"] = "explicit"
-    research_request_limit: int = Field(default=16, ge=1)
-    compaction_limit: int = Field(default=3, ge=0)
+    research_request_limit: int | None = Field(default=None, ge=1)
     max_tokens: int | None = Field(default=None, ge=1)
     summary_max_tokens: int | None = Field(default=None, ge=1)
 
@@ -35,23 +34,16 @@ class ResearchPolicy(BaseModel):
         return self
 
     @property
-    def hard_request_limit(self) -> int:
-        return self.research_request_limit + 2
+    def hard_request_limit(self) -> int | None:
+        return self.research_request_limit
 
     @property
-    def output_tokens(self) -> int:
-        # Generation includes reasoning, tool arguments, and visible answer text.
-        return (
-            self.max_tokens if self.max_tokens is not None else min(16384, self.context_window // 2)
-        )
+    def output_tokens(self) -> int | None:
+        return self.max_tokens
 
     @property
-    def summary_output_tokens(self) -> int:
-        return (
-            self.summary_max_tokens
-            if self.summary_max_tokens is not None
-            else min(8192, self.context_window // 4)
-        )
+    def summary_output_tokens(self) -> int | None:
+        return self.summary_max_tokens if self.summary_max_tokens is not None else self.max_tokens
 
     @property
     def summary_text_tokens(self) -> int:
@@ -73,11 +65,19 @@ class ResearchPolicy(BaseModel):
     @property
     def input_limit(self) -> int:
         # Leave additional space for provider framing and estimation errors.
-        return self.context_window - self.output_tokens - self.safety_tokens
+        return (
+            self.context_window
+            - (self.output_tokens or int(self.context_window * 0.30))
+            - self.safety_tokens
+        )
 
     @property
     def summary_input_limit(self) -> int:
-        return self.context_window - self.summary_output_tokens - self.safety_tokens
+        return (
+            self.context_window
+            - (self.summary_output_tokens or int(self.context_window * 0.30))
+            - self.safety_tokens
+        )
 
 
 def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) -> ResearchPolicy:
@@ -96,11 +96,18 @@ def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) 
         except LookupError:
             window = 32768
             capacity_source = "fallback"
+    if "PAPYRUS_COMPACTION_LIMIT" in environment:
+        LOGGER.warning(
+            "PAPYRUS_COMPACTION_LIMIT is deprecated and ignored; compaction continues as needed."
+        )
     policy = ResearchPolicy(
         context_window=window,
         capacity_source=capacity_source,
-        research_request_limit=int(environment.get("PAPYRUS_RESEARCH_REQUEST_LIMIT", "16")),
-        compaction_limit=int(environment.get("PAPYRUS_COMPACTION_LIMIT", "3")),
+        research_request_limit=(
+            int(value)
+            if (value := environment.get("PAPYRUS_RESEARCH_REQUEST_LIMIT", "").strip())
+            else None
+        ),
         max_tokens=(
             int(value) if (value := environment.get("LLM_MAX_TOKENS", "").strip()) else None
         ),
@@ -111,11 +118,11 @@ def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) 
         ),
     )
     LOGGER.info(
-        "Research context capacity: %d tokens (%s); generation limits: %d research, %d summary",
+        "Research context capacity: %d tokens (%s); generation limits: %s research, %s summary",
         window,
         capacity_source,
-        policy.output_tokens,
-        policy.summary_output_tokens,
+        policy.output_tokens or "server default",
+        policy.summary_output_tokens or "server default",
         extra={
             "event": "research_policy_resolved",
             "context_window": window,

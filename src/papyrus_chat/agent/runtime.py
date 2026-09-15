@@ -202,7 +202,7 @@ def create_research_agent(
         output_type=str,
         instructions=RESEARCH_INSTRUCTIONS,
         capabilities=capabilities or None,
-        retries=3,
+        retries={"tools": 3, "output": 1},
     )
     register_corpus_tools(agent)
     from papyrus_chat.agent.context.memory import register_memory_tools
@@ -215,16 +215,15 @@ def create_research_agent(
 
     @agent.output_validator
     def validate_output(ctx: RunContext[CorpusToolDeps], output: str) -> str:
-        validated = validate_research_output(
-            output,
-            ctx.deps.known_corpus_urls,
-            citation_lookup=ctx.deps.service.document_for_citation,
-        )
-        if ctx.deps.research_state.phase == "finalize":
-            return (
-                "Research is incomplete; this answer reflects the evidence collected so far.\n\n"
-                + validated
+        try:
+            return validate_research_output(
+                output,
+                ctx.deps.known_corpus_urls,
+                citation_lookup=ctx.deps.service.document_for_citation,
             )
-        return validated
+        except ModelRetry:
+            ctx.deps.research_state.phase = "repair"
+            ctx.deps.research_state.citation_repairs += 1
+            raise
 
     return agent

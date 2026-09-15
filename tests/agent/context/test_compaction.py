@@ -120,9 +120,13 @@ def test_checkpoint_preserves_exact_scoped_counts_and_inspected_lines():
             "inspect",
             {"document_ids": ["doc-1"]},
             {
-                "document_id": "doc-1",
-                "canonical_url": "https://papyri.info/ddbdp/p.mich;8;480",
-                "passages": [{"line_reference": "3-4", "excerpt": "δραχμὰς δέκα"}],
+                "inspections": [
+                    {
+                        "document_id": "doc-1",
+                        "canonical_url": "https://papyri.info/ddbdp/p.mich;8;480",
+                        "passages": [{"line_reference": "3-4", "excerpt": "δραχμὰς δέκα"}],
+                    }
+                ],
             },
         ),
         EvidenceRecord("describe_corpus", "oversized", {}, {"huge": "OMIT_ME" * 10000}),
