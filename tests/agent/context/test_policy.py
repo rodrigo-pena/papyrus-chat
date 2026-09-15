@@ -13,11 +13,13 @@ def test_policy_defaults_and_explicit_override():
     assert policy.capacity_source == "fallback"
     assert policy.research_request_limit == 16
     assert policy.hard_request_limit == 18
+    assert policy.output_tokens == 16384
+    assert policy.summary_output_tokens == 8192
     override = load_research_policy("gpt-5.2", {"LLM_CONTEXT_WINDOW": "8192"})
     assert override.context_window == 8192
     assert override.capacity_source == "explicit"
-    assert override.output_tokens == 2048
-    assert override.summary_output_tokens == 1024
+    assert override.output_tokens == 4096
+    assert override.summary_output_tokens == 2048
 
 
 def test_known_model_capacity():
@@ -33,6 +35,10 @@ def test_known_model_capacity():
         {"LLM_CONTEXT_WINDOW": "not a number"},
         {"PAPYRUS_RESEARCH_REQUEST_LIMIT": "0"},
         {"PAPYRUS_COMPACTION_LIMIT": "-1"},
+        {"LLM_MAX_TOKENS": "0"},
+        {"PAPYRUS_SUMMARY_MAX_TOKENS": "-1"},
+        {"LLM_CONTEXT_WINDOW": "32768", "LLM_MAX_TOKENS": "32000"},
+        {"LLM_CONTEXT_WINDOW": "32768", "PAPYRUS_SUMMARY_MAX_TOKENS": "32000"},
     ],
 )
 def test_invalid_environment(env):
@@ -43,6 +49,19 @@ def test_invalid_environment(env):
 def test_small_window_rejected():
     with pytest.raises(ValidationError):
         ResearchPolicy(context_window=100)
+
+
+def test_generation_overrides_reserve_context_and_trigger_compaction_earlier():
+    policy = load_research_policy(
+        "unknown",
+        {"LLM_MAX_TOKENS": "24000", "PAPYRUS_SUMMARY_MAX_TOKENS": "12000"},
+    )
+    assert policy.output_tokens == 24000
+    assert policy.summary_output_tokens == 12000
+    assert 0 < policy.target_tokens < policy.trigger_tokens <= policy.input_limit
+    assert policy.input_limit + policy.output_tokens < policy.context_window
+    assert policy.summary_input_limit + policy.summary_output_tokens < policy.context_window
+    assert policy.summary_input_limit > policy.input_limit
 
 
 def test_accounting_anchors_usage_but_rebaselines_changed_history():

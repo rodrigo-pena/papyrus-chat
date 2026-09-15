@@ -26,9 +26,12 @@ class TransportChatModel(OpenAIChatModel):
 
 
 class StrictChatEndpoint:
-    def __init__(self, *, large_results: bool, fail_summary: bool) -> None:
+    def __init__(
+        self, *, large_results: bool, fail_summary: bool, minimum_generation_tokens: int = 0
+    ) -> None:
         self.large_results = large_results
         self.fail_summary = fail_summary
+        self.minimum_generation_tokens = minimum_generation_tokens
         self.requests: list[dict[str, Any]] = []
         self.rejected_roles: list[list[str]] = []
         self.research_calls = 0
@@ -52,6 +55,10 @@ class StrictChatEndpoint:
                 },
             )
         instructions = body["messages"][0]["content"]
+        # Reasoning shares the generation limit with tool arguments and answer text.
+        # Simulate a model that cannot finish thinking under the old 4,096-token cap.
+        generation_limit = body.get("max_completion_tokens", body.get("max_tokens", 0))
+        thinking_exhausted = generation_limit < self.minimum_generation_tokens
         if SUMMARY_INSTRUCTIONS in instructions:
             self.summary_calls += 1
             assert not body.get("tools")
@@ -75,10 +82,15 @@ class StrictChatEndpoint:
                     "choices": [
                         {
                             "index": 0,
-                            "finish_reason": "stop",
+                            "finish_reason": "length" if thinking_exhausted else "stop",
                             "message": {
                                 "role": "assistant",
-                                "content": "PRIVATE_CHECKPOINT inventory checked.",
+                                "content": (
+                                    None
+                                    if thinking_exhausted
+                                    else "PRIVATE_CHECKPOINT inventory checked."
+                                ),
+                                "reasoning_content": "Summarizing the research so far.",
                             },
                         }
                     ],
@@ -114,6 +126,9 @@ class StrictChatEndpoint:
                 content = "No corpus evidence was inspected; only inventory was checked."
             delta = {"role": "assistant", "content": content}
             reason = "stop"
+        if thinking_exhausted:
+            delta = {"role": "assistant", "reasoning_content": "Still considering the evidence."}
+            reason = "length"
         chunks = [
             {
                 "id": "response",
@@ -135,7 +150,22 @@ class StrictChatEndpoint:
 
 
 @pytest.mark.parametrize(
-    "large_results,fail_summary", [(False, False), (True, False), (True, True)]
+    "large_results,fail_summary,minimum_generation_tokens,output_env",
+    [
+        (False, False, 0, {}),
+        (True, False, 0, {}),
+        (True, True, 0, {}),
+        (True, False, 6000, {}),
+        # A summary can still exhaust its smaller generation allowance. Fall back
+        # to the original evidence and preserve both final-answer attempts.
+        (True, False, 10000, {}),
+        (
+            True,
+            False,
+            10000,
+            {"LLM_MAX_TOKENS": "18000", "PAPYRUS_SUMMARY_MAX_TOKENS": "12000"},
+        ),
+    ],
 )
 def test_strict_chat_endpoint_accepts_research_compaction_and_finalization(
     corpus_artifact: Path,
@@ -143,8 +173,14 @@ def test_strict_chat_endpoint_accepts_research_compaction_and_finalization(
     monkeypatch: pytest.MonkeyPatch,
     large_results: bool,
     fail_summary: bool,
+    minimum_generation_tokens: int,
+    output_env: dict[str, str],
 ) -> None:
-    endpoint = StrictChatEndpoint(large_results=large_results, fail_summary=fail_summary)
+    endpoint = StrictChatEndpoint(
+        large_results=large_results,
+        fail_summary=fail_summary,
+        minimum_generation_tokens=minimum_generation_tokens,
+    )
     http_client = httpx2.AsyncClient(transport=httpx2.MockTransport(endpoint))
 
     def provider(**kwargs):
@@ -162,6 +198,7 @@ def test_strict_chat_endpoint_accepts_research_compaction_and_finalization(
                 "LLM_CONTEXT_WINDOW": "32768",
                 "PAPYRUS_RESEARCH_REQUEST_LIMIT": "3",
                 "PAPYRUS_COMPACTION_LIMIT": "1",
+                **output_env,
             },
             html_source=tmp_path / "unused.html",
         )
@@ -196,5 +233,9 @@ def test_strict_chat_endpoint_accepts_research_compaction_and_finalization(
         assert endpoint.final_calls == 2
         assert endpoint.research_calls + endpoint.summary_calls <= 3
         assert endpoint.summary_calls == int(large_results)
+        policy = app.state.research_policy
+        for body in endpoint.requests:
+            expected = policy.output_tokens if body["stream"] else policy.summary_output_tokens
+            assert body.get("max_completion_tokens", body.get("max_tokens")) == expected
     finally:
         asyncio.run(http_client.aclose())

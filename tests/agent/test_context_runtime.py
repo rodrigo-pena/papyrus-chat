@@ -149,6 +149,57 @@ def test_long_tool_run_compacts_and_still_delivers_an_answer(service: CorpusTool
     assert "incomplete" in result.output
 
 
+@pytest.mark.parametrize("caller_max_tokens", [None, 18000, 30000])
+def test_generation_limits_reserve_input_space_for_every_phase(
+    service: CorpusToolService, caller_max_tokens: int | None
+) -> None:
+    from papyrus_chat.agent.context.accounting import RequestAccounting
+    from papyrus_chat.agent.context.compaction import SUMMARY_INSTRUCTIONS
+
+    policy = ResearchPolicy(
+        max_tokens=20000, summary_max_tokens=24000, research_request_limit=3, compaction_limit=1
+    )
+    phases = []
+
+    def dialogue(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        assert info.model_settings is not None
+        generation_limit = info.model_settings["max_tokens"]
+        input_tokens = RequestAccounting().estimate(messages, info.model_request_parameters)
+        assert input_tokens + generation_limit + policy.safety_tokens <= policy.context_window
+        if SUMMARY_INSTRUCTIONS in (info.instructions or ""):
+            phases.append("summary")
+            assert generation_limit == 24000
+            return ModelResponse([TextPart("Only inventory has been checked.")])
+        assert generation_limit == min(caller_max_tokens or 20000, 20000)
+        if info.function_tools:
+            phases.append("research")
+            return ModelResponse(
+                [
+                    TextPart("Tentative interpretation: πάπυρος. " * 1000),
+                    ToolCallPart("describe_corpus", {}, tool_call_id=f"inventory-{len(phases)}"),
+                ]
+            )
+        phases.append("finalize")
+        return ModelResponse([TextPart("Only inventory was checked; no excerpts were inspected.")])
+
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        service,
+        model=FunctionModel(dialogue),
+        policy=policy,
+    )
+    result = agent.run_sync(
+        "Investigate handwriting evidence.",
+        deps=CorpusToolDeps(service),
+        model_settings={"max_tokens": caller_max_tokens} if caller_max_tokens is not None else None,
+    )
+    assert "summary" in phases
+    assert phases[0] == "research"
+    assert phases[-1] == "finalize"
+    assert result.usage.requests == len(phases) <= policy.hard_request_limit
+    assert "incomplete" in result.output
+
+
 def test_finalization_removes_native_web_tools(service: CorpusToolService) -> None:
     from pydantic_ai import WebSearchTool
     from pydantic_ai.capabilities import NativeTool

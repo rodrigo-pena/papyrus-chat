@@ -177,7 +177,13 @@ async def compact_history(
     # The summary input is itself built from whole, bounded records. Large old
     # histories never get sent wholesale to the summarizer that shares this window.
     summary_parameters = ModelRequestParameters()
-    summary_budget = max(512, policy.input_limit - estimate_text(SUMMARY_INSTRUCTIONS) - 512)
+    summary_instructions = (
+        f"{SUMMARY_INSTRUCTIONS}\nKeep the checkpoint concise: at most "
+        f"{policy.summary_text_tokens} tokens of summary text."
+    )
+    summary_budget = max(
+        512, policy.summary_input_limit - estimate_text(summary_instructions) - 512
+    )
     payload_history = bounded_history(
         request.messages, state, summary_parameters, summary_budget, keep_recent=False
     )
@@ -216,7 +222,7 @@ async def compact_history(
     summarizer = Agent(
         request.model,
         output_type=str,
-        instructions=SUMMARY_INSTRUCTIONS,
+        instructions=summary_instructions,
         model_settings={"max_tokens": policy.summary_output_tokens},
         retries=0,
     )
@@ -226,7 +232,7 @@ async def compact_history(
         )
         if (
             not summary.output.strip()
-            or estimate_text(summary.output) > policy.summary_output_tokens * 2
+            or estimate_text(summary.output) > policy.summary_text_tokens * 2
         ):
             return None
         candidate_state = replace(state, summary=summary.output)

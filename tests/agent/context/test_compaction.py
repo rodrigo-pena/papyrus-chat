@@ -83,6 +83,25 @@ def test_failed_summary_preserves_last_checkpoint_and_counts_request():
     assert state.summary_requests == state.research_requests == 1
 
 
+def test_larger_generation_allowance_does_not_allow_unbounded_summary_text():
+    def verbose_summary(messages, info):
+        return ModelResponse(parts=[TextPart("πάπυρος " * 1000)])
+
+    model = FunctionModel(verbose_summary)
+    question = ModelRequest(parts=[UserPromptPart("Question")])
+    state = ResearchRunState(question=question, summary="Last valid summary")
+    context = RunContext(deps=None, model=model, usage=RunUsage())
+    request = ModelRequestContext(
+        model=model,
+        messages=[question],
+        model_settings=None,
+        model_request_parameters=ModelRequestParameters(),
+    )
+    assert asyncio.run(compact_history(context, request, state, ResearchPolicy())) is None
+    assert state.summary == "Last valid summary"
+    assert state.summary_requests == state.research_requests == 1
+
+
 def test_checkpoint_preserves_exact_scoped_counts_and_inspected_lines():
     from papyrus_chat.agent.context.compaction import bounded_history
     from papyrus_chat.agent.context.evidence import EvidenceRecord

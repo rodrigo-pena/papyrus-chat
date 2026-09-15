@@ -239,6 +239,8 @@ The second final-answer attempt is reserved for validation repair.
 | Environment variable             | Default                                   | Purpose                                                               |
 | -------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
 | `LLM_CONTEXT_WINDOW`             | Model registry capacity, otherwise 32,768 | Override with the actual deployment capacity in tokens; minimum 4,096 |
+| `LLM_MAX_TOKENS`                 | Smaller of 16,384 or 50% of capacity       | Generation limit per research or final-answer request, including reasoning |
+| `PAPYRUS_SUMMARY_MAX_TOKENS`     | Smaller of 8,192 or 25% of capacity        | Generation limit per summary request, including reasoning             |
 | `PAPYRUS_RESEARCH_REQUEST_LIMIT` | `16`                                      | Requests available for research and summaries; minimum 1              |
 | `PAPYRUS_COMPACTION_LIMIT`       | `3`                                       | Maximum summary attempts within the research budget; minimum 0        |
 
@@ -252,11 +254,17 @@ export LLM_CONTEXT_WINDOW=65536
 uv run papyrus-chat --artifact ./data/papyrus-corpus
 ```
 
-Compaction starts at 65% of estimated capacity and targets 45%. Requests reserve
-the smaller of 4,096 tokens or 25% of capacity for output, plus a safety margin.
-Summaries use the smaller of 2,048 tokens or 12.5% for output. Estimates account
-for UTF-8 text, instructions, and tool schemas, using reported input usage when
-available.
+Generation limits cover reasoning tokens, tool-call arguments, and visible text.
+Requests reserve the full generation allowance plus a safety margin (the larger
+of 512 tokens or 5% of capacity). Compaction starts at 65% of estimated capacity
+or the remaining input allowance, whichever is smaller. It targets the smaller
+of 45% of capacity or 75% of that input allowance. Summaries reserve their own
+generation allowance and keep saved checkpoint text short: at most the smaller
+of 2,048 tokens or 12.5% of capacity, allowing for estimation uncertainty.
+Estimates account for UTF-8 text, instructions, and tool schemas, using reported
+input usage when available. Startup logs report the resolved context capacity
+and generation limits. Overrides must leave at least 1,024 input tokens plus the
+safety margin; an individual question may need more space.
 
 Summaries incur real model latency and usage, and consume research request slots.
 Increasing the research budget permits more work but does not increase context
@@ -273,6 +281,26 @@ its last valid checkpoint and bounded original evidence. Provider outages or
 exhausted answer-validation attempts still produce an error; compaction cannot
 guarantee completion in those cases. Cancellation stops the run without starting
 a final answer.
+
+If the UI reports **"Model token limit (...) exceeded before any response was
+generated"**, the model exhausted a single request's generation allowance,
+possibly while thinking. Increase `LLM_MAX_TOKENS` within your deployment's
+output and context limits, or select a lower reasoning effort in the UI if the
+provider supports it. `PAPYRUS_SUMMARY_MAX_TOKENS` independently controls summary
+generation. For example, with a deployment supporting a 65,536-token context
+and these output limits:
+
+```bash
+export LLM_CONTEXT_WINDOW=65536
+export LLM_MAX_TOKENS=32768
+export PAPYRUS_SUMMARY_MAX_TOKENS=16384
+uv run papyrus-chat --artifact ./data/papyrus-corpus
+```
+
+Larger generation limits can increase latency and usage, and leave less room
+for evidence. Increasing the research request count does not fix a generation
+limit error. Compaction happens between requests and cannot interrupt thinking
+within a request, so a model can still exhaust its generation allowance.
 
 The server logs resolved capacity, summary attempts, compaction size changes,
 finalization reasons, and failures. Context-management logs contain only
