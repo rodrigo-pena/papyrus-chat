@@ -69,7 +69,10 @@ def test_runtime_uses_existing_openai_compatible_configuration(
 def test_runtime_registers_tools_without_a_real_model_call(
     tool_service: CorpusToolService,
 ) -> None:
-    model = TestModel(custom_output_text="Model-supplied background: the corpus is local.")
+    model = TestModel(
+        call_tools=["describe_corpus"],
+        custom_output_text="Model-supplied background: the corpus is local.",
+    )
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
         tool_service,
@@ -84,6 +87,11 @@ def test_runtime_registers_tools_without_a_real_model_call(
         "describe_corpus",
         "search_documents",
         "inspect_documents",
+        "read_document_passages",
+        "list_research_records",
+        "read_research_record",
+        "get_research_progress",
+        "update_research_notes",
         "discover_documents",
         "facet_documents",
         "suggest_subject_values",

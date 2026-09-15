@@ -205,6 +205,9 @@ def create_research_agent(
         retries=3,
     )
     register_corpus_tools(agent)
+    from papyrus_chat.agent.context.memory import register_memory_tools
+
+    register_memory_tools(agent)
     if enable_web_search and not (
         enable_native_web_search and model_supports_native_web_search(config.model)
     ):
