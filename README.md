@@ -236,13 +236,13 @@ the agent answers from retained evidence. Such answers include an incomplete
 research notice. Short questions can finish sooner without any summarization.
 The second final-answer attempt is reserved for validation repair.
 
-| Environment variable             | Default                                   | Purpose                                                               |
-| -------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
-| `LLM_CONTEXT_WINDOW`             | Model registry capacity, otherwise 32,768 | Override with the actual deployment capacity in tokens; minimum 4,096 |
-| `LLM_MAX_TOKENS`                 | Smaller of 16,384 or 50% of capacity       | Generation limit per research or final-answer request, including reasoning |
-| `PAPYRUS_SUMMARY_MAX_TOKENS`     | Smaller of 8,192 or 25% of capacity        | Generation limit per summary request, including reasoning             |
-| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | `16`                                      | Requests available for research and summaries; minimum 1              |
-| `PAPYRUS_COMPACTION_LIMIT`       | `3`                                       | Maximum summary attempts within the research budget; minimum 0        |
+| Environment variable             | Default                                   | Purpose                                                                    |
+| -------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
+| `LLM_CONTEXT_WINDOW`             | Model registry capacity, otherwise 32,768 | Override with the actual deployment capacity in tokens; minimum 4,096      |
+| `LLM_MAX_TOKENS`                 | Smaller of 16,384 or 50% of capacity      | Generation limit per research or final-answer request, including reasoning |
+| `PAPYRUS_SUMMARY_MAX_TOKENS`     | Smaller of 8,192 or 25% of capacity       | Generation limit per summary request, including reasoning                  |
+| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | `16`                                      | Requests available for research and summaries; minimum 1                   |
+| `PAPYRUS_COMPACTION_LIMIT`       | `3`                                       | Maximum summary attempts within the research budget; minimum 0             |
 
 Automatic model metadata may describe a provider's maximum rather than your
 deployment's configured window. For local or proxied models, set
