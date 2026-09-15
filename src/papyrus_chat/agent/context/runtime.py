@@ -1,5 +1,6 @@
 """Compact between model requests without deciding when research must finish."""
 
+import asyncio
 import logging
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Never
@@ -19,7 +20,7 @@ from pydantic_ai.tools import ToolDefinition
 
 from .accounting import RequestAccounting
 from .compaction import ContextBudgetExceeded, bounded_history, compact_history, required_messages
-from .limits import check_request_limit
+from .limits import check_request_limit, check_response_cost
 from .policy import ResearchPolicy
 from .recovery import recover_generation
 
@@ -83,6 +84,16 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                 "for the context window."
             )
         size = state.accounting.estimate(messages, params)
+        LOGGER.info(
+            "Research context measured",
+            extra={
+                "event": "research_context_measured",
+                "run_id": ctx.run_id,
+                "input_tokens": size,
+                "trigger_tokens": effective.trigger_tokens,
+                "request_count": state.research_requests,
+            },
+        )
         if size >= effective.trigger_tokens:
             request = replace(
                 request_context, model_request_parameters=params, model_settings=settings
@@ -141,12 +152,14 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
         response: ModelResponse,
     ) -> ModelResponse:
         if response.finish_reason == "length":
-            return await recover_generation(ctx, request_context, response, self.policy)
-        ctx.deps.research_state.accounting.anchor(
-            request_context.messages,
-            request_context.model_request_parameters,
-            response.usage.input_tokens,
-        )
+            response = await recover_generation(ctx, request_context, response, self.policy)
+        else:
+            ctx.deps.research_state.accounting.anchor(
+                request_context.messages,
+                request_context.model_request_parameters,
+                response.usage.input_tokens,
+            )
+        check_response_cost(ctx, response, self.policy)
         return response
 
     async def on_run_error(
@@ -159,6 +172,9 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                 "event": "research_run_failed",
                 "run_id": ctx.run_id,
                 "error_type": type(error).__name__,
+                "stop_reason": "cancelled"
+                if isinstance(error, asyncio.CancelledError)
+                else type(error).__name__,
                 "research_requests": ctx.deps.research_state.research_requests,
             },
         )

@@ -3,6 +3,7 @@
 import logging
 import os
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
 from typing import Literal, Self
 
 from genai_prices.data_snapshot import get_snapshot
@@ -17,6 +18,8 @@ class ResearchPolicy(BaseModel):
     context_window: int = Field(default=32768, ge=4096)
     capacity_source: Literal["explicit", "registry", "fallback"] = "explicit"
     research_request_limit: int | None = Field(default=None, ge=1)
+    run_timeout_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    cost_limit_usd: Decimal | None = Field(default=None, gt=0, allow_inf_nan=False)
     max_tokens: int | None = Field(default=None, ge=1)
     summary_max_tokens: int | None = Field(default=None, ge=1)
 
@@ -100,7 +103,18 @@ def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) 
         LOGGER.warning(
             "PAPYRUS_COMPACTION_LIMIT is deprecated and ignored; compaction continues as needed."
         )
+    try:
+        raw_cost = environment.get("PAPYRUS_RUN_COST_LIMIT_USD", "").strip()
+        cost = Decimal(raw_cost) if raw_cost else None
+    except InvalidOperation as error:
+        raise ValueError("PAPYRUS_RUN_COST_LIMIT_USD must be a positive decimal number.") from error
     policy = ResearchPolicy(
+        run_timeout_seconds=(
+            float(value)
+            if (value := environment.get("PAPYRUS_RUN_TIMEOUT_SECONDS", "").strip())
+            else None
+        ),
+        cost_limit_usd=cost,
         context_window=window,
         capacity_source=capacity_source,
         research_request_limit=(
@@ -117,6 +131,7 @@ def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) 
             else None
         ),
     )
+    validate_pricing(policy, model_name)
     LOGGER.info(
         "Research context capacity: %d tokens (%s); generation limits: %s research, %s summary",
         window,
@@ -133,3 +148,19 @@ def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) 
         },
     )
     return policy
+
+
+def validate_pricing(policy: ResearchPolicy, model_name: str) -> None:
+    if policy.cost_limit_usd is None:
+        return
+    try:
+        _, model = get_snapshot().find_provider_model(
+            model_name.removeprefix("openai-responses:"), None, None, None
+        )
+        if not model.prices:
+            raise LookupError("No pricing metadata")
+    except LookupError as error:
+        raise ValueError(
+            "PAPYRUS_RUN_COST_LIMIT_USD requires supported pricing metadata "
+            "for the configured model."
+        ) from error

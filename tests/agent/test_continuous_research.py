@@ -31,7 +31,7 @@ def test_default_research_continues_beyond_old_request_and_compaction_limits(ser
             return ModelResponse([TextPart("Inventory inspected; preserve original tool records.")])
         assert info.function_tools, "default research must not enter mandatory finalization"
         research += 1
-        if research == 21:
+        if research == 55:
             return ModelResponse([TextPart(answer)])
         return ModelResponse(
             [
@@ -48,7 +48,7 @@ def test_default_research_continues_beyond_old_request_and_compaction_limits(ser
     )
     result = agent.run_sync("Research the inventory carefully.", deps=CorpusToolDeps(service))
 
-    assert research == 21
+    assert research == 55
     assert summaries > 3
     assert result.output.split("\n\nCoverage:")[0] == answer
     assert result.usage.requests == research + summaries

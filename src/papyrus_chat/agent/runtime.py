@@ -12,6 +12,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
 from papyrus_chat.agent.context.coverage import coverage_note
+from papyrus_chat.agent.context.policy import validate_pricing
 from papyrus_chat.agent.context.responses import RecoverableResponsesModel as OpenAIResponsesModel
 from papyrus_chat.agent.context.runtime import BoundedResearch
 from papyrus_chat.agent.context.tracking import EvidenceTracking
@@ -187,6 +188,7 @@ def create_research_agent(
 ) -> Agent[Any, str]:
     """Construct an agent using the existing provider environment contract."""
     policy = policy or load_research_policy(config.model)
+    validate_pricing(policy, config.model)
     capabilities: list[AbstractCapability[CorpusToolDeps]] = [
         EvidenceTracking(),
         BoundedResearch(policy),
@@ -205,13 +207,16 @@ def create_research_agent(
             selected_model = OpenAIChatModel(
                 config.model,
                 provider=provider,
-                # Finalization adds instructions. Strict compatible endpoints
+                # Checkpoints and repair add instructions. Strict compatible endpoints
                 # (including Qwen deployments) require one leading system message.
                 profile=OpenAIModelProfile(openai_chat_supports_multiple_system_messages=False),
             )
 
-    agent = Agent[CorpusToolDeps, str](
+    from papyrus_chat.agent.context.runner import ContinuousResearchAgent
+
+    agent = ContinuousResearchAgent(
         selected_model,
+        policy=policy,
         deps_type=CorpusToolDeps,
         output_type=str,
         instructions=RESEARCH_INSTRUCTIONS,

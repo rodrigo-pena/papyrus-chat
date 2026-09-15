@@ -117,7 +117,9 @@ def install_validated_chat_route(
             agent=agent,
             sdk_version=SDK_VERSION,
             deps=CorpusToolDeps(service=deps.service),
-            usage_limits=UsageLimits(request_limit=policy.hard_request_limit),
+            usage_limits=UsageLimits(
+                request_limit=policy.research_request_limit, cost_limit=policy.cost_limit_usd
+            ),
         )
 
     index, _route = matches[0]

@@ -102,3 +102,31 @@ def test_deprecated_compaction_limit_is_ignored(caplog):
     )
     assert "deprecated and ignored" in caplog.text
     assert policy.summary_output_tokens == 10000
+
+
+def test_operational_limits_are_opt_in_and_cost_requires_pricing():
+    from decimal import Decimal
+
+    policy = load_research_policy("unknown", {})
+    assert policy.run_timeout_seconds is None
+    assert policy.cost_limit_usd is None
+    configured = load_research_policy(
+        "gpt-5.2",
+        {
+            "PAPYRUS_RUN_TIMEOUT_SECONDS": "120",
+            "PAPYRUS_RUN_COST_LIMIT_USD": "0.25",
+            "PAPYRUS_RESEARCH_REQUEST_LIMIT": "100",
+        },
+    )
+    assert configured.run_timeout_seconds == 120
+    assert configured.cost_limit_usd == Decimal("0.25")
+    assert configured.research_request_limit == 100
+    with pytest.raises(ValueError, match="pricing metadata"):
+        load_research_policy("unknown-local-model", {"PAPYRUS_RUN_COST_LIMIT_USD": "1"})
+
+
+@pytest.mark.parametrize("setting", ["PAPYRUS_RUN_TIMEOUT_SECONDS", "PAPYRUS_RUN_COST_LIMIT_USD"])
+@pytest.mark.parametrize("value", ["0", "-1", "NaN", "Infinity", "invalid"])
+def test_operational_limit_validation(setting, value):
+    with pytest.raises(ValueError):
+        load_research_policy("gpt-5.2", {setting: value})
