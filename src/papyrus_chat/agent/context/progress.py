@@ -39,7 +39,7 @@ def research_progress(records: list["EvidenceRecord"]) -> dict[str, Any]:
                     "total": None,
                     "ranges": [],
                     "documents": set(),
-                    "legacy": False,
+                    "coverage_unknown": False,
                 },
             )
             ids = {hit["document_id"] for hit in result.get("hits", [])}
@@ -48,11 +48,11 @@ def research_progress(records: list["EvidenceRecord"]) -> dict[str, Any]:
             count = result.get("candidate_count", result.get("ranked_candidate_count"))
             offset = result.get("offset")
             if offset is None or count is None:
-                search["legacy"] = True
+                search["coverage_unknown"] = True
             else:
                 # Mixed totals cannot establish complete coverage of one snapshot.
                 if search["total"] is not None and search["total"] != count:
-                    search["legacy"] = True
+                    search["coverage_unknown"] = True
                 search["total"] = count
                 search["ranges"].append((offset, offset + len(result.get("hits", []))))
             if record.tool_name == "discover_documents":
@@ -84,7 +84,7 @@ def research_progress(records: list["EvidenceRecord"]) -> dict[str, Any]:
     for search in searches.values():
         total = search.pop("total")
         ranges = search.pop("ranges")
-        legacy = search.pop("legacy")
+        coverage_unknown = search.pop("coverage_unknown")
         ids = sorted(search.pop("documents"))
         retrieved = min(len(ids), covered_length(ranges))
         summaries.append(
@@ -93,7 +93,9 @@ def research_progress(records: list["EvidenceRecord"]) -> dict[str, Any]:
                 "candidate_count": total,
                 "retrieved_count": len(ids),
                 "page_ranges": merged_ranges(ranges),
-                "outstanding_count": None if legacy or total is None else max(0, total - retrieved),
+                "outstanding_count": None
+                if coverage_unknown or total is None
+                else max(0, total - retrieved),
             }
         )
     return {

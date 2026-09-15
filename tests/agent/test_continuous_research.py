@@ -9,17 +9,18 @@ from pydantic_ai.usage import RequestUsage
 
 from papyrus_chat.agent.context import ResearchPolicy
 from papyrus_chat.agent.runtime import create_research_agent
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
+from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import StructuredCorpusSearch
 
 
 @pytest.fixture()
-def service(corpus_artifact: Path) -> CorpusToolService:
-    return CorpusToolService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
+def service(corpus_artifact: Path) -> CorpusService:
+    return CorpusService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
 
 
-def test_default_research_continues_beyond_old_request_and_compaction_limits(service):
+def test_default_research_continues_through_repeated_compaction(service):
     research = 0
     summaries = 0
     answer = "Inventory reviewed. Model-supplied interpretation: further textual work is possible."
@@ -29,7 +30,7 @@ def test_default_research_continues_beyond_old_request_and_compaction_limits(ser
         if "papyrologist" not in (info.instructions or ""):
             summaries += 1
             return ModelResponse([TextPart("Inventory inspected; preserve original tool records.")])
-        assert info.function_tools, "default research must not enter mandatory finalization"
+        assert info.function_tools, "research tools must remain available"
         research += 1
         if research == 55:
             return ModelResponse([TextPart(answer)])

@@ -11,28 +11,19 @@ from papyrus_chat.agent.context.state import ResearchRunState
 from papyrus_chat.corpus import (
     CorpusDescription,
     CorpusFacetResult,
-    CorpusInspectionResult,
     CorpusQuery,
     CorpusService,
     CorpusSubjectSuggestionSummary,
 )
 from papyrus_chat.corpus.models import (
-    CorpusExcerpt,
-    CorpusHgvContext,
-    CorpusHitSummary,
     CorpusInspectionOutcome,
-    CorpusInspectionSummary,
     CorpusSearchSummary,
 )
 from papyrus_chat.corpus.passages import DocumentPassagePage
 from papyrus_chat.corpus.projections import (
     INSPECT_EXCERPT_CHARS,
-    _excerpt,
-    _hgv_context,
-    _hit_summary,
-    _inspection_outcome,
-    _inspection_summaries,
-    _search_summary,
+    inspection_outcome,
+    search_summary,
 )
 from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryResult
 from papyrus_chat.retrieval.structured import FacetField
@@ -45,9 +36,6 @@ class CorpusToolDeps:
     research_state: ResearchRunState = field(default_factory=ResearchRunState)
 
 
-CorpusToolService = CorpusService
-
-
 def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
     """Describe available collections, counts, languages, and components."""
     return ctx.deps.service.describe_corpus()
@@ -57,7 +45,7 @@ def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> Cor
     """Search distinct corpus documents for lean hits with located snippets and citation URLs."""
     result = ctx.deps.service.search_documents(query)
     _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
-    return _search_summary(result)
+    return search_summary(result)
 
 
 def discover_documents(
@@ -139,7 +127,7 @@ def inspect_documents(
         chunk_ids=chunk_ids,
     )
     _remember_corpus_urls(ctx.deps, (inspection.canonical_url for inspection in result.inspections))
-    return _inspection_outcome(
+    return inspection_outcome(
         result.inspections,
         document_ids,
         focus_terms=focus_terms,
@@ -172,7 +160,7 @@ def suggest_subject_values(
     limit: Annotated[int, Field(ge=1, le=30)] = 20,
 ) -> CorpusSubjectSuggestionSummary:
     """Suggest exact HGV subject labels for a concept within a declared scope."""
-    return ctx.deps.service.suggest_subject_values(concept, scope=scope, limit=limit)
+    return ctx.deps.service.suggest_subjects(concept, scope=scope, limit=limit)
 
 
 def _remember_corpus_urls(deps: CorpusToolDeps, urls: Iterable[str | None]) -> None:
@@ -191,24 +179,7 @@ def register_corpus_tools(agent: Agent[Any, Any]) -> None:
 
 
 __all__ = [
-    "CorpusExcerpt",
-    "CorpusHgvContext",
-    "CorpusHitSummary",
-    "CorpusInspectionOutcome",
-    "CorpusInspectionResult",
-    "CorpusInspectionSummary",
-    "CorpusSearchSummary",
-    "CorpusSubjectSuggestionSummary",
     "CorpusToolDeps",
-    "CorpusToolService",
-    "DiscoveryQuery",
-    "DiscoveryResult",
-    "_excerpt",
-    "_hgv_context",
-    "_hit_summary",
-    "_inspection_outcome",
-    "_inspection_summaries",
-    "_search_summary",
     "describe_corpus",
     "discover_documents",
     "facet_documents",

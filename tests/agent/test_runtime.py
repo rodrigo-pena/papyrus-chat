@@ -25,10 +25,11 @@ from papyrus_chat.agent.runtime import (
     model_supports_native_web_search,
     validate_research_output,
 )
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
+from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import CorpusDocumentMatch, StructuredCorpusSearch
 
 
@@ -41,7 +42,7 @@ def _match(url: str, mapping: dict[str, tuple[str, str, str]]) -> CorpusDocument
 
 
 @pytest.fixture()
-def tool_service(tmp_path: Path, fixture_git_repo: Path) -> CorpusToolService:
+def tool_service(tmp_path: Path, fixture_git_repo: Path) -> CorpusService:
     artifact = tmp_path / "corpus"
     build_artifact(
         ["ddbdp"],
@@ -50,11 +51,11 @@ def tool_service(tmp_path: Path, fixture_git_repo: Path) -> CorpusToolService:
         source_url="https://github.com/papyri/idp.data.git",
         requested_ref="master",
     )
-    return CorpusToolService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
+    return CorpusService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
 
 
 def test_runtime_uses_existing_openai_compatible_configuration(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -67,7 +68,7 @@ def test_runtime_uses_existing_openai_compatible_configuration(
 
 
 def test_runtime_registers_tools_without_a_real_model_call(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     model = TestModel(
         call_tools=["describe_corpus"],
@@ -104,7 +105,7 @@ def test_native_web_search_is_opted_in_only_for_responses_models() -> None:
 
 
 def test_responses_prefix_selects_transport_without_enabling_web_search(
-    tool_service: CorpusToolService, monkeypatch: pytest.MonkeyPatch
+    tool_service: CorpusService, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     selected_models: list[str] = []
 
@@ -130,7 +131,7 @@ def test_responses_prefix_selects_transport_without_enabling_web_search(
     assert selected_models == ["Qwen3.8-27B-oQ4e-mtp"]
 
 
-def test_provider_neutral_web_search_is_opt_in(tool_service: CorpusToolService) -> None:
+def test_provider_neutral_web_search_is_opt_in(tool_service: CorpusService) -> None:
     model = TestModel(custom_output_text="background", call_tools=[])
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),

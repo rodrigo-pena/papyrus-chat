@@ -13,14 +13,15 @@ from pydantic_ai.models.function import FunctionModel
 from papyrus_chat.agent.context import ResearchPolicy
 from papyrus_chat.agent.context.compaction import SUMMARY_INSTRUCTIONS, ContextBudgetExceeded
 from papyrus_chat.agent.runtime import create_research_agent
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
+from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import StructuredCorpusSearch
 
 
 @pytest.fixture()
-def service(corpus_artifact: Path) -> CorpusToolService:
-    return CorpusToolService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
+def service(corpus_artifact: Path) -> CorpusService:
+    return CorpusService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
 
 
 def make_agent(service, dialogue, policy=None):

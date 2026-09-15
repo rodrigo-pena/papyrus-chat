@@ -9,9 +9,7 @@ from pydantic_ai import RunContext
 from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.agent.web import (
     WebBackgroundResult,
-    WebTerminologyResult,
     search_web_background,
-    search_web_terminology,
 )
 
 
@@ -49,8 +47,3 @@ def test_search_web_background_normalizes_bounded_results(monkeypatch) -> None:
         },
         {"title": "No body", "href": "https://example.test/second"},
     )
-
-
-def test_terminology_names_remain_compatibility_aliases() -> None:
-    assert search_web_terminology is search_web_background
-    assert WebTerminologyResult is WebBackgroundResult

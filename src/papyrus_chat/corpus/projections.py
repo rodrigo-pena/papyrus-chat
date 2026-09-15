@@ -151,15 +151,6 @@ def excerpt(
     )
 
 
-# Private compatibility names used by existing agent tests and integrations.
-_search_summary = search_summary
-_hit_summary = hit_summary
-_inspection_summaries = inspection_summaries
-_inspection_outcome = inspection_outcome
-_hgv_context = hgv_context
-_excerpt = excerpt
-
-
 __all__ = [
     "INSPECT_EXCERPT_CHARS",
     "excerpt",

@@ -16,9 +16,10 @@ from papyrus_chat.agent.context.policy import validate_pricing
 from papyrus_chat.agent.context.responses import RecoverableResponsesModel as OpenAIResponsesModel
 from papyrus_chat.agent.context.runtime import BoundedResearch
 from papyrus_chat.agent.context.tracking import EvidenceTracking
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools
+from papyrus_chat.agent.tools import CorpusToolDeps, register_corpus_tools
 from papyrus_chat.agent.web import search_web_background
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import CorpusDocumentMatch
 
 RESEARCH_INSTRUCTIONS = """
@@ -179,7 +180,7 @@ def _series_suggestions(citation: str, known_corpus_urls: set[str], limit: int =
 
 def create_research_agent(
     config: ProviderConfig,
-    service: CorpusToolService,
+    service: CorpusService,
     *,
     model: Any | None = None,
     policy: ResearchPolicy | None = None,

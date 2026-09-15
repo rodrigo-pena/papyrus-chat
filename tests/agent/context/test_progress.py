@@ -114,13 +114,13 @@ def test_excerpt_inspection_does_not_claim_full_text_coverage():
     assert not progress["full_text_documents"]
 
 
-def test_legacy_search_without_pagination_metadata_does_not_claim_complete_coverage():
+def test_search_without_pagination_metadata_does_not_claim_complete_coverage():
     result = search_result(["doc-1"])
     del result["offset"]
     del result["next_offset"]
     result["truncated"] = False
     ledger = EvidenceLedger()
-    ledger.ingest(exchange("search_documents", {"query": {}}, result, "legacy"))
+    ledger.ingest(exchange("search_documents", {"query": {}}, result, "unmeasured"))
 
     progress = ledger.progress()
     assert progress["searches"][0]["outstanding_count"] is None
@@ -204,8 +204,8 @@ def test_coverage_note_distinguishes_candidates_excerpts_and_unknown_pages():
     assert "0 documents with all stored passage text" in note
     assert "outstanding in 1 searches" in note
     assert "incomplete" not in note
-    legacy = search_result(["doc-2"])
-    legacy.pop("offset")
-    legacy.pop("next_offset")
-    ledger.ingest(exchange("search_documents", {"query": {}}, legacy, "legacy"))
+    unmeasured = search_result(["doc-2"])
+    unmeasured.pop("offset")
+    unmeasured.pop("next_offset")
+    ledger.ingest(exchange("search_documents", {"query": {}}, unmeasured, "unmeasured"))
     assert "unknown for 1 searches" in coverage_note(ledger)

@@ -272,7 +272,7 @@ async def compact_history(
     except UsageLimitExceeded:
         raise
     except Exception as error:
-        # Cancellation is a BaseException and must propagate without finalizing.
+        # Cancellation is a BaseException and must propagate without starting another request.
         LOGGER.warning(
             "Research summary failed (%s)",
             type(error).__name__,

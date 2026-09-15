@@ -11,7 +11,7 @@ from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from starlette.testclient import TestClient
 
 from papyrus_chat.corpus import CorpusQuery
-from papyrus_chat.corpus.projections import _search_summary
+from papyrus_chat.corpus.projections import search_summary
 from papyrus_chat.web.application import load_app
 
 ENV = {"LLM_BASE_URL": "https://provider.example/v1", "LLM_MODEL": "research-model"}
@@ -93,7 +93,7 @@ def test_follow_up_restores_only_schema_validated_tool_evidence(
         model=FunctionModel(stream_function=stream),
         html_source=tmp_path / "unused.html",
     )
-    summary = _search_summary(app.state.tool_service.search_documents(CorpusQuery()))
+    summary = search_summary(app.state.tool_service.search_documents(CorpusQuery()))
     citation = next(hit.canonical_url for hit in summary.hits if hit.canonical_url)
     history = [
         user_message("Search the corpus."),
@@ -162,7 +162,7 @@ def test_concurrent_chats_do_not_share_citation_eligibility(
         model=FunctionModel(stream_function=stream),
         html_source=tmp_path / "unused.html",
     )
-    summary = _search_summary(app.state.tool_service.search_documents(CorpusQuery()))
+    summary = search_summary(app.state.tool_service.search_documents(CorpusQuery()))
     citation = next(hit.canonical_url for hit in summary.hits if hit.canonical_url)
     with (
         TestClient(app, base_url="http://localhost") as client,

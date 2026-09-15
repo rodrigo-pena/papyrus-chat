@@ -12,15 +12,14 @@ def test_policy_defaults_and_explicit_override():
     assert policy.context_window == 32768
     assert policy.capacity_source == "fallback"
     assert policy.research_request_limit is None
-    assert policy.hard_request_limit is None
-    assert policy.output_tokens is None
+    assert policy.max_tokens is None
     assert policy.summary_output_tokens is None
     assert policy.trigger_tokens == int(32768 * 0.65)
     assert policy.target_tokens == int(32768 * 0.45)
     override = load_research_policy("gpt-5.2", {"LLM_CONTEXT_WINDOW": "8192"})
     assert override.context_window == 8192
     assert override.capacity_source == "explicit"
-    assert override.output_tokens is None
+    assert override.max_tokens is None
     assert override.summary_output_tokens is None
 
 
@@ -57,10 +56,10 @@ def test_generation_overrides_reserve_context_and_trigger_compaction_earlier():
         "unknown",
         {"LLM_MAX_TOKENS": "24000", "PAPYRUS_SUMMARY_MAX_TOKENS": "12000"},
     )
-    assert policy.output_tokens == 24000
+    assert policy.max_tokens == 24000
     assert policy.summary_output_tokens == 12000
     assert 0 < policy.target_tokens < policy.trigger_tokens <= policy.input_limit
-    assert policy.input_limit + policy.output_tokens < policy.context_window
+    assert policy.input_limit + policy.max_tokens < policy.context_window
     assert policy.summary_input_limit + policy.summary_output_tokens < policy.context_window
     assert policy.summary_input_limit > policy.input_limit
 
@@ -96,11 +95,8 @@ def test_accounting_counts_instructions_once_and_excludes_return_schemas():
     assert accounting.estimate([plain], with_tool) == before
 
 
-def test_deprecated_compaction_limit_is_ignored(caplog):
-    policy = load_research_policy(
-        "unknown", {"PAPYRUS_COMPACTION_LIMIT": "invalid", "LLM_MAX_TOKENS": "10000"}
-    )
-    assert "deprecated and ignored" in caplog.text
+def test_summary_inherits_explicit_generation_limit():
+    policy = load_research_policy("unknown", {"LLM_MAX_TOKENS": "10000"})
     assert policy.summary_output_tokens == 10000
 
 

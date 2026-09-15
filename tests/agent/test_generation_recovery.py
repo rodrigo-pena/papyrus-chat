@@ -16,8 +16,9 @@ from pydantic_ai.usage import RunUsage
 from papyrus_chat.agent.context import ResearchPolicy
 from papyrus_chat.agent.context.responses import RecoverableResponsesModel
 from papyrus_chat.agent.runtime import create_research_agent
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService
+from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import StructuredCorpusSearch
 
 
@@ -177,7 +178,7 @@ def test_exhaustion_is_discarded_before_execution_and_usage_is_preserved(
                     openai_chat_supports_multiple_system_messages=False,
                 ),
             )
-            service = CorpusToolService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
+            service = CorpusService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
             deps = CorpusToolDeps(service)
             usage = RunUsage()
             agent = create_research_agent(
@@ -240,7 +241,7 @@ def test_cancellation_during_direct_recovery_stops_requests(corpus_artifact, api
         async with httpx2.AsyncClient(transport=httpx2.MockTransport(endpoint)) as client:
             cls = ChatAdapter if api == "chat" else ResponsesAdapter
             model = cls("gpt-5.2", provider=OpenAIProvider(api_key="test", http_client=client))
-            service = CorpusToolService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
+            service = CorpusService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
             agent = create_research_agent(
                 ProviderConfig(base_url="https://example.invalid/v1", model="gpt-5.2"),
                 service,

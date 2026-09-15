@@ -64,15 +64,4 @@ def search_web_background(
     )
 
 
-# Keep the old Python names importable for callers that used the initial opt-in
-# tool. Only ``search_web_background`` is registered with the agent.
-WebTerminologyResult = WebBackgroundResult
-search_web_terminology = search_web_background
-
-
-__all__ = [
-    "WebBackgroundResult",
-    "WebTerminologyResult",
-    "search_web_background",
-    "search_web_terminology",
-]
+__all__ = ["WebBackgroundResult", "search_web_background"]

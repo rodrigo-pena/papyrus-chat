@@ -289,12 +289,6 @@ class CorpusService:
             available=True,
         )
 
-    def suggest_subject_values(
-        self, concept: str, *, scope: CorpusQuery, limit: int = 20
-    ) -> CorpusSubjectSuggestionSummary:
-        """Compatibility alias for the original Pydantic-AI tool service method."""
-        return self.suggest_subjects(concept, scope=scope, limit=limit)
-
     def document_for_citation(self, canonical_url: str) -> CorpusDocumentMatch | None:
         return self._search.document_for_citation(canonical_url)
 

@@ -37,14 +37,6 @@ class ResearchPolicy(BaseModel):
         return self
 
     @property
-    def hard_request_limit(self) -> int | None:
-        return self.research_request_limit
-
-    @property
-    def output_tokens(self) -> int | None:
-        return self.max_tokens
-
-    @property
     def summary_output_tokens(self) -> int | None:
         return self.summary_max_tokens if self.summary_max_tokens is not None else self.max_tokens
 
@@ -70,7 +62,7 @@ class ResearchPolicy(BaseModel):
         # Leave additional space for provider framing and estimation errors.
         return (
             self.context_window
-            - (self.output_tokens or int(self.context_window * 0.30))
+            - (self.max_tokens or int(self.context_window * 0.30))
             - self.safety_tokens
         )
 
@@ -99,10 +91,6 @@ def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) 
         except LookupError:
             window = 32768
             capacity_source = "fallback"
-    if "PAPYRUS_COMPACTION_LIMIT" in environment:
-        LOGGER.warning(
-            "PAPYRUS_COMPACTION_LIMIT is deprecated and ignored; compaction continues as needed."
-        )
     try:
         raw_cost = environment.get("PAPYRUS_RUN_COST_LIMIT_USD", "").strip()
         cost = Decimal(raw_cost) if raw_cost else None
@@ -136,13 +124,13 @@ def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) 
         "Research context capacity: %d tokens (%s); generation limits: %s research, %s summary",
         window,
         capacity_source,
-        policy.output_tokens or "server default",
+        policy.max_tokens or "server default",
         policy.summary_output_tokens or "server default",
         extra={
             "event": "research_policy_resolved",
             "context_window": window,
             "capacity_source": capacity_source,
-            "max_tokens": policy.output_tokens,
+            "max_tokens": policy.max_tokens,
             "summary_max_tokens": policy.summary_output_tokens,
             "input_limit": policy.input_limit,
         },
