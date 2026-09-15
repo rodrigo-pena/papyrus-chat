@@ -210,160 +210,75 @@ web-sourced background and never replace local corpus evidence or contribute to
 corpus counts; papyri records and transcriptions still come only from local
 corpus tools.
 
-### Research answer semantics
+### Research answers
 
-Every evidence-oriented answer is expected to include **Scope and method**:
-the interpreted collections, inclusive date interval, transcription language,
-and generated multilingual term groups. Candidate counts are exact for the
-displayed structured filters, but are not exhaustive scholarly
-classifications. Corpus documents are cited only with papyri.info URLs
-returned by a corpus tool, and transcription evidence is kept distinct from
-model-generated synthesis.
+Answers explain which collections, dates, languages, and search terms were used.
+Document claims cite links returned by the corpus tools. Search counts describe
+matches to those filters; thematic relevance still requires interpretation.
+
+A coverage note reports unique documents found, documents inspected through
+excerpts, documents whose complete stored text was retrieved, and searches with
+results still to retrieve. Overlapping searches and repeated reads count once.
+Reading an excerpt does not count as reading a whole document, and completing a
+result list does not guarantee that every relevant passage was found.
 
 ### Context management and research limits
 
-Research continues until the model answers or you cancel. There is no default
-application limit on model requests or compactions, and no automatic switch to an
-“incomplete research” answer. Short questions can finish without compaction.
+Research continues until the model answers or you cancel. By default, there is
+no limit on the number of model requests or summaries.
 
-Before a model request, the agent estimates the context size, including the
-question, history, instructions, and tool schemas. By default it compacts at
-**65% of context capacity**, targeting **45%**. It keeps the question, a concise
-narrative checkpoint, research notes and progress, and recent complete tool
-exchanges that fit. Tool calls are never separated from their results. Original
-tool arguments and results remain in a request-local evidence ledger, even when
-they no longer fit in the prompt. The model can retrieve them using
-`list_research_records` and `read_research_record`, including exact scoped counts,
-quotations, and source references. Summaries and model-written notes are not new
-citation sources.
+When the conversation approaches 65% of the model's context window, the agent
+summarizes earlier work, aiming to reduce it to 45%. The question and original
+evidence remain available, including exact quotations, counts, and citations.
+Summaries use the same model and add time and usage costs. If summarization
+fails, the agent continues with a shorter selection of saved material.
+Follow-up questions use the browser's chat history and may need another summary.
 
-Summarization uses the configured model and endpoint, without research tools.
-The agent reduces or disables summary reasoning only where Pydantic AI's model
-profile supports it; unknown compatible endpoints may offer no such control.
-Summary text is requested to stay concise, independently of its generation
-allowance. If a summary fails or cannot produce a usable checkpoint, the agent
-retains its last valid narrative and builds a smaller context mechanically from
-records and progress. It continues researching, with model-written summaries
-disabled for the rest of that turn. Essential context that still cannot fit
-produces an explicit error rather than silently rewriting the question.
+The model server sets the response length unless you configure an override.
+These optional environment settings apply to the chat agent:
 
-| Environment variable | Default | Purpose |
+| Setting | Default | Purpose |
 | --- | --- | --- |
-| `LLM_CONTEXT_WINDOW` | Model registry capacity, otherwise 32,768 | Actual deployment capacity in tokens; minimum 4,096 |
-| `LLM_MAX_TOKENS` | Unset: server default | Optional per-request generation limit, including reasoning and tool arguments |
-| `PAPYRUS_SUMMARY_MAX_TOKENS` | Explicit `LLM_MAX_TOKENS`, otherwise server default | Optional summary generation override |
-| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | Unset: no limit | Optional total request limit per turn, including summaries, recovery, and citation repair; minimum 1 |
-| `PAPYRUS_RUN_TIMEOUT_SECONDS` | Unset: no limit | Optional positive elapsed-time limit across research, summaries, and recovery |
-| `PAPYRUS_RUN_COST_LIMIT_USD` | Unset: no limit | Optional positive estimated USD cost limit; requires supported model pricing metadata |
-| `PAPYRUS_COMPACTION_LIMIT` | Deprecated and ignored | Emits a startup warning when set |
+| `LLM_CONTEXT_WINDOW` | Model metadata, otherwise 32,768 | Deployment's context capacity in tokens |
+| `LLM_MAX_TOKENS` | Server default | Tokens per response, including reasoning |
+| `PAPYRUS_SUMMARY_MAX_TOKENS` | `LLM_MAX_TOKENS`, if set; otherwise server default | Tokens per summary response |
+| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | No limit | Total model requests per question, including summaries and retries |
+| `PAPYRUS_RUN_TIMEOUT_SECONDS` | No limit | Total research time in seconds |
+| `PAPYRUS_RUN_COST_LIMIT_USD` | No limit | Estimated model cost per question in USD |
 
-The old 16,384/8,192 generation defaults and 16-request/3-compaction defaults no
-longer apply. With no generation override, the application omits the generation
-setting and leaves space for output and estimation uncertainty. This reservation
-**cannot guarantee compatibility with unknown server generation defaults**.
-With an explicit generation limit, the agent reserves that full allowance plus
-a safety margin of at least 512 tokens or 5% of context capacity. It compacts
-earlier if needed, without silently lowering the configured generation limit.
-Overrides must leave at least 1,024 input tokens plus the safety margin; the
-question and tool instructions may require more.
+For local or hosted deployments, set `LLM_CONTEXT_WINDOW` to the capacity your
+server actually accepts. Automatic estimates may differ from that value.
+An explicit response allowance leaves less room for evidence and can trigger
+earlier summarization.
 
-Automatic capacity metadata can describe a model's maximum rather than the
-window your deployment actually accepts. Token estimates use UTF-8 bytes
-(including Greek text) and provider-reported input usage when available, and
-are rebaselined after history changes. Set `LLM_CONTEXT_WINDOW` explicitly for a
-local or proxied deployment whose actual window differs. For example:
+Reaching a configured limit stops the run with an error. Cost limits require
+available model pricing; estimates may differ from your provider's charges, and
+the response that crosses the limit can still be billed. Each follow-up question
+starts fresh limits.
 
-```bash
-export LLM_CONTEXT_WINDOW=65536
-# Leave generation settings unset to use the server defaults.
-uv run papyrus-chat --artifact ./data/papyrus-corpus
-```
+### Reading search results
 
-Summaries and recovery incur real latency and usage. Optional request, time,
-and cost limits stop with a specific error; they do not force a partial answer.
-Cost is estimated from available usage and registry prices, which may differ
-from custom deployment pricing. Cost checks occur after responses and before
-further requests, so the request that crosses a limit can still incur charges.
-Unavailable pricing rejects a configured cost limit at startup. Increasing or
-unsetting an explicit request limit permits more research but does not increase
-context capacity or the server's per-request output allowance.
+Searches return pages of 1–100 documents. Both chat and MCP expose `offset` and
+`next_offset` through `search_documents` and `discover_documents`, allowing the
+agent to continue through the results. Semantic search can return the full
+ranking of indexed candidates; these candidates still need inspection.
 
-The stock browser UI retains the full transcript. Follow-ups reconstruct evidence,
-progress, and saved notes from recognized tool exchanges in that transcript.
-Each turn starts fresh counters and operational limits; independent chats do not
-share evidence. There is no conversation database or persisted summary cache,
-so follow-ups may need to compact the submitted history again. Legacy tool
-results can supply evidence, but results without pagination metadata cannot
-establish complete search coverage.
+In chat, `inspect_documents` opens focused excerpts. `read_document_passages`
+reads sequentially, returning up to five sections of 2,000 characters with source
+and line references. The agent follows `next_cursor` to continue reading.
+It can also recall earlier evidence and check research progress. Passage reading,
+evidence memory, and automatic summarization are available in chat; an MCP host
+manages its own conversation and memory.
 
-#### Pagination and measured coverage
+### Troubleshooting long answers
 
-`search_documents` and `discover_documents` accept `offset` (default `0`) and a
-page size of 1–100. Follow `next_offset` until it is absent. Structured search
-paginates after distinct-document ranking and retains exact candidate counts;
-facet counts are independent of pagination. Semantic discovery traverses its
-complete eligible indexed ranking, retaining reciprocal-rank fusion and stable
-tie-breakers. Removing the former hidden 200-candidates-per-channel cutoff can
-change rankings because previously discarded channel contributions now count.
-Ranked-candidate totals, structural scope, and index coverage are separate
-measurements. Semantic candidates are not verified thematic matches.
+Summarizing the conversation cannot prevent a model from spending its response
+allowance on reasoning. If a response runs out of tokens, the agent discards it
+and tries once more. Repeated failure produces an error without displaying an
+unfinished answer. Reduce reasoning where your provider supports it, or increase
+`LLM_MAX_TOKENS` within the server's limits.
 
-`inspect_documents` remains useful for focused excerpts. For sequential reading,
-`read_document_passages` returns up to five source-ordered windows of at most
-2,000 Unicode characters each. Windows include passage IDs, exact character
-offsets, source references, and available line references. Continue with
-`next_cursor`, which is bound to the document and artifact; oversized passages
-continue before the next passage begins. This requires no artifact rebuild.
-The new passage tool is exposed in chat, not through MCP; existing MCP tools
-remain compatible with the additive query and result fields.
-
-The model can use `get_research_progress` to check searches and
-`update_research_notes` to retain objectives, interpretations, and remaining work.
-Answers following corpus research receive a deterministic coverage note:
-
-- **Unique candidate documents retrieved:** distinct documents returned by
-  structured or semantic searches, counting overlaps once.
-- **Documents with inspected excerpts:** documents whose source text was delivered
-  by focused inspection or passage reading. This does not imply complete reading.
-- **Documents with all stored passage text retrieved:** every stored passage's
-  character range has been delivered, with overlapping windows counted once.
-- **Result pages outstanding:** the number of searches with known unreturned
-  candidates. Unknown pagination coverage is reported separately.
-
-Coverage measures source material delivered for review. It does not prove the
-model understood every passage, and completing a ranking does not establish
-exhaustive thematic discovery. Interpretive uncertainty belongs in the answer,
-without a blanket incompleteness warning.
-
-#### Generation exhaustion and troubleshooting
-
-Context compaction happens **between requests**. It cannot prevent a model from
-using its entire generation allowance on thinking during one request. When a
-response terminates because of length, the agent discards its answer text and
-tool arguments before accepting or executing them. It tries that logical request
-once more, non-streaming, with a compact checkpoint and reduced reasoning where
-supported. The question, explicit generation settings, and current tool
-permissions are preserved. A second exhaustion or provider failure is an error;
-no truncated draft is accepted. This recovery is separate from the one tool-free
-citation-repair attempt allowed for unsupported citations.
-
-If generation exhaustion persists, adjust the server's generation/reasoning
-settings, use an appropriate explicit `LLM_MAX_TOKENS`, or reduce reasoning
-where the provider supports it. An unknown Qwen-compatible endpoint may not
-support the generic reasoning control. Larger output allowances leave less
-space for evidence. If context overflow persists, first check the startup log's
-resolved capacity and set the correct `LLM_CONTEXT_WINDOW`; the fallback can
-still exceed a smaller deployment's window.
-
-Very large evidence collections can exceed a single answer's provider output
-limit even when research succeeds. Request a narrower synthesis or use further
-turns to explore portions of the evidence. Downloadable reports are separate
-work. Compaction and one recovery attempt cannot guarantee completion during
-provider outages.
-
-Tool events stream immediately, while answer text is emitted only after citation
-validation. Checkpoints and discarded answer drafts are kept out of the answer
-stream. Cancellation stops research, summarization, and recovery without starting
-another request. Context-management logs record capacity, context measurements,
-compaction changes, recovery attempts, coverage counts, and stop reasons, without
-logging prompts or evidence text.
+For context overflow errors, check `LLM_CONTEXT_WINDOW` against your server's
+configuration. Very broad questions may also produce more evidence than fits in
+one answer; ask for a narrower synthesis or explore the findings over follow-up
+questions. Provider outages can still interrupt research.
