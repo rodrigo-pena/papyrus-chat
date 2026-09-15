@@ -11,6 +11,7 @@ from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
+from papyrus_chat.agent.context.coverage import coverage_note
 from papyrus_chat.agent.context.responses import RecoverableResponsesModel as OpenAIResponsesModel
 from papyrus_chat.agent.context.runtime import BoundedResearch
 from papyrus_chat.agent.context.tracking import EvidenceTracking
@@ -35,7 +36,7 @@ for the displayed filters, not as an exhaustive scholarly classification. Cite
 each corpus document with the papyri.info URL exactly as a corpus tool returned
 it: never build a citation from a document title, identifier, or memory, and
 treat a document as citable only once search_documents, discover_documents, or
-inspect_documents has returned it in this conversation. Distinguish
+inspect_documents or read_document_passages has returned it in this conversation. Distinguish
 transcription evidence from model-generated synthesis. If any web search tool is
 available, use it whenever the user explicitly asks to search, browse, verify,
 or find better web evidence.
@@ -71,6 +72,18 @@ chunk_ids to open the matched locations; quote edition or translation text only
 from inspected excerpts. Discovery profile snippets are source-derived retrieval
 representations, not quotations, and never replace reading the actual edition or
 translation text.
+
+Continue researching until you have enough evidence to answer the user's question.
+For broad requests, follow next_offset through search_documents and discover_documents
+rankings. Use read_document_passages and its next_cursor for sequential reading beyond
+focused excerpts. An inspect_documents excerpt does not mean a whole document was read.
+Use get_research_progress to check returned page ranges and remaining candidates;
+avoid repeating searches that produce no new evidence. Completing a ranking does not
+prove exhaustive thematic discovery. Explain the actual method and interpretive uncertainty.
+Save objectives, interpretations, and remaining work with update_research_notes.
+After compaction, use list_research_records and read_research_record to recall exact
+original results, quotations, and scoped counts. Summaries and notes are not sources.
+Answer naturally when ready; the application appends measured coverage separately.
 """.strip()
 
 _PAPYRI_URL = re.compile(r"https://papyri\.info/[^\s)\]>]+")
@@ -217,11 +230,13 @@ def create_research_agent(
     @agent.output_validator
     def validate_output(ctx: RunContext[CorpusToolDeps], output: str) -> str:
         try:
-            return validate_research_output(
+            validated = validate_research_output(
                 output,
                 ctx.deps.known_corpus_urls,
                 citation_lookup=ctx.deps.service.document_for_citation,
             )
+            note = coverage_note(ctx.deps.research_state.ledger)
+            return validated + ("\n\n" + note if note else "")
         except ModelRetry:
             ctx.deps.research_state.phase = "repair"
             ctx.deps.research_state.citation_repairs += 1

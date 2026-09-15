@@ -22,6 +22,7 @@ class EvidenceTracking(AbstractCapability["CorpusToolDeps"]):
             # Python callers intentionally reuse dependencies for a follow-up run.
             state = ResearchRunState(run_id=ctx.run_id)
             ctx.deps.research_state = state
+            ctx.deps.known_corpus_urls.clear()
         state.ledger.ingest(request_context.messages)
         ctx.deps.known_corpus_urls.update(state.ledger.corpus_urls)
         return request_context

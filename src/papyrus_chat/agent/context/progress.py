@@ -7,13 +7,18 @@ if TYPE_CHECKING:
     from .evidence import EvidenceRecord
 
 
-def covered_length(ranges: list[tuple[int, int]]) -> int:
-    end = total = 0
+def merged_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    merged: list[tuple[int, int]] = []
     for left, right in sorted(ranges):
-        if right > end:
-            total += right - max(end, left)
-            end = right
-    return total
+        if merged and left <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], right))
+        else:
+            merged.append((left, right))
+    return merged
+
+
+def covered_length(ranges: list[tuple[int, int]]) -> int:
+    return sum(right - left for left, right in merged_ranges(ranges))
 
 
 def research_progress(records: list["EvidenceRecord"]) -> dict[str, Any]:
@@ -87,7 +92,7 @@ def research_progress(records: list["EvidenceRecord"]) -> dict[str, Any]:
                 **search,
                 "candidate_count": total,
                 "retrieved_count": len(ids),
-                "page_ranges": sorted(set(ranges)),
+                "page_ranges": merged_ranges(ranges),
                 "outstanding_count": None if legacy or total is None else max(0, total - retrieved),
             }
         )

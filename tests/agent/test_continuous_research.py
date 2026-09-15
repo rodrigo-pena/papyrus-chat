@@ -50,7 +50,7 @@ def test_default_research_continues_beyond_old_request_and_compaction_limits(ser
 
     assert research == 21
     assert summaries > 3
-    assert result.output == answer
+    assert result.output.split("\n\nCoverage:")[0] == answer
     assert result.usage.requests == research + summaries
 
 
@@ -86,7 +86,7 @@ def test_failed_summary_uses_mechanical_compaction_and_keeps_researching(service
 
     assert summaries >= 1
     assert research == 5
-    assert result.output == answer
+    assert result.output.split("\n\nCoverage:")[0] == answer
 
 
 def test_unset_generation_limit_is_not_sent_to_the_model(service):
@@ -130,6 +130,6 @@ def test_generation_exhaustion_recovers_once_and_counts_both_requests(service):
     result = agent.run_sync("Give a complete answer.", deps=CorpusToolDeps(service))
 
     assert requests == 2
-    assert result.output == answer
+    assert result.output.split("\n\nCoverage:")[0] == answer
     assert result.usage.requests == 2
     assert result.usage.output_tokens == 230

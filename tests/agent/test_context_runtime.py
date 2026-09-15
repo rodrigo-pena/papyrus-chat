@@ -74,7 +74,7 @@ def test_natural_answer_gets_one_tool_free_citation_repair(service, valid_repair
     kwargs = {"deps": CorpusToolDeps(service), "capabilities": [NativeTool(WebSearchTool())]}
     if valid_repair:
         result = agent.run_sync("Investigate.", **kwargs)
-        assert result.output == answer
+        assert result.output.split("\n\nCoverage:")[0] == answer
     else:
         with pytest.raises(UnexpectedModelBehavior):
             agent.run_sync("Investigate.", **kwargs)
@@ -126,7 +126,7 @@ def test_long_tool_run_compacts_and_naturally_answers_even_if_summary_fails(serv
     )
     assert research == 7
     assert summaries >= 1
-    assert result.output == answer
+    assert result.output.split("\n\nCoverage:")[0] == answer
 
 
 @pytest.mark.parametrize(

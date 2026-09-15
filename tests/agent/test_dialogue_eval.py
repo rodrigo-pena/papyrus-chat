@@ -480,7 +480,7 @@ def test_stringified_search_arguments_execute_without_retry_prompts(
     result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
 
     assert _retry_parts(result.all_messages()) == []
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
@@ -536,7 +536,7 @@ def test_swallowed_search_arguments_execute_with_their_members_recovered(
     assert search_return.content.query.date_interval == CorpusDateInterval(
         not_before=101, not_after=125
     )
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
@@ -574,7 +574,7 @@ def test_enveloped_json_text_search_arguments_execute_without_retry_prompts(
     result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
 
     assert _retry_parts(result.all_messages()) == []
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
@@ -626,7 +626,7 @@ def test_fabricated_citation_is_rejected_then_corrected_in_budget(
     assert len(retries) == 1
     assert "never construct" in str(retries[0].content)
     assert dialogue.answers == 2
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 

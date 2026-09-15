@@ -163,6 +163,7 @@ def test_passage_windows_must_cover_every_character_for_full_text():
 def test_memory_pages_and_notes_do_not_become_new_evidence():
     import asyncio
     from types import SimpleNamespace
+    from typing import Any
 
     from pydantic_ai import RunContext
     from pydantic_ai.models.test import TestModel
@@ -177,7 +178,7 @@ def test_memory_pages_and_notes_do_not_become_new_evidence():
     ledger = EvidenceLedger()
     ledger.ingest(exchange("search_documents", {"query": {}}, search_result(["doc-1"]), "original"))
     deps = SimpleNamespace(research_state=SimpleNamespace(ledger=ledger))
-    ctx = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
+    ctx: RunContext[Any] = RunContext(deps=deps, model=TestModel(), usage=RunUsage())
     result = asyncio.run(read_research_record(ctx, ledger.records[0].record_id))
     assert result["fragments"] and result["next_offset"] is None
     notes = ResearchNotes(notes="Invented citation https://papyri.info/ddbdp/invented")
@@ -187,3 +188,24 @@ def test_memory_pages_and_notes_do_not_become_new_evidence():
     assert len(ledger.records) == 1
     assert ledger.notes == notes.notes
     assert "https://papyri.info/ddbdp/invented" not in ledger.corpus_urls
+
+
+def test_coverage_note_distinguishes_candidates_excerpts_and_unknown_pages():
+    from papyrus_chat.agent.context.coverage import coverage_note
+
+    ledger = EvidenceLedger()
+    assert coverage_note(ledger) == ""
+    result = search_result(["doc-1"], next_offset=1)
+    ledger.ingest(exchange("search_documents", {"query": {}}, result, "first"))
+    ledger.ingest(exchange("search_documents", {"query": {}}, result, "repeat"))
+    note = coverage_note(ledger)
+    assert "1 unique candidate documents" in note
+    assert "0 documents with inspected excerpts" in note
+    assert "0 documents with all stored passage text" in note
+    assert "outstanding in 1 searches" in note
+    assert "incomplete" not in note
+    legacy = search_result(["doc-2"])
+    legacy.pop("offset")
+    legacy.pop("next_offset")
+    ledger.ingest(exchange("search_documents", {"query": {}}, legacy, "legacy"))
+    assert "unknown for 1 searches" in coverage_note(ledger)
