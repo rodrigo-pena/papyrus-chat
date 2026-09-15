@@ -546,3 +546,27 @@ def test_query_uses_deterministic_ties_and_alphabetical_nonlexical_order(
     assert [hit.document_id for hit in nonlexical.hits] == sorted(
         hit.document_id for hit in nonlexical.hits
     )
+
+
+@pytest.mark.parametrize("ranked", [False, True])
+def test_search_pages_cover_all_matches(documentary_search, ranked):
+    for index in range(125):
+        _insert_search_document(documentary_search, f"page-{index:03}", title="pagingneedle")
+    query = CorpusQuery(term_groups=(("pagingneedle",),), fields=("title",), limit=50)
+    if not ranked:
+        query = CorpusQuery(collections=("dclp",), limit=50)
+    ids = []
+    offset = 0
+    while True:
+        page = documentary_search.query(query.model_copy(update={"offset": offset}))
+        assert page.offset == offset
+        assert page.candidate_count == 125
+        ids.extend(hit.document_id for hit in page.hits)
+        if page.next_offset is None:
+            break
+        offset = page.next_offset
+    assert len(ids) == len(set(ids)) == 125
+    assert documentary_search.query(query.model_copy(update={"offset": 125})).hits == ()
+    assert documentary_search.facet_documents(query, "collection").values == (
+        CorpusFacetValue(value="dclp", count=125),
+    )

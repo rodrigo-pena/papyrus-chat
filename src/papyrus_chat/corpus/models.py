@@ -127,6 +127,8 @@ class CorpusSearchSummary(BaseModel):
     candidate_count: int
     truncated: bool
     hits: tuple[CorpusHitSummary, ...]
+    offset: int | None = None
+    next_offset: int | None = None
     group_candidate_counts: tuple[int, ...] | None = None
 
 

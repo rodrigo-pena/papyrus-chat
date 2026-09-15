@@ -130,6 +130,7 @@ class CorpusQuery(BaseModel):
     limit: int = Field(
         default=20, ge=1, le=100, description="Maximum documents returned, 1 to 100."
     )
+    offset: int = Field(default=0, ge=0, description="Number of ranked documents to skip.")
 
     @model_validator(mode="before")
     @classmethod
@@ -286,6 +287,8 @@ class CorpusSearchResult(BaseModel):
     candidate_count: int
     truncated: bool
     hits: tuple[CorpusHit, ...]
+    offset: int | None = None
+    next_offset: int | None = None
     group_candidate_counts: tuple[int, ...] | None = None
     """Per-term-group candidate counts when the full conjunction matched nothing.
 
@@ -466,8 +469,8 @@ class StructuredCorpusSearch:
         else:
             rows = self._connection.execute(
                 f"SELECT d.* FROM documents d WHERE {where_sql} "
-                "ORDER BY d.collection, d.document_id LIMIT ?",
-                [*params, normalized.limit],
+                "ORDER BY d.collection, d.document_id LIMIT ? OFFSET ?",
+                [*params, normalized.limit, normalized.offset],
             ).fetchall()
         components = self._components_by_document(row["document_id"] for row in rows)
         hits = tuple(
@@ -482,7 +485,11 @@ class StructuredCorpusSearch:
             query=normalized,
             assumptions=tuple(assumptions),
             candidate_count=count,
-            truncated=count > normalized.limit,
+            truncated=count > normalized.offset + len(hits),
+            offset=normalized.offset,
+            next_offset=(normalized.offset + len(hits))
+            if normalized.offset + len(hits) < count
+            else None,
             hits=hits,
             group_candidate_counts=group_counts,
         )
@@ -818,7 +825,7 @@ class StructuredCorpusSearch:
         else:
             passage_matches = "SELECT NULL AS document_id, 0.0 AS score WHERE 0"
 
-        ranking_params.append(query.limit)
+        ranking_params.extend([query.limit, query.offset])
         return self._connection.execute(
             f"WITH candidates AS (SELECT d.* FROM documents d WHERE {where_sql}), "
             f"document_scores AS MATERIALIZED ({document_scores}), "
@@ -829,7 +836,7 @@ class StructuredCorpusSearch:
             "LEFT JOIN document_scores ds ON ds.document_id = candidates.document_id "
             "LEFT JOIN passage_scores ps ON ps.document_id = candidates.document_id "
             "ORDER BY (coalesce(ds.score, 0.0) + coalesce(ps.score, 0.0)) ASC, "
-            "candidates.collection, candidates.document_id LIMIT ?",
+            "candidates.collection, candidates.document_id LIMIT ? OFFSET ?",
             ranking_params,
         ).fetchall()
 
