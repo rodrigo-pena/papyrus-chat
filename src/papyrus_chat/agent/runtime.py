@@ -7,6 +7,7 @@ from typing import Any
 from pydantic_ai import Agent, ModelRetry, RunContext, WebSearchTool
 from pydantic_ai.capabilities import AbstractCapability, NativeTool
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
+from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
@@ -187,7 +188,13 @@ def create_research_agent(
             if enable_web_search and enable_native_web_search:
                 capabilities.append(NativeTool(WebSearchTool()))
         else:
-            selected_model = OpenAIChatModel(config.model, provider=provider)
+            selected_model = OpenAIChatModel(
+                config.model,
+                provider=provider,
+                # Finalization adds instructions. Strict compatible endpoints
+                # (including Qwen deployments) require one leading system message.
+                profile=OpenAIModelProfile(openai_chat_supports_multiple_system_messages=False),
+            )
 
     agent = Agent[CorpusToolDeps, str](
         selected_model,
