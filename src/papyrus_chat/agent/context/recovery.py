@@ -10,10 +10,13 @@ from pydantic_ai.messages import InstructionPart, ModelResponse
 from pydantic_ai.models import ModelRequestContext
 from pydantic_ai.settings import ModelSettings
 
+from papyrus_chat.chat.profiles import DeploymentProfile
+
 from .accounting import RequestAccounting
 from .compaction import bounded_history, required_messages
 from .limits import check_request_limit
 from .policy import ResearchPolicy
+from .reasoning import reasoning_settings
 
 if TYPE_CHECKING:
     from papyrus_chat.agent.tools import CorpusToolDeps
@@ -41,15 +44,19 @@ async def recover_generation(
     request: ModelRequestContext,
     response: ModelResponse,
     policy: ResearchPolicy,
+    deployment_profile: DeploymentProfile | None = None,
 ) -> ModelResponse:
     state = ctx.deps.research_state
     charge_discarded_response(ctx, response)
     check_request_limit(ctx, policy)
     settings: ModelSettings = {**(request.model_settings or {})}
-    if request.model.profile.get("supports_thinking", False):
-        settings["thinking"] = (
-            "low" if request.model.profile.get("thinking_always_enabled", False) else False
-        )
+    settings = reasoning_settings(
+        request.model,
+        settings,
+        purpose="recovery",
+        deployment_profile=deployment_profile,
+        thinking=request.model_request_parameters.thinking,
+    )
     parameters = replace(
         request.model_request_parameters,
         instruction_parts=[

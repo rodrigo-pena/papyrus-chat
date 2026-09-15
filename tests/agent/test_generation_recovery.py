@@ -212,9 +212,9 @@ def test_exhaustion_is_discarded_before_execution_and_usage_is_preserved(
                 assert not deps.research_state.ledger.records
                 recovery = requests[-1]
                 if api == "chat":
-                    assert recovery["reasoning_effort"] == "none"
+                    assert recovery["reasoning_effort"] == "low"
                 else:
-                    assert recovery["reasoning"]["effort"] == "none"
+                    assert recovery["reasoning"]["effort"] == "low"
             finally:
                 service.close()
 
@@ -266,6 +266,105 @@ def test_cancellation_during_direct_recovery_stops_requests(corpus_artifact, api
                 if not task.done():
                     task.cancel()
                     await asyncio.gather(task, return_exceptions=True)
+                service.close()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "api,adapter", [("chat", "qwen-chat-template"), ("chat", "auto"), ("responses", "auto")]
+)
+def test_deployment_summary_and_recovery_payloads(corpus_artifact, api, adapter):
+    from pydantic_ai import RunContext
+    from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
+    from pydantic_ai.models import ModelRequestContext, ModelRequestParameters
+
+    from papyrus_chat.agent.context.compaction import compact_history
+    from papyrus_chat.chat.profiles import DeploymentProfile
+
+    async def scenario():
+        requests = []
+        summarizing = True
+
+        def endpoint(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            assert "max_completion_tokens" not in body
+            assert "max_output_tokens" not in body
+            if summarizing:
+                assert not body.get("tools")
+                if adapter == "qwen-chat-template":
+                    assert body["chat_template_kwargs"]["enable_thinking"] is False
+                    assert "reasoning_effort" not in body
+                else:
+                    assert "chat_template_kwargs" not in body
+                    if api == "chat":
+                        assert body["reasoning_effort"] == "none"
+                    else:
+                        assert body["reasoning"]["effort"] == "none"
+            else:
+                assert body.get("tools")
+                assert "chat_template_kwargs" not in body
+                if len(requests) == 2:
+                    assert "reasoning_effort" not in body
+                elif api == "chat":
+                    assert body["reasoning_effort"] == "low"
+                else:
+                    assert body["reasoning"]["effort"] == "low"
+            if api == "chat":
+                roles = [message["role"] for message in body["messages"]]
+                assert roles[0] == "system"
+                assert "system" not in roles[1:]
+            return endpoint_response(body, api, "text", not summarizing and len(requests) == 2)
+
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(endpoint)) as client:
+            selected = (ChatAdapter if api == "chat" else ResponsesAdapter)(
+                "custom",
+                provider=OpenAIProvider(
+                    base_url="https://example.invalid/v1", api_key="test", http_client=client
+                ),
+                profile=OpenAIModelProfile(
+                    supports_thinking=adapter == "auto",
+                    openai_supports_reasoning_effort_none=True,
+                    openai_chat_supports_multiple_system_messages=False,
+                ),
+            )
+            profile = DeploymentProfile(
+                base_url="https://example.invalid/v1",
+                model=("openai-responses:" if api == "responses" else "") + "custom",
+                reasoning_adapter=adapter,
+            )
+            service = CorpusService.open(corpus_artifact)
+            try:
+                deps = CorpusToolDeps(service)
+                question = ModelRequest(parts=[UserPromptPart("Answer briefly.")])
+                deps.research_state.question = question
+                ctx = RunContext(deps=deps, model=selected, usage=RunUsage())
+                request = ModelRequestContext(
+                    model=selected,
+                    messages=[question, ModelResponse(parts=[TextPart("history " * 1000)])],
+                    model_settings=None,
+                    model_request_parameters=ModelRequestParameters(),
+                )
+                assert (
+                    await compact_history(
+                        ctx, request, deps.research_state, ResearchPolicy(), profile
+                    )
+                    is not None
+                )
+                assert ctx.usage.requests == 1
+                summarizing = False
+                agent = create_research_agent(
+                    ProviderConfig(base_url="https://example.invalid/v1", model=profile.model),
+                    service,
+                    model=selected,
+                    deployment_profile=profile,
+                )
+                result = await agent.run("Answer briefly.", deps=CorpusToolDeps(service))
+                assert result.output == "Model-supplied background: complete."
+                assert result.usage.requests == 2
+                assert len(requests) == 3
+            finally:
                 service.close()
 
     asyncio.run(scenario())

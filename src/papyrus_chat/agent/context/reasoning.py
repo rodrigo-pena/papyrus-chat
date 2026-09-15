@@ -35,7 +35,7 @@ def reasoning_settings(
     thinking: Any = None,
 ) -> ModelSettings:
     """Return isolated settings; unknown models keep their original settings."""
-    result: dict[str, Any] = deepcopy(dict(settings or {}))
+    result: dict[str, Any] = deepcopy({**(model.settings or {}), **(settings or {})})
     profile = active_deployment_profile(model, deployment_profile)
     adapter = profile.reasoning_adapter if profile else "auto"
     strategy = "unchanged"
@@ -48,6 +48,8 @@ def reasoning_settings(
     if adapter == "qwen-chat-template" and isinstance(model, OpenAIChatModel):
         result.pop("thinking", None)
         result.pop("openai_reasoning_effort", None)
+        if "openai_reasoning_effort" in (model.settings or {}):
+            result["openai_reasoning_effort"] = None
         body.pop("reasoning_effort", None)
         if purpose == "summary" or current is False or template.get("enable_thinking") is False:
             template["enable_thinking"] = False
@@ -76,6 +78,8 @@ def reasoning_settings(
         if isinstance(model, (OpenAIChatModel, OpenAIResponsesModel)):
             # Provider-specific effort overrides the SDK's unified thinking setting.
             result.pop("openai_reasoning_effort", None)
+            if "openai_reasoning_effort" in (model.settings or {}):
+                result["openai_reasoning_effort"] = None
             body.pop("reasoning_effort", None)
         result["thinking"] = target
         strategy = "thinking-off" if target is False else f"reasoning-{target}"

@@ -18,10 +18,13 @@ from pydantic_ai.messages import (
 from pydantic_ai.models import ModelRequestContext, ModelRequestParameters
 from pydantic_ai.tools import ToolDefinition
 
+from papyrus_chat.chat.profiles import DeploymentProfile
+
 from .accounting import RequestAccounting
 from .compaction import ContextBudgetExceeded, bounded_history, compact_history, required_messages
 from .limits import check_request_limit, check_response_cost
-from .policy import ResearchPolicy
+from .policy import ResearchPolicy, load_research_policy
+from .reasoning import active_deployment_profile
 from .recovery import recover_generation
 
 if TYPE_CHECKING:
@@ -49,18 +52,35 @@ def repair_parameters(parameters: ModelRequestParameters) -> ModelRequestParamet
 @dataclass
 class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
     policy: ResearchPolicy
+    deployment_profile: DeploymentProfile | None = None
+
+    def policy_for_request(self, request: ModelRequestContext) -> ResearchPolicy:
+        if (
+            self.policy.capacity_source == "profile"
+            and active_deployment_profile(request.model, self.deployment_profile) is None
+        ):
+            fallback = load_research_policy(request.model.model_name, {})
+            return ResearchPolicy.model_validate(
+                {
+                    **self.policy.model_dump(),
+                    "context_window": fallback.context_window,
+                    "capacity_source": fallback.capacity_source,
+                }
+            )
+        return self.policy
 
     async def before_model_request(
         self, ctx: RunContext["CorpusToolDeps"], request_context: ModelRequestContext
     ) -> ModelRequestContext:
         state = ctx.deps.research_state
-        check_request_limit(ctx, self.policy)
+        policy = self.policy_for_request(request_context)
+        check_request_limit(ctx, policy)
         messages = request_context.messages
         params = request_context.model_request_parameters
         settings = {**(request_context.model_settings or {})}
-        if "max_tokens" not in settings and self.policy.max_tokens is not None:
-            settings["max_tokens"] = self.policy.max_tokens
-        effective = self.policy.model_copy(update={"max_tokens": settings.get("max_tokens")})
+        if "max_tokens" not in settings and policy.max_tokens is not None:
+            settings["max_tokens"] = policy.max_tokens
+        effective = policy.model_copy(update={"max_tokens": settings.get("max_tokens")})
         if state.phase == "repair":
             params = repair_parameters(params)
         if state.question is None:
@@ -101,7 +121,9 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
             compacted = None
             if not state.summary_disabled:
                 try:
-                    compacted = await compact_history(ctx, request, state, effective)
+                    compacted = await compact_history(
+                        ctx, request, state, effective, self.deployment_profile
+                    )
                 except ContextBudgetExceeded:
                     compacted = None
             if compacted is None:
@@ -152,7 +174,13 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
         response: ModelResponse,
     ) -> ModelResponse:
         if response.finish_reason == "length":
-            response = await recover_generation(ctx, request_context, response, self.policy)
+            response = await recover_generation(
+                ctx,
+                request_context,
+                response,
+                self.policy_for_request(request_context),
+                self.deployment_profile,
+            )
         else:
             ctx.deps.research_state.accounting.anchor(
                 request_context.messages,

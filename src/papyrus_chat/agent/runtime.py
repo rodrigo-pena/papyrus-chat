@@ -13,11 +13,13 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
 from papyrus_chat.agent.context.coverage import coverage_note
 from papyrus_chat.agent.context.policy import validate_pricing
+from papyrus_chat.agent.context.reasoning import active_deployment_profile
 from papyrus_chat.agent.context.responses import RecoverableResponsesModel as OpenAIResponsesModel
 from papyrus_chat.agent.context.runtime import BoundedResearch
 from papyrus_chat.agent.context.tracking import EvidenceTracking
 from papyrus_chat.agent.tools import CorpusToolDeps, register_corpus_tools
 from papyrus_chat.agent.web import search_web_background
+from papyrus_chat.chat.profiles import DeploymentProfile, load_deployment_profile
 from papyrus_chat.chat.provider import ProviderConfig
 from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import CorpusDocumentMatch
@@ -184,15 +186,13 @@ def create_research_agent(
     *,
     model: Any | None = None,
     policy: ResearchPolicy | None = None,
+    deployment_profile: DeploymentProfile | None = None,
     enable_native_web_search: bool = True,
     enable_web_search: bool = False,
 ) -> Agent[Any, str]:
     """Construct an agent using the existing provider environment contract."""
-    policy = policy or load_research_policy(config.model)
-    validate_pricing(policy, config.model)
     capabilities: list[AbstractCapability[CorpusToolDeps]] = [
         EvidenceTracking(),
-        BoundedResearch(policy),
     ]
     selected_model = model
     if selected_model is None:
@@ -212,6 +212,15 @@ def create_research_agent(
                 # (including Qwen deployments) require one leading system message.
                 profile=OpenAIModelProfile(openai_chat_supports_multiple_system_messages=False),
             )
+
+    deployment_profile = active_deployment_profile(
+        selected_model, deployment_profile or load_deployment_profile(config)
+    )
+    policy = policy or load_research_policy(
+        selected_model.model_name, deployment_profile=deployment_profile
+    )
+    validate_pricing(policy, config.model)
+    capabilities.append(BoundedResearch(policy, deployment_profile))
 
     from papyrus_chat.agent.context.runner import ContinuousResearchAgent
 

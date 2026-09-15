@@ -22,10 +22,13 @@ from pydantic_ai.models import ModelRequestContext, ModelRequestParameters
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RunUsage
 
+from papyrus_chat.chat.profiles import DeploymentProfile
+
 from .accounting import RequestAccounting, estimate_text, message_text
 from .limits import check_request_limit
 from .policy import ResearchPolicy
 from .progress import progress_overview, research_progress
+from .reasoning import reasoning_settings
 from .state import ResearchRunState
 
 LOGGER = logging.getLogger(__name__)
@@ -188,6 +191,7 @@ async def compact_history(
     request: ModelRequestContext,
     state: ResearchRunState,
     policy: ResearchPolicy,
+    deployment_profile: DeploymentProfile | None = None,
 ) -> list[ModelMessage] | None:
     """One bounded summary attempt. Failures leave the last checkpoint untouched."""
     # The summary input is itself built from whole, bounded records. Large old
@@ -239,10 +243,13 @@ async def compact_history(
     settings: ModelSettings = {}
     if policy.summary_output_tokens is not None:
         settings["max_tokens"] = policy.summary_output_tokens
-    if request.model.profile.get("supports_thinking", False):
-        settings["thinking"] = (
-            "low" if request.model.profile.get("thinking_always_enabled", False) else False
-        )
+    settings = reasoning_settings(
+        request.model,
+        settings,
+        purpose="summary",
+        deployment_profile=deployment_profile,
+        thinking=request.model_request_parameters.thinking,
+    )
     summarizer = Agent(
         request.model,
         output_type=str,

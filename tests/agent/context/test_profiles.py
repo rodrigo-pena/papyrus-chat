@@ -80,3 +80,41 @@ def test_duplicate_normalized_matches_rejected():
                 ]
             }
         )
+
+
+def test_web_loads_profile_and_model_switch_drops_capacity(corpus_artifact, tmp_path):
+    from pydantic_ai.messages import ModelResponse
+    from pydantic_ai.models.function import FunctionModel
+
+    from papyrus_chat.web.application import load_app
+
+    path = tmp_path / "profiles.toml"
+    path.write_text("""[[profiles]]
+base_url = "https://example.invalid/v1"
+model = "custom"
+context_window = 262144
+reasoning_adapter = "qwen-chat-template"
+""")
+    env = {
+        "LLM_BASE_URL": "https://example.invalid/v1",
+        "LLM_MODEL": "custom",
+        "LLM_API_KEY": "test",
+        "PAPYRUS_MODEL_PROFILES": str(path),
+    }
+    app = load_app(corpus_artifact, env, html_source="<html></html>")
+    try:
+        assert app.state.research_policy.context_window == 262144
+        assert app.state.research_policy.capacity_source == "profile"
+    finally:
+        app.state.tool_service.close()
+    switched = load_app(
+        corpus_artifact,
+        env,
+        model=FunctionModel(lambda m, i: ModelResponse(parts=[])),
+        html_source="<html></html>",
+    )
+    try:
+        assert switched.state.research_policy.context_window == 32768
+        assert switched.state.research_policy.capacity_source == "fallback"
+    finally:
+        switched.state.tool_service.close()
