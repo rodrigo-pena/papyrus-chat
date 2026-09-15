@@ -377,7 +377,7 @@ def test_facet_tool_returns_typed_counts(corpus_tools: CorpusToolService) -> Non
 def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
     corpus_tools: CorpusToolService,
 ) -> None:
-    model = TestModel()
+    model = TestModel(call_tools=["describe_corpus"])
     agent = Agent(model, deps_type=CorpusToolDeps)
     register_corpus_tools(agent)
 
@@ -389,6 +389,7 @@ def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
         "describe_corpus",
         "search_documents",
         "inspect_documents",
+        "read_document_passages",
         "discover_documents",
         "facet_documents",
         "suggest_subject_values",
@@ -398,7 +399,7 @@ def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
 def test_tool_schemas_state_inspection_bounds_and_facet_options(
     corpus_tools: CorpusToolService,
 ) -> None:
-    model = TestModel()
+    model = TestModel(call_tools=["describe_corpus"])
     agent = Agent(model, deps_type=CorpusToolDeps)
     register_corpus_tools(agent)
 

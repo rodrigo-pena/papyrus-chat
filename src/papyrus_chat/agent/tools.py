@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any
 
 from pydantic import Field
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, ModelRetry, RunContext
 
 from papyrus_chat.agent.context.state import ResearchRunState
 from papyrus_chat.corpus import (
@@ -24,6 +24,7 @@ from papyrus_chat.corpus.models import (
     CorpusInspectionSummary,
     CorpusSearchSummary,
 )
+from papyrus_chat.corpus.passages import DocumentPassagePage
 from papyrus_chat.corpus.projections import (
     INSPECT_EXCERPT_CHARS,
     _excerpt,
@@ -66,6 +67,23 @@ def discover_documents(
     """Discover semantically related documents with ranked candidates for inspection."""
     result = ctx.deps.service.discover_documents(query)
     _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
+    return result
+
+
+def read_document_passages(
+    ctx: RunContext[CorpusToolDeps],
+    document_id: Annotated[str, Field(min_length=1, max_length=500)],
+    cursor: Annotated[str | None, Field(max_length=4096)] = None,
+) -> DocumentPassagePage:
+    """Read up to five exact source windows. Follow next_cursor to read all text.
+
+    Line references describe the parent passage, not a newly inferred window range.
+    """
+    try:
+        result = ctx.deps.service.read_document_passages(document_id, cursor=cursor)
+    except ValueError as error:
+        raise ModelRetry(str(error)) from error
+    _remember_corpus_urls(ctx.deps, [result.canonical_url])
     return result
 
 
@@ -166,6 +184,7 @@ def register_corpus_tools(agent: Agent[Any, Any]) -> None:
     agent.tool(describe_corpus)
     agent.tool(search_documents)
     agent.tool(inspect_documents)
+    agent.tool(read_document_passages)
     agent.tool(discover_documents)
     agent.tool(facet_documents)
     agent.tool(suggest_subject_values)
