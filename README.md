@@ -224,23 +224,23 @@ model-generated synthesis.
 
 The chat agent automatically summarizes long research runs using the same model
 and endpoint. It preserves the current question and keeps exact tool evidence
-separate from the narrative summary. Counts retain their search scope; inspected
+separate from the narrative summary. Counts retain their search scope. Inspected
 excerpts retain document IDs, line references, and citation URLs. Whole records
 that cannot fit are omitted with an explicit notice in the model's context.
 
-Each user turn allows **16 model requests, including at most 3 summaries**, plus
+Each user turn allows, by default,
+**16 model requests, including at most 3 summaries**, plus
 **2 reserved final-answer attempts**. Once research reaches its budget, or
 compaction cannot reclaim enough space, corpus and web tools are disabled and
 the agent answers from retained evidence. Such answers include an incomplete
 research notice. Short questions can finish sooner without any summarization.
-The second final-answer attempt is reserved for validation repair; invalid draft
-text is never shown as an answer.
+The second final-answer attempt is reserved for validation repair.
 
-| Environment variable | Default | Purpose |
-| --- | --- | --- |
-| `LLM_CONTEXT_WINDOW` | Model registry capacity, otherwise 32,768 | Override with the actual deployment capacity in tokens; minimum 4,096 |
-| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | `16` | Requests available for research and summaries; minimum 1 |
-| `PAPYRUS_COMPACTION_LIMIT` | `3` | Maximum summary attempts within the research budget; minimum 0 |
+| Environment variable             | Default                                   | Purpose                                                               |
+| -------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+| `LLM_CONTEXT_WINDOW`             | Model registry capacity, otherwise 32,768 | Override with the actual deployment capacity in tokens; minimum 4,096 |
+| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | `16`                                      | Requests available for research and summaries; minimum 1              |
+| `PAPYRUS_COMPACTION_LIMIT`       | `3`                                       | Maximum summary attempts within the research budget; minimum 0        |
 
 Automatic model metadata may describe a provider's maximum rather than your
 deployment's configured window. For local or proxied models, set
@@ -249,8 +249,6 @@ for a deployment configured to accept 65,536 tokens:
 
 ```bash
 export LLM_CONTEXT_WINDOW=65536
-export PAPYRUS_RESEARCH_REQUEST_LIMIT=24
-export PAPYRUS_COMPACTION_LIMIT=4
 uv run papyrus-chat --artifact ./data/papyrus-corpus
 ```
 
@@ -258,28 +256,28 @@ Compaction starts at 65% of estimated capacity and targets 45%. Requests reserve
 the smaller of 4,096 tokens or 25% of capacity for output, plus a safety margin.
 Summaries use the smaller of 2,048 tokens or 12.5% for output. Estimates account
 for UTF-8 text, instructions, and tool schemas, using reported input usage when
-available. They are approximations, not exact tokenizer guarantees.
+available.
 
 Summaries incur real model latency and usage, and consume research request slots.
 Increasing the research budget permits more work but does not increase context
 capacity. A follow-up question starts a fresh budget. The browser retains its
-full transcript; there is no server conversation database or summary cache, so
+full transcript. There is no server conversation database or summary cache, so
 follow-ups may need to summarize submitted history again. Evidence and counters
 are isolated between chat requests.
 
 If an endpoint still reports a context overflow, verify its capacity and set the
 explicit override; an unknown model's 32,768-token fallback can still be too
 large. A current question that cannot fit with required instructions and output
-space is rejected rather than silently shortened. If a summary fails, the agent
-attempts a partial answer using its last valid checkpoint and bounded original
-evidence. Provider outages or exhausted answer-validation attempts still produce
-an error; compaction cannot guarantee completion in those cases. Cancellation
-stops the run without starting a final answer.
+space is rejected. If a summary fails, the agent attempts a partial answer using
+its last valid checkpoint and bounded original evidence. Provider outages or
+exhausted answer-validation attempts still produce an error; compaction cannot
+guarantee completion in those cases. Cancellation stops the run without starting
+a final answer.
 
 The server logs resolved capacity, summary attempts, compaction size changes,
-finalization reasons, and failures. Context-management logs contain identifiers
-and measurements, not full prompts or evidence text. These controls apply to the
-Pydantic AI chat agent; they do not change corpus retrieval or the MCP interface.
+finalization reasons, and failures. Context-management logs contain only
+identifiers and measurements. **These controls apply to the Pydantic AI chat agent**;
+they do not change corpus retrieval or the MCP interface.
 
 ### Builder options
 
