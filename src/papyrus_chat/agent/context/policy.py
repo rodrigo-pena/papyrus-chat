@@ -9,6 +9,8 @@ from typing import Literal, Self
 from genai_prices.data_snapshot import get_snapshot
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from papyrus_chat.chat.profiles import DeploymentProfile
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -16,7 +18,7 @@ class ResearchPolicy(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     context_window: int = Field(default=32768, ge=4096)
-    capacity_source: Literal["explicit", "registry", "fallback"] = "explicit"
+    capacity_source: Literal["explicit", "profile", "registry", "fallback"] = "explicit"
     research_request_limit: int | None = Field(default=None, ge=1)
     run_timeout_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     cost_limit_usd: Decimal | None = Field(default=None, gt=0, allow_inf_nan=False)
@@ -75,12 +77,20 @@ class ResearchPolicy(BaseModel):
         )
 
 
-def load_research_policy(model_name: str, env: Mapping[str, str] | None = None) -> ResearchPolicy:
+def load_research_policy(
+    model_name: str,
+    env: Mapping[str, str] | None = None,
+    *,
+    deployment_profile: DeploymentProfile | None = None,
+) -> ResearchPolicy:
     environment = os.environ if env is None else env
     raw_window = environment.get("LLM_CONTEXT_WINDOW", "").strip()
-    capacity_source: Literal["explicit", "registry", "fallback"] = "explicit"
+    capacity_source: Literal["explicit", "profile", "registry", "fallback"] = "explicit"
     if raw_window:
         window = int(raw_window)
+    elif deployment_profile is not None and deployment_profile.context_window is not None:
+        window = deployment_profile.context_window
+        capacity_source = "profile"
     else:
         try:
             _, model = get_snapshot().find_provider_model(

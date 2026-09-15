@@ -1,0 +1,5 @@
+[[profiles]]
+base_url = "https://example.invalid/v1"
+model = "your-model-name"
+context_window = 32768
+reasoning_adapter = "auto"
