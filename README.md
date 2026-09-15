@@ -239,15 +239,37 @@ These optional environment settings apply to the chat agent:
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `LLM_CONTEXT_WINDOW` | Model metadata, otherwise 32,768 | Deployment's context capacity in tokens |
+| `LLM_CONTEXT_WINDOW` | Matching profile, then model metadata, otherwise 32,768 | Deployment's context capacity in tokens |
 | `LLM_MAX_TOKENS` | Server default | Tokens per response, including reasoning |
 | `PAPYRUS_SUMMARY_MAX_TOKENS` | `LLM_MAX_TOKENS`, if set; otherwise server default | Tokens per summary response |
 | `PAPYRUS_RESEARCH_REQUEST_LIMIT` | No limit | Total model requests per question, including summaries and retries |
 | `PAPYRUS_RUN_TIMEOUT_SECONDS` | No limit | Total research time in seconds |
 | `PAPYRUS_RUN_COST_LIMIT_USD` | No limit | Estimated model cost per question in USD |
 
-For local or hosted deployments, set `LLM_CONTEXT_WINDOW` to the capacity your
-server actually accepts. Automatic estimates may differ from that value.
+For settings specific to one deployment, copy
+[`conf/model-profiles.example.toml`](conf/model-profiles.example.toml) to
+`conf/model-profiles.toml` and enter your endpoint, model name, and server's
+context capacity. The local file is gitignored; keep API keys in `.env`.
+Use `PAPYRUS_MODEL_PROFILES` to select a file elsewhere.
+
+Profiles apply only when both the endpoint and model match, including the
+`openai-responses:` prefix for Responses models. Changing either uses the new
+model's defaults unless another profile matches. An explicit `LLM_CONTEXT_WINDOW`
+(or a policy supplied in Python) takes precedence over profile capacity.
+Automatic capacity estimates may differ from what the server accepts.
+
+The profile's `reasoning_adapter` controls summaries and recovery attempts:
+
+- `auto` (default): use reasoning controls recognized by Pydantic AI. Summaries
+  prefer thinking off; recovery uses low reasoning or retains a lower setting.
+  Models without recognized support receive no added controls.
+- `qwen-chat-template`: for compatible Chat Completions deployments, disable
+  summary thinking with `chat_template_kwargs.enable_thinking` and use low
+  reasoning for recovery. Select this only when your endpoint supports it.
+- `none`: leave reasoning settings unchanged.
+
+Normal research reasoning stays unchanged. These controls do not set a response
+length; generation limits remain the server's choice unless you override them.
 An explicit response allowance leaves less room for evidence and can trigger
 earlier summarization.
 
