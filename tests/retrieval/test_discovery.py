@@ -217,3 +217,30 @@ def test_closed_discovery_releases_read_only_memory_maps(content_service) -> Non
     assert maps and not any(mapped.closed for mapped in maps)
     content_service.close()
     assert all(mapped.closed for mapped in maps)
+
+
+def test_fusion_keeps_candidates_beyond_two_hundred():
+    from papyrus_chat.retrieval.discovery.ranking import fuse_rankings
+
+    ids = [f"doc-{i:04}" for i in range(325)]
+    ranking = fuse_rankings({"profiles": ids}, {key: ("dclp", key) for key in ids})
+    assert [item[0] for item in ranking] == ids
+
+
+def test_discovery_pages_are_stable_and_complete(content_service):
+    all_hits = content_service.discover_documents(DiscoveryQuery(text="complaints"))
+    gathered = []
+    offset = 0
+    while True:
+        page = content_service.discover_documents(
+            DiscoveryQuery(text="complaints", offset=offset, limit=2)
+        )
+        assert page.offset == offset
+        assert page.ranked_candidate_count == len(all_hits.hits)
+        gathered.extend(page.hits)
+        if page.next_offset is None:
+            break
+        offset = page.next_offset
+    assert gathered == list(all_hits.hits)
+    empty = content_service.discover_documents(DiscoveryQuery(text="complaints", offset=100))
+    assert not empty.hits and empty.next_offset is None
