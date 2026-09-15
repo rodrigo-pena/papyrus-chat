@@ -6,11 +6,12 @@ from typing import Any
 
 from pydantic_ai import Agent, ModelRetry, RunContext, WebSearchTool
 from pydantic_ai.capabilities import AbstractCapability, NativeTool
-from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
+from papyrus_chat.agent.context.responses import RecoverableResponsesModel as OpenAIResponsesModel
 from papyrus_chat.agent.context.runtime import BoundedResearch
 from papyrus_chat.agent.context.tracking import EvidenceTracking
 from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools

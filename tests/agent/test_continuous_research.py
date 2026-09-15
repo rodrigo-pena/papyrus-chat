@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.usage import RequestUsage
 
 from papyrus_chat.agent.context import ResearchPolicy
 from papyrus_chat.agent.runtime import create_research_agent
@@ -101,3 +102,34 @@ def test_unset_generation_limit_is_not_sent_to_the_model(service):
     )
     agent.run_sync("Hello.", deps=CorpusToolDeps(service))
 
+
+def test_generation_exhaustion_recovers_once_and_counts_both_requests(service):
+    requests = 0
+    answer = "Model-supplied background: the complete answer."
+
+    def dialogue(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        nonlocal requests
+        requests += 1
+        assert requests <= 2, "generation recovery must be bounded"
+        if requests == 1:
+            return ModelResponse(
+                [TextPart("UNFINISHED_DRAFT")],
+                finish_reason="length",
+                usage=RequestUsage(input_tokens=100, output_tokens=200),
+            )
+        return ModelResponse(
+            [TextPart(answer)], usage=RequestUsage(input_tokens=110, output_tokens=30)
+        )
+
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        service,
+        model=FunctionModel(dialogue),
+        policy=ResearchPolicy(context_window=32768),
+    )
+    result = agent.run_sync("Give a complete answer.", deps=CorpusToolDeps(service))
+
+    assert requests == 2
+    assert result.output == answer
+    assert result.usage.requests == 2
+    assert result.usage.output_tokens == 230

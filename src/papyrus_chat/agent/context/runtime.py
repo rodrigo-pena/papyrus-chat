@@ -21,6 +21,7 @@ from .accounting import RequestAccounting
 from .compaction import ContextBudgetExceeded, bounded_history, compact_history, required_messages
 from .limits import check_request_limit
 from .policy import ResearchPolicy
+from .recovery import recover_generation
 
 if TYPE_CHECKING:
     from papyrus_chat.agent.tools import CorpusToolDeps
@@ -139,6 +140,8 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
         request_context: ModelRequestContext,
         response: ModelResponse,
     ) -> ModelResponse:
+        if response.finish_reason == "length":
+            return await recover_generation(ctx, request_context, response, self.policy)
         ctx.deps.research_state.accounting.anchor(
             request_context.messages,
             request_context.model_request_parameters,

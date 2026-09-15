@@ -1,4 +1,4 @@
-"""Exercise actual Chat Completions payloads against a strict, in-memory endpoint."""
+"""Actual Chat Completions payloads against a strict, in-memory endpoint."""
 
 import asyncio
 import json
@@ -13,180 +13,179 @@ from starlette.testclient import TestClient
 
 import papyrus_chat.agent.runtime as runtime
 from papyrus_chat.agent.context.compaction import SUMMARY_INSTRUCTIONS
-from papyrus_chat.agent.context.runtime import FINAL_INSTRUCTIONS
 from papyrus_chat.agent.runtime import RESEARCH_INSTRUCTIONS
 from papyrus_chat.web.application import load_app
 
 
-# Capture the real adapters before conftest disables network model calls. This
-# subclass is only used with MockTransport, which cannot contact a real provider.
 class TransportChatModel(OpenAIChatModel):
+    # Capture real adapters before the network-blocking fixture patches them.
+    # Every request uses MockTransport, so no provider can be contacted.
     request = OpenAIChatModel.request
     request_stream = OpenAIChatModel.request_stream
 
 
 class StrictChatEndpoint:
-    def __init__(
-        self, *, large_results: bool, fail_summary: bool, minimum_generation_tokens: int = 0
-    ) -> None:
+    def __init__(self, *, large_results=False, fail_summary=False, exhaust_at=None):
         self.large_results = large_results
         self.fail_summary = fail_summary
-        self.minimum_generation_tokens = minimum_generation_tokens
+        self.exhaust_at = exhaust_at
         self.requests: list[dict[str, Any]] = []
-        self.rejected_roles: list[list[str]] = []
         self.research_calls = 0
         self.summary_calls = 0
-        self.final_calls = 0
+        self.repair_calls = 0
+        self.recovery_calls = 0
+        self.pending_recovery = False
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/v1/chat/completions"
         body = json.loads(request.content)
         self.requests.append(body)
         roles = [message["role"] for message in body["messages"]]
-        if roles[0] != "system" or "system" in roles[1:]:
-            self.rejected_roles.append(roles)
-            return httpx2.Response(
-                400,
-                json={
-                    "error": {
-                        "message": "System message must be at the beginning.",
-                        "type": "BadRequestError",
-                    }
-                },
-            )
+        assert roles[0] == "system"
+        assert "system" not in roles[1:], "Adapter must preserve one leading system message"
         instructions = body["messages"][0]["content"]
-        # Reasoning shares the generation limit with tool arguments and answer text.
-        # Simulate a model that cannot finish thinking under the old 4,096-token cap.
-        generation_limit = body.get("max_completion_tokens", body.get("max_tokens", 0))
-        thinking_exhausted = generation_limit < self.minimum_generation_tokens
         if SUMMARY_INSTRUCTIONS in instructions:
             self.summary_calls += 1
             assert not body.get("tools")
+            assert not body.get("stream")
             if self.fail_summary:
                 return httpx2.Response(
                     400,
-                    json={
-                        "error": {
-                            "message": "Summary unavailable",
-                            "type": "BadRequestError",
-                        }
-                    },
+                    json={"error": {"message": "Summary unavailable", "type": "BadRequestError"}},
                 )
-            return httpx2.Response(
-                200,
-                json={
-                    "id": "summary",
-                    "object": "chat.completion",
-                    "created": 0,
-                    "model": body["model"],
-                    "choices": [
-                        {
-                            "index": 0,
-                            "finish_reason": "length" if thinking_exhausted else "stop",
-                            "message": {
-                                "role": "assistant",
-                                "content": (
-                                    None
-                                    if thinking_exhausted
-                                    else "PRIVATE_CHECKPOINT inventory checked."
-                                ),
-                                "reasoning_content": "Summarizing the research so far.",
-                            },
-                        }
-                    ],
-                },
+            return self.completion(
+                body,
+                {"role": "assistant", "content": "PRIVATE_CHECKPOINT inventory checked."},
+                "stop",
             )
-        assert body["stream"] is True
+
+        assert RESEARCH_INSTRUCTIONS in instructions
+        if not body.get("stream"):
+            assert self.pending_recovery
+            self.pending_recovery = False
+            self.recovery_calls += 1
+            message, reason = self.research_message()
+            return self.completion(body, message, reason)
+
         if body.get("tools"):
             self.research_calls += 1
-            assert RESEARCH_INSTRUCTIONS in instructions
-            assert FINAL_INSTRUCTIONS not in instructions
-            delta = {
-                "role": "assistant",
-                "tool_calls": [
-                    {
-                        "index": 0,
-                        "id": f"inventory-{self.research_calls}",
-                        "type": "function",
-                        "function": {"name": "describe_corpus", "arguments": "{}"},
-                    }
-                ],
-            }
-            if self.large_results:
-                delta["content"] = "UNVALIDATED πάπυρος " * 3000
-            reason = "tool_calls"
+            assert self.research_calls <= 3, "Model should naturally answer on its third request"
+            message, reason = self.research_message()
+            if self.research_calls == self.exhaust_at:
+                self.pending_recovery = True
+                message = {"role": "assistant", "content": "UNFINISHED_DRAFT"}
+                if self.research_calls == 1:
+                    message["tool_calls"] = [
+                        {
+                            "id": "truncated",
+                            "type": "function",
+                            "function": {"name": "describe_corpus", "arguments": '{"unfinished":'},
+                        }
+                    ]
+                reason = "length"
         else:
-            self.final_calls += 1
-            assert RESEARCH_INSTRUCTIONS in instructions
-            assert FINAL_INSTRUCTIONS in instructions
-            if self.final_calls == 1:
-                # The retry must retain both instructions in the single system message.
-                content = "Corpus evidence: https://papyri.info/ddbdp/invented;99;1"
-            else:
-                content = "No corpus evidence was inspected; only inventory was checked."
-            delta = {"role": "assistant", "content": content}
+            self.repair_calls += 1
+            assert self.repair_calls == 1
+            message = {
+                "role": "assistant",
+                "content": "No corpus evidence was inspected; only inventory was checked.",
+            }
             reason = "stop"
-        if thinking_exhausted:
-            delta = {"role": "assistant", "reasoning_content": "Still considering the evidence."}
-            reason = "length"
+        return self.stream(body, message, reason)
+
+    def research_message(self):
+        if self.research_calls == 3:
+            return {
+                "role": "assistant",
+                "content": "Corpus evidence: https://papyri.info/ddbdp/invented;99;1",
+            }, "stop"
+        message = {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": f"inventory-{self.research_calls}",
+                    "type": "function",
+                    "function": {"name": "describe_corpus", "arguments": "{}"},
+                }
+            ],
+        }
+        if self.large_results:
+            message["content"] = "UNVALIDATED πάπυρος " * 3000
+        return message, "tool_calls"
+
+    @staticmethod
+    def completion(body, message, reason):
+        return httpx2.Response(
+            200,
+            json={
+                "id": "completion",
+                "object": "chat.completion",
+                "created": 0,
+                "model": body["model"],
+                "choices": [{"index": 0, "finish_reason": reason, "message": message}],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
+            },
+        )
+
+    @staticmethod
+    def stream(body, message, reason):
+        if "tool_calls" in message:
+            message["tool_calls"] = [
+                {"index": i, **call} for i, call in enumerate(message["tool_calls"])
+            ]
         chunks = [
             {
                 "id": "response",
                 "object": "chat.completion.chunk",
                 "created": 0,
                 "model": body["model"],
-                "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
-            },
+                "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+            }
+            for delta, finish in [(message, None), ({}, reason)]
+        ]
+        chunks.append(
             {
                 "id": "response",
                 "object": "chat.completion.chunk",
                 "created": 0,
                 "model": body["model"],
-                "choices": [{"index": 0, "delta": {}, "finish_reason": reason}],
-            },
-        ]
+                "choices": [],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
+            }
+        )
         data = "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks) + "data: [DONE]\n\n"
         return httpx2.Response(200, text=data, headers={"content-type": "text/event-stream"})
 
 
 @pytest.mark.parametrize(
-    "large_results,fail_summary,minimum_generation_tokens,output_env",
+    "large_results,fail_summary,exhaust_at,output_env",
     [
-        (False, False, 0, {}),
-        (True, False, 0, {}),
-        (True, True, 0, {}),
-        (True, False, 6000, {}),
-        # A summary can still exhaust its smaller generation allowance. Fall back
-        # to the original evidence and preserve both final-answer attempts.
-        (True, False, 10000, {}),
-        (
-            True,
-            False,
-            10000,
-            {"LLM_MAX_TOKENS": "18000", "PAPYRUS_SUMMARY_MAX_TOKENS": "12000"},
-        ),
+        (False, False, None, {}),
+        (True, False, None, {}),
+        (True, True, None, {}),
+        (False, False, 1, {}),
+        (False, False, 3, {}),
+        (True, False, None, {"LLM_MAX_TOKENS": "18000", "PAPYRUS_SUMMARY_MAX_TOKENS": "12000"}),
     ],
 )
-def test_strict_chat_endpoint_accepts_research_compaction_and_finalization(
+def test_strict_chat_endpoint_accepts_continuous_research_and_repair(
     corpus_artifact: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    large_results: bool,
-    fail_summary: bool,
-    minimum_generation_tokens: int,
-    output_env: dict[str, str],
-) -> None:
+    large_results,
+    fail_summary,
+    exhaust_at,
+    output_env,
+):
     endpoint = StrictChatEndpoint(
-        large_results=large_results,
-        fail_summary=fail_summary,
-        minimum_generation_tokens=minimum_generation_tokens,
+        large_results=large_results, fail_summary=fail_summary, exhaust_at=exhaust_at
     )
     http_client = httpx2.AsyncClient(transport=httpx2.MockTransport(endpoint))
-
-    def provider(**kwargs):
-        return OpenAIProvider(**kwargs, http_client=http_client)
-
-    monkeypatch.setattr(runtime, "OpenAIProvider", provider)
+    monkeypatch.setattr(
+        runtime,
+        "OpenAIProvider",
+        lambda **kwargs: OpenAIProvider(**kwargs, http_client=http_client),
+    )
     monkeypatch.setattr(runtime, "OpenAIChatModel", TransportChatModel)
     try:
         app = load_app(
@@ -196,8 +195,6 @@ def test_strict_chat_endpoint_accepts_research_compaction_and_finalization(
                 "LLM_API_KEY": "test-key",
                 "LLM_MODEL": "Qwen3.8-Flash-Next-FP8",
                 "LLM_CONTEXT_WINDOW": "32768",
-                "PAPYRUS_RESEARCH_REQUEST_LIMIT": "3",
-                "PAPYRUS_COMPACTION_LIMIT": "1",
                 **output_env,
             },
             html_source=tmp_path / "unused.html",
@@ -222,20 +219,24 @@ def test_strict_chat_endpoint_accepts_research_compaction_and_finalization(
                     ],
                 },
             )
-        assert not endpoint.rejected_roles, endpoint.rejected_roles
         assert response.status_code == 200
         assert '"type":"error"' not in response.text
-        assert "only inventory was checked" in response.text
-        assert "incomplete" in response.text
-        assert "invented;99;1" not in response.text
-        assert "PRIVATE_CHECKPOINT" not in response.text
-        assert "UNVALIDATED" not in response.text
-        assert endpoint.final_calls == 2
-        assert endpoint.research_calls + endpoint.summary_calls <= 3
-        assert endpoint.summary_calls == int(large_results)
-        policy = app.state.research_policy
+        assert response.text.count("only inventory was checked") == 1
+        for private_text in (
+            "invented;99;1",
+            "PRIVATE_CHECKPOINT",
+            "UNVALIDATED",
+            "UNFINISHED_DRAFT",
+        ):
+            assert private_text not in response.text
+        assert endpoint.research_calls == 3
+        assert endpoint.repair_calls == 1
+        assert endpoint.recovery_calls == int(exhaust_at is not None)
+        assert bool(endpoint.summary_calls) == large_results
         for body in endpoint.requests:
-            expected = policy.output_tokens if body["stream"] else policy.summary_output_tokens
-            assert body.get("max_completion_tokens", body.get("max_tokens")) == expected
+            summary = SUMMARY_INSTRUCTIONS in body["messages"][0]["content"]
+            expected = output_env.get("PAPYRUS_SUMMARY_MAX_TOKENS" if summary else "LLM_MAX_TOKENS")
+            actual = body.get("max_completion_tokens", body.get("max_tokens"))
+            assert actual == (int(expected) if expected is not None else None)
     finally:
         asyncio.run(http_client.aclose())
