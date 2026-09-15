@@ -237,14 +237,14 @@ Follow-up questions use the browser's chat history and may need another summary.
 The model server sets the response length unless you configure an override.
 These optional environment settings apply to the chat agent:
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `LLM_CONTEXT_WINDOW` | Matching profile, then model metadata, otherwise 32,768 | Deployment's context capacity in tokens |
-| `LLM_MAX_TOKENS` | Server default | Tokens per response, including reasoning |
-| `PAPYRUS_SUMMARY_MAX_TOKENS` | `LLM_MAX_TOKENS`, if set; otherwise server default | Tokens per summary response |
-| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | No limit | Total model requests per question, including summaries and retries |
-| `PAPYRUS_RUN_TIMEOUT_SECONDS` | No limit | Total research time in seconds |
-| `PAPYRUS_RUN_COST_LIMIT_USD` | No limit | Estimated model cost per question in USD |
+| Setting                          | Default                                                 | Purpose                                                            |
+| -------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
+| `LLM_CONTEXT_WINDOW`             | Matching profile, then model metadata, otherwise 32,768 | Deployment's context capacity in tokens                            |
+| `LLM_MAX_TOKENS`                 | Server default                                          | Tokens per response, including reasoning                           |
+| `PAPYRUS_SUMMARY_MAX_TOKENS`     | `LLM_MAX_TOKENS`, if set; otherwise server default      | Tokens per summary response                                        |
+| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | No limit                                                | Total model requests per question, including summaries and retries |
+| `PAPYRUS_RUN_TIMEOUT_SECONDS`    | No limit                                                | Total research time in seconds                                     |
+| `PAPYRUS_RUN_COST_LIMIT_USD`     | No limit                                                | Estimated model cost per question in USD                           |
 
 For settings specific to one deployment, copy
 [`conf/model-profiles.example.toml`](conf/model-profiles.example.toml) to
@@ -269,7 +269,7 @@ The profile's `reasoning_adapter` controls summaries and recovery attempts:
 - `none`: leave reasoning settings unchanged.
 
 Normal research reasoning stays unchanged. These controls do not set a response
-length; generation limits remain the server's choice unless you override them.
+length, so generation limits remain the server's choice unless you override them.
 An explicit response allowance leaves less room for evidence and can trigger
 earlier summarization.
 
@@ -280,7 +280,7 @@ starts fresh limits.
 
 ### Reading search results
 
-Searches return pages of 1–100 documents. Both chat and MCP expose `offset` and
+Searches return pages of 1-100 documents. Both chat and MCP expose `offset` and
 `next_offset` through `search_documents` and `discover_documents`, allowing the
 agent to continue through the results. Semantic search can return the full
 ranking of indexed candidates; these candidates still need inspection.
@@ -289,8 +289,8 @@ In chat, `inspect_documents` opens focused excerpts. `read_document_passages`
 reads sequentially, returning up to five sections of 2,000 characters with source
 and line references. The agent follows `next_cursor` to continue reading.
 It can also recall earlier evidence and check research progress. Passage reading,
-evidence memory, and automatic summarization are available in chat; an MCP host
-manages its own conversation and memory.
+evidence memory, and automatic summarization are available in chat. Any MCP host
+will manage its own conversation and memory.
 
 ### Troubleshooting long answers
 
