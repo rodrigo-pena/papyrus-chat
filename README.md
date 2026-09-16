@@ -210,61 +210,113 @@ web-sourced background and never replace local corpus evidence or contribute to
 corpus counts; papyri records and transcriptions still come only from local
 corpus tools.
 
-### Research answer semantics
+### Research answers
 
-Every evidence-oriented answer is expected to include **Scope and method**:
-the interpreted collections, inclusive date interval, transcription language,
-and generated multilingual term groups. Candidate counts are exact for the
-displayed structured filters, but are not exhaustive scholarly
-classifications. Corpus documents are cited only with papyri.info URLs
-returned by a corpus tool, and transcription evidence is kept distinct from
-model-generated synthesis.
+Answers explain which collections, dates, languages, and search terms were used.
+Document claims cite links returned by the corpus tools. Search counts describe
+matches to those filters; thematic relevance still requires interpretation.
 
-### Builder options
+A coverage note reports unique documents found, documents inspected through
+excerpts, documents whose complete stored text was retrieved, and searches with
+results still to retrieve. Overlapping searches and repeated reads count once.
+Reading an excerpt does not count as reading a whole document, and completing a
+result list does not guarantee that every relevant passage was found.
 
-```bash
-uv run papyrus-corpus-build COLLECTION... [OPTIONS]
+Broad requests such as "all evidence you can find" guide the agent to investigate
+relevant aspects, inspect promising candidates, and synthesize when further searches
+add little useful evidence. Explicit requests to enumerate every result within
+defined filters still require paging through that inventory or reporting what remains.
 
-# COLLECTION...   one or more of: dclp, ddbdp, translations (case-insensitive)
-# -o, --output    destination directory (default ./data/papyrus-corpus)
-# --source        Git URL (default upstream) or a local idp.data Git checkout
-# --ref           branch, tag, or commit to build from (default master)
-# --force         replace an existing artifact at exactly the given path
-# --semantic-model-dir  local FastEmbed model snapshot to bundle for subject suggestions
-# --semantic-content     also build chunk/profile indexes for semantic discovery
-#                        (requires --semantic-model-dir); see docs/semantic-retrieval.md
-# --list-collections
-# -v, --verbose   include detailed diagnostic logging
-```
+### Context management and research limits
 
-Remote builds use a Git partial clone, sparse checkout, and a persistent Git
-object reader, so only the selected source data is downloaded and records are
-read from the resolved commit without launching Git once per XML file. Builds
-are deterministic: identical inputs produce the same logical content hash in
-`manifest.json` and the completion report. Reference measurements and known
-bottlenecks are recorded in [docs/performance.md](docs/performance.md).
+Research continues until the model answers or you cancel. By default, there is
+no limit on the number of model requests or summaries.
 
-### Sample questions
+When the conversation approaches 65% of the model's context window, the agent
+summarizes earlier work, aiming to reduce it to 45%. The question and original
+evidence remain available, including exact quotations, counts, and citations.
+The summary keeps the research progress and recent decisions, so the agent can
+continue unfinished work or answer from findings it already has. Notes recorded
+by the agent separate completed searches and rejected directions from questions
+that still need evidence. Summaries use the same model and add time and usage
+costs. If summarization fails, the agent continues with a shorter selection of
+saved material. Follow-up questions reuse the browser's chat history, so they may
+need another summary; earlier questions and answers are not carried into the new
+run as evidence.
 
-- How many Greek texts are lists related to tax payments from the Islamic period (from the Arab conquest of Egypt)?
-- Within this corpus, can you find lists structured by month? Make sure you know the names of Egyptian months used in this period.
-- Can you summarize the kinds/categories of taxes attested in these documents?
-- How were taxes collected in the Early Arab period in Egypt, based on the Greek papyri in the corpus?
+The model server sets the response length unless you configure an override.
+These optional environment settings apply to the chat agent:
 
-## Development
+| Setting                          | Default                                                 | Purpose                                                            |
+| -------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
+| `LLM_CONTEXT_WINDOW`             | Matching profile, then model metadata, otherwise 32,768 | Your model server's context capacity in tokens                     |
+| `LLM_MAX_TOKENS`                 | Server default                                          | Tokens per response, including reasoning                           |
+| `PAPYRUS_SUMMARY_MAX_TOKENS`     | `LLM_MAX_TOKENS`, if set; otherwise server default      | Tokens per summary response                                        |
+| `PAPYRUS_RESEARCH_REQUEST_LIMIT` | No limit                                                | Total model requests per question, including summaries and retries |
+| `PAPYRUS_RUN_TIMEOUT_SECONDS`    | No limit                                                | Total research time in seconds                                     |
+| `PAPYRUS_RUN_COST_LIMIT_USD`     | No limit                                                | Estimated model cost per question in USD                           |
 
-```bash
-uv run pytest                    # offline test suite (network tests excluded)
-uv run pytest -m network         # optional smoke test against the real upstream
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check
-```
+For settings specific to one model server, copy
+[`conf/model-profiles.example.toml`](conf/model-profiles.example.toml) to
+`conf/model-profiles.toml` and enter your endpoint, model name, and server's
+context capacity. The local file is gitignored; keep API keys in `.env`.
+Use `PAPYRUS_MODEL_PROFILES` to select a file elsewhere.
 
-For a browser-only demo with a collaborator, see the [authenticated ngrok
-sharing guide](docs/demo-for-others.md).
+Profiles apply only when both the endpoint and model match, including the
+`openai-responses:` prefix for Responses models. Changing either uses the new
+model's defaults unless another profile matches. An explicit `LLM_CONTEXT_WINDOW`
+(or a policy supplied in Python) takes precedence over profile capacity.
+Automatic capacity estimates may differ from what the server accepts.
 
-Test fixtures are pinned to an upstream commit with recorded provenance
-([tests/fixtures/idp.data/PROVENANCE.md](tests/fixtures/idp.data/PROVENANCE.md));
-`scripts/refresh_fixtures.py` lets an informed user re-pin them to HEAD of
-`master` or an arbitrary commit.
+The profile's `reasoning_adapter` controls how summaries and retries handle
+"thinking" (extended reasoning) when the provider supports it:
+
+- `auto` (default): use the reasoning controls recognized by Pydantic AI. For
+  summaries, thinking is turned off; in retries it is reduced to low, unless the
+  request already set something lower. Models your provider does not register as
+  thinking-capable get no added controls.
+- `qwen-chat-template`: for Qwen-style Chat Completions deployments, turns off
+  summary thinking with `chat_template_kwargs.enable_thinking` and uses low
+  reasoning in retries. Select this only when your endpoint supports it.
+- `none`: leave reasoning settings unchanged.
+
+Normal research reasoning stays unchanged. These controls do not set a response
+length, so generation limits remain the server's choice unless you override them.
+An explicit response allowance leaves less room for evidence and can trigger
+earlier summarization.
+
+A configured request limit makes the agent stop researching in time to still
+write an answer from what it has found; it also keeps one retry to fix citation
+problems. The answer will say what it did not check. Time and cost limits stop
+the run with an error. Cost limits require available model pricing: estimates
+may differ from your provider's charges, and the response that crosses the limit
+can still be billed. Each follow-up question starts fresh limits.
+
+### Reading search results
+
+Searches return pages of 1-100 documents. Both chat and MCP expose `offset` and
+`next_offset` through `search_documents` and `discover_documents`, allowing the
+agent to continue through the results. Semantic search can return the full
+ranking of indexed candidates; these candidates still need inspection.
+
+In chat and for any MCP host, `inspect_documents` opens focused excerpts.
+`read_document_passages` reads a document from start to finish in sequential
+sections of up to 2,000 characters, each with source and line references. The
+agent follows `next_cursor` to keep reading; an MCP host keeps track of those
+cursors itself. In chat, the agent can also quote back evidence it read earlier
+and report its research progress. Those extras, and automatic summarization, are
+chat-only: the chat application keeps the conversation for you, while an MCP host
+manages its own conversation and memory.
+
+### Troubleshooting long answers
+
+Summarizing the conversation cannot prevent a model from spending its response
+allowance on reasoning. If a response runs out of tokens, the agent discards it
+and tries once more. Repeated failure produces an error without displaying an
+unfinished answer. Reduce reasoning where your provider supports it, or increase
+`LLM_MAX_TOKENS` within the server's limits.
+
+For context overflow errors, check `LLM_CONTEXT_WINDOW` against your server's
+configuration. Very broad questions may also produce more evidence than fits in
+one answer; ask for a narrower synthesis or explore the findings over follow-up
+questions. Provider outages can still interrupt research.

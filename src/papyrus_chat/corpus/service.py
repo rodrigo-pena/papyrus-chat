@@ -20,6 +20,7 @@ from papyrus_chat.corpus.models import (
     CorpusSubjectSuggestionSummary,
     SemanticIndexCapability,
 )
+from papyrus_chat.corpus.passages import DocumentPassagePage
 from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryResult
 from papyrus_chat.retrieval.identifiers import normalize_identifier_query
 from papyrus_chat.retrieval.semantic import QueryEncoder
@@ -61,6 +62,17 @@ class CorpusService:
             semantic_encoder=semantic_encoder,
         )
         return cls(search, artifact_root=root, manifest=manifest)
+
+    def read_document_passages(
+        self, document_id: str, *, cursor: str | None = None
+    ) -> DocumentPassagePage:
+        """Read consecutive exact text windows; continue with the returned cursor."""
+        from papyrus_chat.corpus.passages import read_passages
+
+        with self._lock:
+            return read_passages(
+                self._connection, self.manifest.logical_content_hash, document_id, cursor
+            )
 
     def describe_corpus(self) -> CorpusDescription:
         return self._search.describe()
@@ -276,12 +288,6 @@ class CorpusService:
             suggestions=suggestions,
             available=True,
         )
-
-    def suggest_subject_values(
-        self, concept: str, *, scope: CorpusQuery, limit: int = 20
-    ) -> CorpusSubjectSuggestionSummary:
-        """Compatibility alias for the original Pydantic-AI tool service method."""
-        return self.suggest_subjects(concept, scope=scope, limit=limit)
 
     def document_for_citation(self, canonical_url: str) -> CorpusDocumentMatch | None:
         return self._search.document_for_citation(canonical_url)

@@ -13,11 +13,6 @@ from tests.retrieval.test_discovery import content_service as content_service
 
 from papyrus_chat.agent.tools import (
     CorpusToolDeps,
-    CorpusToolService,
-    _hit_summary,  # noqa: PLC2701 - projection unit test
-    _inspection_outcome,  # noqa: PLC2701 - projection unit test
-    _inspection_summaries,  # noqa: PLC2701 - projection unit test
-    _search_summary,  # noqa: PLC2701 - projection unit test
     describe_corpus,
     discover_documents,
     inspect_documents,
@@ -31,6 +26,13 @@ from papyrus_chat.artifact.records import (
 )
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
+from papyrus_chat.corpus import CorpusService
+from papyrus_chat.corpus.projections import (
+    hit_summary,
+    inspection_outcome,
+    inspection_summaries,
+    search_summary,
+)
 from papyrus_chat.retrieval.discovery.models import DiscoveryQuery
 from papyrus_chat.retrieval.structured import (
     CorpusHit,
@@ -110,7 +112,7 @@ def test_search_summary_keeps_identity_evidence_and_drops_heavy_fields() -> None
         hits=(_hit(text="λόγος " * 30),),
     )
 
-    dumped = _search_summary(result).model_dump()
+    dumped = search_summary(result).model_dump()
 
     hit = dumped["hits"][0]
     assert hit["snippet"].startswith("λόγος")
@@ -132,7 +134,7 @@ def test_search_summary_carries_group_candidate_counts() -> None:
         group_candidate_counts=(1, 0),
     )
 
-    summary = _search_summary(result)
+    summary = search_summary(result)
 
     assert summary.group_candidate_counts == (1, 0)
 
@@ -150,7 +152,7 @@ def test_inspection_summary_truncates_excerpt_and_keeps_hgv_context() -> None:
         passages=(_hit(text="ὀφείλω " * 200),),
     )
 
-    (summary,) = _inspection_summaries((inspection,))
+    (summary,) = inspection_summaries((inspection,))
 
     assert summary.hgv is not None
     assert summary.hgv.metadata["subject"] == ("Abrechnung", "privat")
@@ -179,12 +181,12 @@ def test_inspection_excerpt_centers_on_a_focus_term() -> None:
 
     default = next(
         summary.passages[0].excerpt
-        for summary in _inspection_summaries((inspection,))
+        for summary in inspection_summaries((inspection,))
         if summary.passages
     )
     focused = next(
         summary.passages[0].excerpt
-        for summary in _inspection_summaries((inspection,), focus_terms=("χρεο",))
+        for summary in inspection_summaries((inspection,), focus_terms=("χρεο",))
         if summary.passages
     )
 
@@ -207,7 +209,7 @@ def test_inspection_excerpt_honors_a_larger_excerpt_budget() -> None:
         passages=(_hit(text=text),),
     )
 
-    (summary,) = _inspection_summaries((inspection,), excerpt_chars=2000)
+    (summary,) = inspection_summaries((inspection,), excerpt_chars=2000)
 
     excerpt = summary.passages[0].excerpt
     assert excerpt is not None
@@ -216,7 +218,7 @@ def test_inspection_excerpt_honors_a_larger_excerpt_budget() -> None:
 
 
 def test_short_excerpt_is_not_truncated() -> None:
-    assert _hit_summary(_hit(text="βραχύ"))  # sanity: summary built
+    assert hit_summary(_hit(text="βραχύ"))  # sanity: summary built
     excerpt_text = "ἀργύριον τὸ δοσόν"
     inspection = CorpusInspection(
         document_id="ddbdp:DDbDP/2/2914.xml",
@@ -230,7 +232,7 @@ def test_short_excerpt_is_not_truncated() -> None:
         passages=(_hit(text=excerpt_text),),
     )
 
-    (summary,) = _inspection_summaries((inspection,))
+    (summary,) = inspection_summaries((inspection,))
 
     assert summary.passages[0].excerpt == excerpt_text
     assert summary.hgv is None
@@ -254,14 +256,14 @@ def test_inspection_outcome_reports_missing_document_ids() -> None:
         "ddbdp:DDbDP/99/99999.xml",
     ]
 
-    outcome = _inspection_outcome((inspection,), requested)
+    outcome = inspection_outcome((inspection,), requested)
 
     assert [summary.document_id for summary in outcome.inspections] == ["ddbdp:DDbDP/27/27093.xml"]
     assert outcome.missing == ("ddbdp:DDbDP/99/99999.xml",)
 
 
 @pytest.fixture()
-def corpus_tools(tmp_path: Path, fixture_git_repo: Path) -> CorpusToolService:
+def corpus_tools(tmp_path: Path, fixture_git_repo: Path) -> CorpusService:
     artifact = tmp_path / "corpus"
     build_artifact(
         ["ddbdp"],
@@ -270,11 +272,11 @@ def corpus_tools(tmp_path: Path, fixture_git_repo: Path) -> CorpusToolService:
         source_url="https://github.com/papyri/idp.data.git",
         requested_ref="master",
     )
-    return CorpusToolService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
+    return CorpusService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
 
 
 @pytest.fixture()
-def shared_hgv_tools(tmp_path: Path, fixture_git_repo: Path) -> CorpusToolService:
+def shared_hgv_tools(tmp_path: Path, fixture_git_repo: Path) -> CorpusService:
     source_repo = tmp_path / "source"
     subprocess.run(["git", "clone", "--quiet", str(fixture_git_repo), str(source_repo)], check=True)
     duplicate = source_repo / "DDbDP" / "27" / "27094.xml"
@@ -303,10 +305,10 @@ def shared_hgv_tools(tmp_path: Path, fixture_git_repo: Path) -> CorpusToolServic
         source_url="https://github.com/papyri/idp.data.git",
         requested_ref="HEAD",
     )
-    return CorpusToolService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
+    return CorpusService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
 
 
-def test_describe_corpus_reports_inventory(corpus_tools: CorpusToolService) -> None:
+def test_describe_corpus_reports_inventory(corpus_tools: CorpusService) -> None:
     description = corpus_tools.describe_corpus()
 
     assert description.collections == ("ddbdp",)
@@ -317,7 +319,7 @@ def test_describe_corpus_reports_inventory(corpus_tools: CorpusToolService) -> N
 
 
 def test_search_tool_returns_the_complete_query_and_assumptions(
-    corpus_tools: CorpusToolService,
+    corpus_tools: CorpusService,
 ) -> None:
     result = corpus_tools.search_documents(
         CorpusQuery(term_groups=[["Κλαύδιος"]], fields=["transcription"]),
@@ -337,7 +339,7 @@ def test_search_tool_returns_the_complete_query_and_assumptions(
 
 
 def test_inspect_tool_is_bounded_and_returns_located_passages(
-    corpus_tools: CorpusToolService,
+    corpus_tools: CorpusService,
 ) -> None:
     result = corpus_tools.inspect_documents(["ddbdp:DDbDP/27/27093.xml"], excerpt_limit=1)
 
@@ -351,7 +353,7 @@ def test_inspect_tool_is_bounded_and_returns_located_passages(
 
 
 def test_inspect_tool_exposes_shared_hgv_evidence_for_each_linked_document(
-    shared_hgv_tools: CorpusToolService,
+    shared_hgv_tools: CorpusService,
 ) -> None:
     result = shared_hgv_tools.inspect_documents(
         ["ddbdp:DDbDP/27/27093.xml", "ddbdp:DDbDP/27/27094.xml"]
@@ -367,7 +369,7 @@ def test_inspect_tool_exposes_shared_hgv_evidence_for_each_linked_document(
     assert any(value.value == "Geld" and value.count == 2 for value in facets.values)
 
 
-def test_facet_tool_returns_typed_counts(corpus_tools: CorpusToolService) -> None:
+def test_facet_tool_returns_typed_counts(corpus_tools: CorpusService) -> None:
     result = corpus_tools.facet_documents(CorpusQuery(), "subject")
 
     assert result.values
@@ -375,9 +377,9 @@ def test_facet_tool_returns_typed_counts(corpus_tools: CorpusToolService) -> Non
 
 
 def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
-    corpus_tools: CorpusToolService,
+    corpus_tools: CorpusService,
 ) -> None:
-    model = TestModel()
+    model = TestModel(call_tools=["describe_corpus"])
     agent = Agent(model, deps_type=CorpusToolDeps)
     register_corpus_tools(agent)
 
@@ -389,6 +391,7 @@ def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
         "describe_corpus",
         "search_documents",
         "inspect_documents",
+        "read_document_passages",
         "discover_documents",
         "facet_documents",
         "suggest_subject_values",
@@ -396,9 +399,9 @@ def test_tools_register_with_pydantic_ai_and_keep_read_only_names(
 
 
 def test_tool_schemas_state_inspection_bounds_and_facet_options(
-    corpus_tools: CorpusToolService,
+    corpus_tools: CorpusService,
 ) -> None:
-    model = TestModel()
+    model = TestModel(call_tools=["describe_corpus"])
     agent = Agent(model, deps_type=CorpusToolDeps)
     register_corpus_tools(agent)
 
@@ -443,7 +446,7 @@ def test_tool_schemas_state_inspection_bounds_and_facet_options(
 
 
 def test_discovery_tool_returns_ranked_candidates_and_registers_citations(
-    content_service: CorpusToolService,
+    content_service: CorpusService,
 ) -> None:
     deps = CorpusToolDeps(service=content_service)
     result = discover_documents(
@@ -462,7 +465,7 @@ def test_discovery_tool_returns_ranked_candidates_and_registers_citations(
 
 
 def test_discovery_tool_reports_unavailable_capability_without_counts(
-    corpus_tools: CorpusToolService,
+    corpus_tools: CorpusService,
 ) -> None:
     deps = CorpusToolDeps(service=corpus_tools)
 
@@ -476,7 +479,7 @@ def test_discovery_tool_reports_unavailable_capability_without_counts(
 
 
 def test_inspection_tool_opens_discovery_chunk_locations(
-    content_service: CorpusToolService,
+    content_service: CorpusService,
 ) -> None:
     document_id = "translations:Translations/3/3643-1.xml"
     discovery = content_service.discover_documents(DiscoveryQuery(text="complaints", limit=1))
@@ -499,7 +502,7 @@ def test_inspection_tool_opens_discovery_chunk_locations(
 
 
 def test_inspection_tool_rejects_chunk_ids_from_other_documents(
-    content_service: CorpusToolService,
+    content_service: CorpusService,
 ) -> None:
     chunk_id = content_service._connection.execute(  # noqa: SLF001 - fixture access
         "SELECT chunk_id FROM semantic_chunks LIMIT 1"
@@ -514,7 +517,7 @@ def test_inspection_tool_rejects_chunk_ids_from_other_documents(
 
 
 def test_describe_and_search_tools_still_project_lean_summaries(
-    corpus_tools: CorpusToolService,
+    corpus_tools: CorpusService,
 ) -> None:
     deps = CorpusToolDeps(service=corpus_tools)
 

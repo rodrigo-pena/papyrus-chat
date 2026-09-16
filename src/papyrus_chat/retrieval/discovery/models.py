@@ -28,6 +28,7 @@ class DiscoveryQuery(BaseModel):
         description="Restrict actual matched passages, including translation-only documents.",
     )
     limit: int = Field(default=20, ge=1, le=100)
+    offset: int = Field(default=0, ge=0)
 
     @model_validator(mode="before")
     @classmethod
@@ -110,6 +111,9 @@ class DiscoveryResult(BaseModel):
         description="Exact scoped documents covered by eligible content indexes.",
     )
     hits: tuple[DiscoveryHit, ...] = ()
+    offset: int | None = None
+    next_offset: int | None = None
+    ranked_candidate_count: int | None = None
     ranked_candidates_truncated: bool = False
     channels_used: tuple[DiscoveryChannel, ...] = ()
     method: str = "Ranked candidates for inspection; no exhaustive semantic match count."

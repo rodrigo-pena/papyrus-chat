@@ -4,7 +4,6 @@ from collections.abc import Mapping, Sequence
 
 from papyrus_chat.retrieval.discovery.models import DiscoveryChannel
 
-CHANNEL_CANDIDATES = 200
 RRF_CONSTANT = 60
 
 
@@ -15,7 +14,7 @@ def fuse_rankings(
     scores: dict[str, float] = {}
     channels: dict[str, list[DiscoveryChannel]] = {}
     for channel, documents in rankings.items():
-        for rank, document_id in enumerate(tuple(dict.fromkeys(documents))[:CHANNEL_CANDIDATES], 1):
+        for rank, document_id in enumerate(tuple(dict.fromkeys(documents)), 1):
             scores[document_id] = scores.get(document_id, 0.0) + 1 / (RRF_CONSTANT + rank)
             channels.setdefault(document_id, []).append(channel)
     return [

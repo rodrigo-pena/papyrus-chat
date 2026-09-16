@@ -5,10 +5,13 @@ from typing import Any
 
 from starlette.applications import Starlette
 
+from papyrus_chat.agent.context import load_research_policy
+from papyrus_chat.agent.context.reasoning import active_deployment_profile
 from papyrus_chat.agent.runtime import create_research_agent
 from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.artifact.manifest import load_manifest
 from papyrus_chat.artifact.validation import validate_artifact
+from papyrus_chat.chat.profiles import load_deployment_profile
 from papyrus_chat.chat.provider import ProviderError, load_provider_config
 from papyrus_chat.corpus import CorpusService
 from papyrus_chat.web.streaming import install_validated_chat_route
@@ -35,8 +38,10 @@ def validate_startup(
         raise StartupError(f"The corpus artifact {artifact} is not usable: {error}") from error
 
     try:
-        load_provider_config(env, required=require_provider)
-    except ProviderError as error:
+        provider = load_provider_config(env, required=require_provider)
+        profile = load_deployment_profile(provider, env)
+        load_research_policy(provider.model, env, deployment_profile=profile)
+    except (ProviderError, ValueError) as error:
         raise StartupError(str(error)) from error
 
 
@@ -59,19 +64,33 @@ def load_app(
     manifest = load_manifest(artifact / "manifest.json")
     provider_config = load_provider_config(env, required=False)
     tool_service = CorpusService.open(artifact)
+    profile = load_deployment_profile(provider_config, env)
+    if model is not None:
+        profile = active_deployment_profile(model, profile)
+    policy = load_research_policy(
+        model.model_name if model is not None else provider_config.model,
+        env,
+        deployment_profile=profile,
+    )
     agent = create_research_agent(
-        provider_config, tool_service, model=model, enable_web_search=enable_web_search
+        provider_config,
+        tool_service,
+        model=model,
+        enable_web_search=enable_web_search,
+        policy=policy,
+        deployment_profile=profile,
     )
     deps = CorpusToolDeps(service=tool_service)
     app = agent.to_web(
         deps=deps,
         html_source=html_source,
     )
-    install_validated_chat_route(app, agent, deps)
+    install_validated_chat_route(app, agent, deps, policy)
     app.state.artifact = artifact
     app.state.manifest = manifest
     app.state.search = tool_service
     app.state.tool_service = tool_service
     app.state.agent = agent
     app.state.provider_config = provider_config
+    app.state.research_policy = policy
     return app

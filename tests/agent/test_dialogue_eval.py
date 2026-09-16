@@ -17,15 +17,12 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from tests.retrieval.test_discovery import content_service as content_service
 
 from papyrus_chat.agent.runtime import create_research_agent
-from papyrus_chat.agent.tools import (
-    CorpusInspectionOutcome,
-    CorpusSearchSummary,
-    CorpusToolDeps,
-    CorpusToolService,
-)
+from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.corpus import CorpusService
+from papyrus_chat.corpus.models import CorpusInspectionOutcome, CorpusSearchSummary
 from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryResult
 from papyrus_chat.retrieval.structured import (
     CorpusDateInterval,
@@ -34,7 +31,7 @@ from papyrus_chat.retrieval.structured import (
 
 
 @pytest.fixture()
-def tool_service(tmp_path, fixture_git_repo) -> CorpusToolService:
+def tool_service(tmp_path, fixture_git_repo) -> CorpusService:
     artifact = tmp_path / "corpus"
     build_artifact(
         ["ddbdp"],
@@ -43,7 +40,7 @@ def tool_service(tmp_path, fixture_git_repo) -> CorpusToolService:
         source_url="https://github.com/papyri/idp.data.git",
         requested_ref="master",
     )
-    return CorpusToolService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
+    return CorpusService(StructuredCorpusSearch(artifact / "corpus.sqlite"))
 
 
 def _returned_tool_names(messages: list[ModelMessage]) -> list[str]:
@@ -100,7 +97,7 @@ class ResearchDialogue:
 
 
 def test_research_dialogue_uses_bounded_multistep_corpus_tools(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     script = ResearchDialogue()
     agent = create_research_agent(
@@ -180,7 +177,7 @@ class RefinementDialogue:
 
 
 def test_followup_run_can_refine_a_prior_query(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     script = RefinementDialogue()
     agent = create_research_agent(
@@ -286,7 +283,7 @@ class RecoveringSearchDialogue:
 
 
 def test_invalid_search_arguments_are_corrected_within_the_retry_budget(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -351,7 +348,7 @@ class RecoveringInspectionDialogue:
 
 
 def test_oversized_inspection_requests_are_corrected_within_the_retry_budget(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -428,7 +425,7 @@ class FocusedInspectionDialogue:
 
 
 def test_focus_terms_move_the_excerpt_window_to_the_matching_region(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -468,7 +465,7 @@ class StringifiedSearchDialogue:
 
 
 def test_stringified_search_arguments_execute_without_retry_prompts(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -480,7 +477,7 @@ def test_stringified_search_arguments_execute_without_retry_prompts(
     result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
 
     assert _retry_parts(result.all_messages()) == []
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
@@ -508,7 +505,7 @@ class SwallowedSearchDialogue:
 
 
 def test_swallowed_search_arguments_execute_with_their_members_recovered(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -536,7 +533,7 @@ def test_swallowed_search_arguments_execute_with_their_members_recovered(
     assert search_return.content.query.date_interval == CorpusDateInterval(
         not_before=101, not_after=125
     )
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
@@ -562,7 +559,7 @@ class EnvelopeSearchDialogue:
 
 
 def test_enveloped_json_text_search_arguments_execute_without_retry_prompts(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -574,7 +571,7 @@ def test_enveloped_json_text_search_arguments_execute_without_retry_prompts(
     result = agent.run_sync("Find documentary evidence and explain its date.", deps=deps)
 
     assert _retry_parts(result.all_messages()) == []
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
@@ -610,7 +607,7 @@ class FabricatedCitationDialogue:
 
 
 def test_fabricated_citation_is_rejected_then_corrected_in_budget(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     dialogue = FabricatedCitationDialogue()
     agent = create_research_agent(
@@ -626,12 +623,12 @@ def test_fabricated_citation_is_rejected_then_corrected_in_budget(
     assert len(retries) == 1
     assert "never construct" in str(retries[0].content)
     assert dialogue.answers == 2
-    assert result.output == _FINAL_ANSWER
+    assert result.output.split("\n\nCoverage:")[0] == _FINAL_ANSWER
     assert deps.known_corpus_urls == {"https://papyri.info/ddbdp/p.mich;8;480"}
 
 
 def test_dialogue_labels_insufficient_evidence_and_background(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
@@ -756,7 +753,7 @@ class UnavailableDiscoveryDialogue:
 
 
 def test_unavailable_discovery_is_disclosed_without_a_false_absence(
-    tool_service: CorpusToolService,
+    tool_service: CorpusService,
 ) -> None:
     agent = create_research_agent(
         ProviderConfig(base_url="https://provider.example/v1", model="research-model"),

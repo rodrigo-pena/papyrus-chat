@@ -58,11 +58,6 @@ class CorpusInfo(BaseModel):
     created_at: str
     semantic_capability: CorpusSemanticCapability
 
-    @property
-    def semantic(self) -> CorpusSemanticCapability:
-        """Short alias for callers that refer to the capability as semantic."""
-        return self.semantic_capability
-
 
 class CorpusDocumentSummary(BaseModel):
     """Lean document identity returned by identifier lookup."""
@@ -127,6 +122,8 @@ class CorpusSearchSummary(BaseModel):
     candidate_count: int
     truncated: bool
     hits: tuple[CorpusHitSummary, ...]
+    offset: int | None = None
+    next_offset: int | None = None
     group_candidate_counts: tuple[int, ...] | None = None
 
 
@@ -191,11 +188,6 @@ class CorpusInspectionOutcome(BaseModel):
     missing: tuple[str, ...] = ()
 
 
-CorpusInfoResult = CorpusInfo
-CorpusLookupResult = CorpusIdentifierLookupResult
-CorpusSubjectSuggestionResult = CorpusSubjectSuggestionSummary
-
-
 __all__ = [
     "CorpusDateInterval",
     "CorpusDescription",
@@ -212,14 +204,11 @@ __all__ = [
     "CorpusInspectionResult",
     "CorpusInspectionSummary",
     "CorpusInfo",
-    "CorpusInfoResult",
     "CorpusIdentifierLookupResult",
-    "CorpusLookupResult",
     "CorpusQuery",
     "CorpusSearchResult",
     "CorpusSearchSummary",
     "CorpusSubjectSuggestionSummary",
-    "CorpusSubjectSuggestionResult",
     "CorpusSemanticCapability",
     "SubjectSuggestion",
 ]

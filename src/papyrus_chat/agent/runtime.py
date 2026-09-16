@@ -5,13 +5,23 @@ from collections.abc import Callable
 from typing import Any
 
 from pydantic_ai import Agent, ModelRetry, RunContext, WebSearchTool
-from pydantic_ai.capabilities import NativeTool
-from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
+from pydantic_ai.capabilities import AbstractCapability, NativeTool
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from papyrus_chat.agent.tools import CorpusToolDeps, CorpusToolService, register_corpus_tools
+from papyrus_chat.agent.context import ResearchPolicy, load_research_policy
+from papyrus_chat.agent.context.coverage import coverage_note
+from papyrus_chat.agent.context.policy import validate_pricing
+from papyrus_chat.agent.context.reasoning import active_deployment_profile
+from papyrus_chat.agent.context.responses import RecoverableResponsesModel as OpenAIResponsesModel
+from papyrus_chat.agent.context.runtime import BoundedResearch
+from papyrus_chat.agent.context.tracking import EvidenceTracking
+from papyrus_chat.agent.tools import CorpusToolDeps, register_corpus_tools
 from papyrus_chat.agent.web import search_web_background
+from papyrus_chat.chat.profiles import DeploymentProfile, load_deployment_profile
 from papyrus_chat.chat.provider import ProviderConfig
+from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import CorpusDocumentMatch
 
 RESEARCH_INSTRUCTIONS = """
@@ -30,7 +40,7 @@ for the displayed filters, not as an exhaustive scholarly classification. Cite
 each corpus document with the papyri.info URL exactly as a corpus tool returned
 it: never build a citation from a document title, identifier, or memory, and
 treat a document as citable only once search_documents, discover_documents, or
-inspect_documents has returned it in this conversation. Distinguish
+inspect_documents or read_document_passages has returned it in this conversation. Distinguish
 transcription evidence from model-generated synthesis. If any web search tool is
 available, use it whenever the user explicitly asks to search, browse, verify,
 or find better web evidence.
@@ -66,6 +76,31 @@ chunk_ids to open the matched locations; quote edition or translation text only
 from inspected excerpts. Discovery profile snippets are source-derived retrieval
 representations, not quotations, and never replace reading the actual edition or
 translation text.
+
+Research to resolve concrete gaps in the answer. For broad requests such as "all
+evidence you can find", investigate the distinct relevant aspects and inspect promising
+candidates. Follow next_offset when another page is likely to add relevant evidence;
+unread results in a ranking are not automatically unfinished work. Semantic rankings
+can include weakly related documents throughout the corpus. Answer once the inspected
+evidence supports a useful synthesis and further searches or pages add little relevant
+evidence. State remaining gaps and uncertainty rather than repeatedly expanding the search.
+If the user explicitly requests every result within defined filters, follow pagination
+to complete that inventory, or clearly report which part remains incomplete.
+
+Use read_document_passages and its next_cursor when resolving a question requires text
+beyond focused excerpts. An inspect_documents excerpt does not mean a whole document
+was read. Use get_research_progress to check completed searches and returned page ranges
+before repeating work. Completing a ranking does not prove exhaustive thematic discovery.
+Explain the actual method and interpretive uncertainty; the application appends measured
+coverage separately.
+
+Save the objective, established findings, completed searches, rejected directions,
+current conclusions, and concrete remaining questions with update_research_notes during
+long investigations. Compaction continues the same investigation: resume the saved next
+step, or answer if sufficient evidence is already available. Do not restart the search
+plan or reopen resolved questions merely because earlier messages were compacted.
+Use list_research_records and read_research_record to recall omitted original results,
+quotations, and scoped counts when needed. Summaries and notes are not quotation sources.
 """.strip()
 
 _PAPYRI_URL = re.compile(r"https://papyri\.info/[^\s)\]>]+")
@@ -160,14 +195,18 @@ def _series_suggestions(citation: str, known_corpus_urls: set[str], limit: int =
 
 def create_research_agent(
     config: ProviderConfig,
-    service: CorpusToolService,
+    service: CorpusService,
     *,
     model: Any | None = None,
+    policy: ResearchPolicy | None = None,
+    deployment_profile: DeploymentProfile | None = None,
     enable_native_web_search: bool = True,
     enable_web_search: bool = False,
 ) -> Agent[Any, str]:
     """Construct an agent using the existing provider environment contract."""
-    capabilities: list[NativeTool] = []
+    capabilities: list[AbstractCapability[CorpusToolDeps]] = [
+        EvidenceTracking(),
+    ]
     selected_model = model
     if selected_model is None:
         api_key = config.api_key.get_secret_value() if config.api_key is not None else None
@@ -179,17 +218,38 @@ def create_research_agent(
             if enable_web_search and enable_native_web_search:
                 capabilities.append(NativeTool(WebSearchTool()))
         else:
-            selected_model = OpenAIChatModel(config.model, provider=provider)
+            selected_model = OpenAIChatModel(
+                config.model,
+                provider=provider,
+                # Checkpoints and repair add instructions. Strict compatible endpoints
+                # (including Qwen deployments) require one leading system message.
+                profile=OpenAIModelProfile(openai_chat_supports_multiple_system_messages=False),
+            )
 
-    agent = Agent[CorpusToolDeps, str](
+    deployment_profile = active_deployment_profile(
+        selected_model, deployment_profile or load_deployment_profile(config)
+    )
+    policy = policy or load_research_policy(
+        selected_model.model_name, deployment_profile=deployment_profile
+    )
+    validate_pricing(policy, config.model)
+    capabilities.append(BoundedResearch(policy, deployment_profile))
+
+    from papyrus_chat.agent.context.runner import ContinuousResearchAgent
+
+    agent = ContinuousResearchAgent(
         selected_model,
+        policy=policy,
         deps_type=CorpusToolDeps,
         output_type=str,
         instructions=RESEARCH_INSTRUCTIONS,
         capabilities=capabilities or None,
-        retries=3,
+        retries={"tools": 3, "output": 1},
     )
     register_corpus_tools(agent)
+    from papyrus_chat.agent.context.memory import register_memory_tools
+
+    register_memory_tools(agent)
     if enable_web_search and not (
         enable_native_web_search and model_supports_native_web_search(config.model)
     ):
@@ -197,10 +257,17 @@ def create_research_agent(
 
     @agent.output_validator
     def validate_output(ctx: RunContext[CorpusToolDeps], output: str) -> str:
-        return validate_research_output(
-            output,
-            ctx.deps.known_corpus_urls,
-            citation_lookup=ctx.deps.service.document_for_citation,
-        )
+        try:
+            validated = validate_research_output(
+                output,
+                ctx.deps.known_corpus_urls,
+                citation_lookup=ctx.deps.service.document_for_citation,
+            )
+            note = coverage_note(ctx.deps.research_state.ledger)
+            return validated + ("\n\n" + note if note else "")
+        except ModelRetry:
+            ctx.deps.research_state.phase = "repair"
+            ctx.deps.research_state.citation_repairs += 1
+            raise
 
     return agent

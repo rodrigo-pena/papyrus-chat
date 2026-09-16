@@ -5,44 +5,35 @@ from dataclasses import dataclass, field
 from typing import Annotated, Any
 
 from pydantic import Field
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, ModelRetry, RunContext
 
+from papyrus_chat.agent.context.state import ResearchRunState
 from papyrus_chat.corpus import (
     CorpusDescription,
     CorpusFacetResult,
-    CorpusInspectionResult,
     CorpusQuery,
     CorpusService,
     CorpusSubjectSuggestionSummary,
 )
 from papyrus_chat.corpus.models import (
-    CorpusExcerpt,
-    CorpusHgvContext,
-    CorpusHitSummary,
     CorpusInspectionOutcome,
-    CorpusInspectionSummary,
     CorpusSearchSummary,
 )
+from papyrus_chat.corpus.passages import DocumentPassagePage
 from papyrus_chat.corpus.projections import (
     INSPECT_EXCERPT_CHARS,
-    _excerpt,
-    _hgv_context,
-    _hit_summary,
-    _inspection_outcome,
-    _inspection_summaries,
-    _search_summary,
+    inspection_outcome,
+    search_summary,
 )
 from papyrus_chat.retrieval.discovery.models import DiscoveryQuery, DiscoveryResult
 from papyrus_chat.retrieval.structured import FacetField
 
 
-@dataclass(frozen=True)
+@dataclass
 class CorpusToolDeps:
     service: CorpusService
     known_corpus_urls: set[str] = field(default_factory=set)
-
-
-CorpusToolService = CorpusService
+    research_state: ResearchRunState = field(default_factory=ResearchRunState)
 
 
 def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
@@ -54,7 +45,7 @@ def search_documents(ctx: RunContext[CorpusToolDeps], query: CorpusQuery) -> Cor
     """Search distinct corpus documents for lean hits with located snippets and citation URLs."""
     result = ctx.deps.service.search_documents(query)
     _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
-    return _search_summary(result)
+    return search_summary(result)
 
 
 def discover_documents(
@@ -64,6 +55,23 @@ def discover_documents(
     """Discover semantically related documents with ranked candidates for inspection."""
     result = ctx.deps.service.discover_documents(query)
     _remember_corpus_urls(ctx.deps, (hit.canonical_url for hit in result.hits))
+    return result
+
+
+def read_document_passages(
+    ctx: RunContext[CorpusToolDeps],
+    document_id: Annotated[str, Field(min_length=1, max_length=500)],
+    cursor: Annotated[str | None, Field(max_length=4096)] = None,
+) -> DocumentPassagePage:
+    """Read up to five exact source windows. Follow next_cursor to read all text.
+
+    Line references describe the parent passage, not a newly inferred window range.
+    """
+    try:
+        result = ctx.deps.service.read_document_passages(document_id, cursor=cursor)
+    except ValueError as error:
+        raise ModelRetry(str(error)) from error
+    _remember_corpus_urls(ctx.deps, [result.canonical_url])
     return result
 
 
@@ -119,7 +127,7 @@ def inspect_documents(
         chunk_ids=chunk_ids,
     )
     _remember_corpus_urls(ctx.deps, (inspection.canonical_url for inspection in result.inspections))
-    return _inspection_outcome(
+    return inspection_outcome(
         result.inspections,
         document_ids,
         focus_terms=focus_terms,
@@ -152,7 +160,7 @@ def suggest_subject_values(
     limit: Annotated[int, Field(ge=1, le=30)] = 20,
 ) -> CorpusSubjectSuggestionSummary:
     """Suggest exact HGV subject labels for a concept within a declared scope."""
-    return ctx.deps.service.suggest_subject_values(concept, scope=scope, limit=limit)
+    return ctx.deps.service.suggest_subjects(concept, scope=scope, limit=limit)
 
 
 def _remember_corpus_urls(deps: CorpusToolDeps, urls: Iterable[str | None]) -> None:
@@ -164,30 +172,14 @@ def register_corpus_tools(agent: Agent[Any, Any]) -> None:
     agent.tool(describe_corpus)
     agent.tool(search_documents)
     agent.tool(inspect_documents)
+    agent.tool(read_document_passages)
     agent.tool(discover_documents)
     agent.tool(facet_documents)
     agent.tool(suggest_subject_values)
 
 
 __all__ = [
-    "CorpusExcerpt",
-    "CorpusHgvContext",
-    "CorpusHitSummary",
-    "CorpusInspectionOutcome",
-    "CorpusInspectionResult",
-    "CorpusInspectionSummary",
-    "CorpusSearchSummary",
-    "CorpusSubjectSuggestionSummary",
     "CorpusToolDeps",
-    "CorpusToolService",
-    "DiscoveryQuery",
-    "DiscoveryResult",
-    "_excerpt",
-    "_hgv_context",
-    "_hit_summary",
-    "_inspection_outcome",
-    "_inspection_summaries",
-    "_search_summary",
     "describe_corpus",
     "discover_documents",
     "facet_documents",

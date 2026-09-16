@@ -14,7 +14,7 @@ from papyrus_chat.retrieval.discovery.models import (
     DiscoveryQuery,
     DiscoveryResult,
 )
-from papyrus_chat.retrieval.discovery.ranking import CHANNEL_CANDIDATES, fuse_rankings
+from papyrus_chat.retrieval.discovery.ranking import fuse_rankings
 from papyrus_chat.retrieval.scope import document_scope_where
 from papyrus_chat.retrieval.search import build_fts_query
 from papyrus_chat.retrieval.semantic import QueryEncoder
@@ -76,7 +76,13 @@ class SemanticDocumentSearch:
             )
         }
         if not documents:
-            return DiscoveryResult(query=query, scope_document_count=0, indexed_document_count=0)
+            return DiscoveryResult(
+                query=query,
+                scope_document_count=0,
+                indexed_document_count=0,
+                offset=query.offset,
+                ranked_candidate_count=0,
+            )
         identities = {key: (row["collection"], key) for key, row in documents.items()}
         eligible_passage_sql = " AND " + " AND ".join(passage_clauses) if passage_clauses else ""
         chunk_rows = (
@@ -107,6 +113,8 @@ class SemanticDocumentSearch:
                 query=query,
                 scope_document_count=len(documents),
                 indexed_document_count=0,
+                offset=query.offset,
+                ranked_candidate_count=0,
             )
         query_vector = normalize_embedding(
             self._encoder.encode([query.text], kind="query")[0],
@@ -164,11 +172,11 @@ class SemanticDocumentSearch:
                     scores[doc] if channel == "lexical" else -scores[doc],
                     identities[doc],
                 ),
-            )[:CHANNEL_CANDIDATES]
+            )
             for channel, scores in channel_scores.items()
         }
         fused = fuse_rankings(rankings, identities)
-        selected = fused[: query.limit]
+        selected = fused[query.offset : query.offset + query.limit]
         chunk_ids = [chunk_id for doc, _, _ in selected for _, chunk_id in best_chunks.get(doc, [])]
         chunks = self._chunks_by_id(chunk_ids)
         profiles = (
@@ -202,7 +210,10 @@ class SemanticDocumentSearch:
             scope_document_count=len(documents),
             indexed_document_count=len(indexed_ids),
             hits=tuple(hits),
-            ranked_candidates_truncated=len(fused) > query.limit,
+            offset=query.offset,
+            ranked_candidate_count=len(fused),
+            next_offset=query.offset + len(hits) if query.offset + len(hits) < len(fused) else None,
+            ranked_candidates_truncated=query.offset + len(hits) < len(fused),
             channels_used=tuple(channel_scores),
         )
 

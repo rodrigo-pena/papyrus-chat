@@ -1123,6 +1123,7 @@ name = "papyrus-chat"
 version = "0.3.0"
 source = { editable = "." }
 dependencies = [
+    { name = "genai-prices" },
     { name = "lxml" },
     { name = "platformdirs" },
     { name = "pydantic" },
@@ -1157,6 +1158,7 @@ dev = [
 requires-dist = [
     { name = "ddgs", marker = "extra == 'web'", specifier = ">=9.0" },
     { name = "fastembed", marker = "extra == 'semantic'", specifier = ">=0.4" },
+    { name = "genai-prices", specifier = ">=0.1.5,<0.2" },
     { name = "lxml", specifier = ">=5.2" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2,<3" },
     { name = "numpy", marker = "extra == 'semantic'", specifier = ">=1.26" },

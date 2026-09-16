@@ -26,6 +26,8 @@ def search_summary(result: CorpusSearchResult) -> CorpusSearchSummary:
         assumptions=result.assumptions,
         candidate_count=result.candidate_count,
         truncated=result.truncated,
+        offset=result.offset,
+        next_offset=result.next_offset,
         hits=tuple(hit_summary(hit) for hit in result.hits),
         group_candidate_counts=result.group_candidate_counts,
     )
@@ -147,15 +149,6 @@ def excerpt(
         excerpt=excerpt_text,
         passage_id=passage.passage_id,
     )
-
-
-# Private compatibility names used by existing agent tests and integrations.
-_search_summary = search_summary
-_hit_summary = hit_summary
-_inspection_summaries = inspection_summaries
-_inspection_outcome = inspection_outcome
-_hgv_context = hgv_context
-_excerpt = excerpt
 
 
 __all__ = [
