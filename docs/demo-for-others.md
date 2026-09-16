@@ -34,21 +34,14 @@ uv run papyrus-chat --artifact ./data/papyrus-corpus \
 Keeping the bind address at `127.0.0.1` means the application is not directly
 listening on the local network. Leave this terminal running.
 
-Chat research has no request limit by default and continues until the model
-answers or you cancel. The same configured model performs summaries, so they
-add latency and usage. If you set `PAPYRUS_RESEARCH_REQUEST_LIMIT`, the agent
-reserves an answer attempt and, when the limit permits, one repair using the evidence
-already retrieved, and discloses remaining gaps. Summaries and recovery attempts
-count toward that limit. Each follow-up starts fresh limits; browser-held history
-may need summarizing again. Separate chat requests do not share citation eligibility
-or limits.
+Long research questions can take a while, and each question starts fresh with no
+request limit by default. Set `PAPYRUS_RESEARCH_REQUEST_LIMIT` if you want a cap;
+see [context management and research limits](../README.md#context-management-and-research-limits)
+for the other settings mentioned below.
 
-Check the startup log's context capacity before sharing a local or proxied
-model. Set `LLM_CONTEXT_WINDOW` to your server's actual capacity if automatic
-metadata or the 32,768-token fallback is incorrect. See
-[context management and research limits](../README.md#context-management-and-research-limits)
-for settings, overhead, and troubleshooting. Compaction cannot recover an
-unavailable model endpoint.
+Before sharing, set `LLM_CONTEXT_WINDOW` to your model server's actual context
+size if it is not detected automatically. If the model endpoint goes down
+mid-session, the conversation cannot continue and must be restarted.
 
 ## 2. Configure the ngrok Traffic Policy
 
@@ -72,10 +65,8 @@ on_http_request:
                     host: "127.0.0.1"
 ```
 
-The Basic Auth action protects the public endpoint. The header rewrite avoids
-Pydantic AI's hostname validation error for the generated ngrok hostname. In
-this repository, the locked `pydantic-ai-slim` version enables that validation,
-while the application does not currently configure `allowed_hosts`.
+The Basic Auth action protects the public endpoint. The header rewrite is
+required: without it, the application rejects the ngrok hostname.
 
 ## 3. Start the tunnel
 
@@ -143,8 +134,7 @@ your computer loses internet access, or your computer is shut down.
 
 If the collaborator receives `421 Misdirected Request`, check that ngrok was
 started with this policy file and that both the Basic Auth and `add-headers`
-actions are present. A normal tunnel hostname is rejected by the application's
-current Host validation unless it is rewritten to `127.0.0.1`.
+actions are present; the application rejects the plain ngrok hostname.
 
 See ngrok's [localhost sharing quickstart](https://ngrok.com/docs/share-localhost/quickstart)
 for current installation, authentication, and Traffic Policy details.
