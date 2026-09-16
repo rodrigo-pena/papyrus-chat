@@ -130,11 +130,11 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                 state.summary_disabled = True
                 try:
                     compacted = bounded_history(
-                        messages, state, params, effective.target_tokens, keep_recent=False
+                        messages, state, params, effective.target_tokens
                     )
                 except ContextBudgetExceeded:
                     compacted = bounded_history(
-                        messages, state, params, effective.input_limit, keep_recent=False
+                        messages, state, params, effective.input_limit
                     )
             messages = compacted
             after = RequestAccounting().estimate(messages, params)

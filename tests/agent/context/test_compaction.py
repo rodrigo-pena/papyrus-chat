@@ -1,5 +1,6 @@
 import asyncio
 
+import pytest
 from pydantic_ai import RunContext
 from pydantic_ai.messages import (
     ModelRequest,
@@ -14,7 +15,82 @@ from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.usage import RunUsage
 
 from papyrus_chat.agent.context import ResearchPolicy, ResearchRunState
-from papyrus_chat.agent.context.compaction import compact_history, complete_blocks
+from papyrus_chat.agent.context.accounting import RequestAccounting
+from papyrus_chat.agent.context.compaction import bounded_history, compact_history, complete_blocks
+from papyrus_chat.agent.context.evidence import EvidenceRecord
+
+
+def test_summary_fits_serialized_payload_and_preserves_latest_research_decision():
+    policy = ResearchPolicy()
+    decision = "Searches are sufficient; synthesize the authorship evidence already inspected."
+    seen = []
+
+    def summarizer(messages, info):
+        seen.append(messages)
+        assert decision in str(messages)
+        assert (
+            RequestAccounting().estimate(messages, info.model_request_parameters)
+            <= policy.summary_input_limit
+        )
+        return ModelResponse([TextPart(decision)])
+
+    model = FunctionModel(summarizer)
+    question = ModelRequest(parts=[UserPromptPart("Find handwriting evidence.")])
+    state = ResearchRunState(question=question)
+    # Real tool records are JSON nested inside a serialized user message. Quotes
+    # and backslashes increase that final payload beyond the inner history size.
+    state.ledger.records = [
+        EvidenceRecord("describe_corpus", str(i), {}, {"text": '"a" \\ x ' * 150})
+        for i in range(20)
+    ]
+    request = ModelRequestContext(
+        model=model,
+        messages=[question, ModelResponse([TextPart(decision)]), ModelRequest(parts=[])],
+        model_settings=None,
+        model_request_parameters=ModelRequestParameters(),
+    )
+    context = RunContext(deps=None, model=model, usage=RunUsage())
+    compacted = asyncio.run(compact_history(context, request, state, policy))
+    assert seen, "A full ledger must not silently disable summarization."
+    assert compacted is not None
+    assert state.summary == decision
+    assert state.summary_requests == 1
+
+
+@pytest.mark.parametrize("summary_fails", [False, True])
+def test_recent_complete_exchange_has_priority_over_old_records(summary_fails):
+    question = ModelRequest(parts=[UserPromptPart("Find handwriting evidence.")])
+    state = ResearchRunState(question=question)
+    state.ledger.records = [
+        EvidenceRecord("describe_corpus", str(i), {}, {"text": "older material " * 100})
+        for i in range(20)
+    ]
+    decision = "Conclude using inspected authorship evidence. " * 30
+    latest = [
+        ModelResponse([TextPart(decision), ToolCallPart("describe_corpus", {}, "latest")]),
+        ModelRequest([ToolReturnPart("describe_corpus", {"collections": []}, "latest")]),
+    ]
+
+    def summarizer(messages, info):
+        if summary_fails:
+            raise RuntimeError("Summary unavailable")
+        return ModelResponse([TextPart("The investigation is ready for synthesis.")])
+
+    model = FunctionModel(summarizer)
+    request = ModelRequestContext(
+        model=model,
+        messages=[question, *latest],
+        model_settings=None,
+        model_request_parameters=ModelRequestParameters(),
+    )
+    context = RunContext(deps=None, model=model, usage=RunUsage())
+    policy = ResearchPolicy(context_window=8192)
+    compacted = asyncio.run(compact_history(context, request, state, policy))
+    if compacted is None:
+        compacted = bounded_history(request.messages, state, ModelRequestParameters(), 3000)
+    assert latest[0] in compacted
+    assert latest[1] in compacted
+    assert RequestAccounting().estimate(compacted, ModelRequestParameters()) <= 3686
 
 
 def test_parallel_tool_pairs_are_indivisible():

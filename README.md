@@ -222,6 +222,13 @@ results still to retrieve. Overlapping searches and repeated reads count once.
 Reading an excerpt does not count as reading a whole document, and completing a
 result list does not guarantee that every relevant passage was found.
 
+Broad requests such as "all evidence you can find" guide the agent to investigate
+relevant aspects, inspect promising candidates, and synthesize when further searches
+add little useful evidence. Unread search results describe retrieval coverage; they
+do not require exhausting every semantic ranking, which can include weakly related
+documents throughout the corpus. Explicit requests to enumerate every result within
+defined filters still require paging through that inventory or reporting what remains.
+
 ### Context management and research limits
 
 Research continues until the model answers or you cancel. By default, there is
@@ -230,6 +237,9 @@ no limit on the number of model requests or summaries.
 When the conversation approaches 65% of the model's context window, the agent
 summarizes earlier work, aiming to reduce it to 45%. The question and original
 evidence remain available, including exact quotations, counts, and citations.
+The checkpoint preserves research progress and recent decisions so the agent can
+continue unresolved work or answer from existing findings. Saved notes distinguish
+completed searches and rejected directions from questions that still need evidence.
 Summaries use the same model and add time and usage costs. If summarization
 fails, the agent continues with a shorter selection of saved material.
 Follow-up questions use the browser's chat history and may need another summary.

@@ -77,7 +77,7 @@ async def recover_generation(
             ),
         ),
     )
-    messages = bounded_history(request.messages, state, parameters, budget, keep_recent=False)
+    messages = bounded_history(request.messages, state, parameters, budget)
     state.recovery_requests += 1
     state.research_requests += 1
     ctx.usage.requests += 1

@@ -77,17 +77,30 @@ from inspected excerpts. Discovery profile snippets are source-derived retrieval
 representations, not quotations, and never replace reading the actual edition or
 translation text.
 
-Continue researching until you have enough evidence to answer the user's question.
-For broad requests, follow next_offset through search_documents and discover_documents
-rankings. Use read_document_passages and its next_cursor for sequential reading beyond
-focused excerpts. An inspect_documents excerpt does not mean a whole document was read.
-Use get_research_progress to check returned page ranges and remaining candidates;
-avoid repeating searches that produce no new evidence. Completing a ranking does not
-prove exhaustive thematic discovery. Explain the actual method and interpretive uncertainty.
-Save objectives, interpretations, and remaining work with update_research_notes.
-After compaction, use list_research_records and read_research_record to recall exact
-original results, quotations, and scoped counts. Summaries and notes are not sources.
-Answer naturally when ready; the application appends measured coverage separately.
+Research to resolve concrete gaps in the answer. For broad requests such as "all
+evidence you can find", investigate the distinct relevant aspects and inspect promising
+candidates. Follow next_offset when another page is likely to add relevant evidence;
+unread results in a ranking are not automatically unfinished work. Semantic rankings
+can include weakly related documents throughout the corpus. Answer once the inspected
+evidence supports a useful synthesis and further searches or pages add little relevant
+evidence. State remaining gaps and uncertainty rather than repeatedly expanding the search.
+If the user explicitly requests every result within defined filters, follow pagination
+to complete that inventory, or clearly report which part remains incomplete.
+
+Use read_document_passages and its next_cursor when resolving a question requires text
+beyond focused excerpts. An inspect_documents excerpt does not mean a whole document
+was read. Use get_research_progress to check completed searches and returned page ranges
+before repeating work. Completing a ranking does not prove exhaustive thematic discovery.
+Explain the actual method and interpretive uncertainty; the application appends measured
+coverage separately.
+
+Save the objective, established findings, completed searches, rejected directions,
+current conclusions, and concrete remaining questions with update_research_notes during
+long investigations. Compaction continues the same investigation: resume the saved next
+step, or answer if sufficient evidence is already available. Do not restart the search
+plan or reopen resolved questions merely because earlier messages were compacted.
+Use list_research_records and read_research_record to recall omitted original results,
+quotations, and scoped counts when needed. Summaries and notes are not quotation sources.
 """.strip()
 
 _PAPYRI_URL = re.compile(r"https://papyri\.info/[^\s)\]>]+")
