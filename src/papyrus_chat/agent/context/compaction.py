@@ -151,6 +151,8 @@ def bounded_history(
     # Preserve the current decision and its tool results before filling remaining
     # space with old evidence. A fixed percentage can evict the latest exchange
     # even though it would fit, leaving only raw records and no working context.
+    # Recency priority: stop at the first exchange that does not fit instead of
+    # substituting older ones; the exact records below still carry its evidence.
     tail: list[ModelMessage] = []
     if keep_recent:
         for block in reversed(complete_blocks(messages)):
@@ -163,7 +165,7 @@ def bounded_history(
             if len(tail) + len(block) > 4:
                 break
             if accounting.estimate(result + block + tail, parameters) + 64 > budget:
-                continue
+                break
             tail = block + tail
     retained: list[str] = []
     omitted = 0

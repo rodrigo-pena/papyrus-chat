@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 from pydantic_ai import RunContext
@@ -91,6 +92,51 @@ def test_recent_complete_exchange_has_priority_over_old_records(summary_fails):
     assert latest[0] in compacted
     assert latest[1] in compacted
     assert RequestAccounting().estimate(compacted, ModelRequestParameters()) <= 3686
+
+
+def test_oversized_newest_exchange_is_not_replaced_by_older_ones():
+    question = ModelRequest(parts=[UserPromptPart("Find handwriting evidence.")])
+    state = ResearchRunState(question=question)
+    older = [
+        ModelResponse(
+            [TextPart("small old decision"), ToolCallPart("inspect_documents", {}, "old")]
+        ),
+        ModelRequest([ToolReturnPart("inspect_documents", {"text": "old small text"}, "old")]),
+    ]
+    oversized = [
+        ModelResponse(
+            [TextPart("latest decision " * 1200), ToolCallPart("inspect_documents", {}, "new")]
+        ),
+        ModelRequest([ToolReturnPart("inspect_documents", {"text": "huge return " * 1200}, "new")]),
+    ]
+    messages = [question, *older, *oversized]
+    parameters = ModelRequestParameters()
+    accounting = RequestAccounting()
+    base = accounting.estimate([question], parameters)
+    notice_only = accounting.estimate(
+        [question, ModelRequest(parts=[UserPromptPart(bounded_notice(state, parameters))])],
+        parameters,
+    )
+    # A budget that fits only base + notice: the newest exchange cannot fit, the
+    # older one would. Recency priority must not substitute the older exchange.
+    budget = notice_only + 100
+    assert budget > base
+    compacted = bounded_history(messages, state, parameters, budget)
+    assert all(message not in compacted for message in older)
+    assert all(message not in compacted for message in oversized)
+    assert accounting.estimate(compacted, parameters) <= budget
+
+
+def bounded_notice(state, parameters):
+    from papyrus_chat.agent.context.compaction import CHECKPOINT_NOTICE
+    from papyrus_chat.agent.context.progress import progress_overview, research_progress
+
+    return (
+        CHECKPOINT_NOTICE
+        + "\nRecorded progress: "
+        + json.dumps(progress_overview(research_progress(state.ledger.records)))
+        + "\n"
+    )
 
 
 def test_parallel_tool_pairs_are_indivisible():
