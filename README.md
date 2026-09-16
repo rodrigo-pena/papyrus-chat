@@ -224,9 +224,7 @@ result list does not guarantee that every relevant passage was found.
 
 Broad requests such as "all evidence you can find" guide the agent to investigate
 relevant aspects, inspect promising candidates, and synthesize when further searches
-add little useful evidence. Unread search results describe retrieval coverage; they
-do not require exhausting every semantic ranking, which can include weakly related
-documents throughout the corpus. Explicit requests to enumerate every result within
+add little useful evidence. Explicit requests to enumerate every result within
 defined filters still require paging through that inventory or reporting what remains.
 
 ### Context management and research limits
@@ -285,11 +283,7 @@ earlier summarization.
 
 A configured request limit tells the agent how much research remains and reserves
 an answer attempt plus one repair within that limit, with any remaining evidence
-gaps disclosed. Limits of one or two requests reserve only the answer attempt.
-Summaries and recovery attempts count toward the same limit. Time and cost limits
-still stop the run with an error. Cost limits require available model pricing;
-estimates may differ from your provider's charges, and the response that crosses
-the limit can still be billed. Each follow-up question starts fresh limits.
+gaps disclosed. Time and cost limits stop the run with an error. Cost limits require available model pricing: estimates may differ from your provider's charges, and the response that crosses the limit can still be billed. Each follow-up question starts fresh limits.
 
 ### Reading search results
 
