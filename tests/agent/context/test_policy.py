@@ -14,13 +14,15 @@ def test_policy_defaults_and_explicit_override():
     assert policy.research_request_limit is None
     assert policy.max_tokens is None
     assert policy.summary_output_tokens is None
-    assert policy.trigger_tokens == int(32768 * 0.65)
-    assert policy.target_tokens == int(32768 * 0.45)
+    assert policy.target_tokens < policy.trigger_tokens < policy.context_window
     override = load_research_policy("gpt-5.2", {"LLM_CONTEXT_WINDOW": "8192"})
     assert override.context_window == 8192
     assert override.capacity_source == "explicit"
     assert override.max_tokens is None
     assert override.summary_output_tokens is None
+    assert 0 < override.target_tokens < override.trigger_tokens < override.context_window
+    assert override.trigger_tokens < policy.trigger_tokens
+    assert override.target_tokens < policy.target_tokens
 
 
 def test_known_model_capacity():

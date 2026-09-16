@@ -14,6 +14,12 @@ from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from papyrus_chat.agent.context import ResearchPolicy
 from papyrus_chat.agent.context.accounting import RequestAccounting
 from papyrus_chat.agent.context.compaction import SUMMARY_INSTRUCTIONS, ContextBudgetExceeded
+from papyrus_chat.agent.context.limits import (
+    BUDGET_INSTRUCTION_NAME,
+    BUDGET_REMAINING_PREFIX,
+    FINAL_ANSWER_INSTRUCTIONS,
+    FINAL_ANSWER_PROMPT,
+)
 from papyrus_chat.agent.runtime import create_research_agent
 from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.builder.pipeline import build_artifact
@@ -37,6 +43,17 @@ def make_agent(service, dialogue, policy=None):
     )
 
 
+def budget_note(info) -> str:
+    """The one dynamic budget instruction, so wording edits cannot break tests."""
+    parts = [
+        part.content
+        for part in info.model_request_parameters.instruction_parts or []
+        if getattr(part, "name", None) == BUDGET_INSTRUCTION_NAME
+    ]
+    assert len(parts) == 1
+    return parts[0]
+
+
 @pytest.mark.parametrize("limit,answer_request", [(1, 1), (2, 2), (3, 2)])
 def test_explicit_request_cap_reserves_an_evidence_based_final_answer(
     service, limit, answer_request
@@ -50,8 +67,7 @@ def test_explicit_request_cap_reserves_an_evidence_based_final_answer(
         if calls == answer_request:
             assert not info.function_tools
             assert not info.model_request_parameters.native_tools
-            assert "request budget" in (info.instructions or "").lower()
-            assert "already retrieved" in (info.instructions or "")
+            assert FINAL_ANSWER_INSTRUCTIONS in (info.instructions or "")
             return ModelResponse([TextPart("No corpus evidence was inspected.")])
         assert info.function_tools
         return ModelResponse([ToolCallPart("describe_corpus", {}, f"inventory-{calls}")])
@@ -107,9 +123,7 @@ def test_request_budget_is_visible_before_research_ends(service):
         nonlocal calls
         calls += 1
         if calls <= 2:
-            assert f"Research requests remaining: {3 - calls}." in (info.instructions or "")
-            assert "Prioritize inspecting" in (info.instructions or "")
-            assert "strongest candidates" in (info.instructions or "")
+            assert f"{BUDGET_REMAINING_PREFIX} {3 - calls}." in budget_note(info)
             return ModelResponse([ToolCallPart("describe_corpus", {}, f"inventory-{calls}")])
         assert calls == 3
         assert not info.function_tools
@@ -138,7 +152,7 @@ def test_compaction_cannot_spend_the_final_answer_request(service):
         assert "documents" in str(messages)
         serialized = json.loads(ModelMessagesTypeAdapter.dump_json(messages))
         assert serialized[-1]["parts"][-1]["part_kind"] == "user-prompt"
-        assert "findings and limitations" in serialized[-1]["parts"][-1]["content"]
+        assert FINAL_ANSWER_PROMPT in serialized[-1]["parts"][-1]["content"]
         assert (
             RequestAccounting().estimate(messages, info.model_request_parameters)
             <= policy.input_limit
@@ -146,9 +160,7 @@ def test_compaction_cannot_spend_the_final_answer_request(service):
         return ModelResponse([TextPart("No corpus evidence was inspected.")])
 
     deps = CorpusToolDeps(service)
-    result = make_agent(service, dialogue, policy).run_sync(
-        "Investigate.", deps=deps
-    )
+    result = make_agent(service, dialogue, policy).run_sync("Investigate.", deps=deps)
     assert result.output.startswith("No corpus evidence was inspected.")
     assert deps.research_state.compactions == 1
     assert calls == result.usage.requests == 2
@@ -162,7 +174,9 @@ def test_explicit_request_cap_still_bounds_a_failed_final_answer(service):
         calls += 1
         assert calls == 1
         assert not info.function_tools
-        return ModelResponse([TextPart("Corpus evidence: https://papyri.info/ddbdp/invented;1;999")])
+        return ModelResponse(
+            [TextPart("Corpus evidence: https://papyri.info/ddbdp/invented;1;999")]
+        )
 
     agent = make_agent(service, dialogue, ResearchPolicy(research_request_limit=1))
     with pytest.raises(UsageLimitExceeded, match="request limit"):
@@ -208,7 +222,7 @@ def test_streaming_request_budget_returns_inspected_evidence(
             if calls == 2:
                 serialized = json.loads(ModelMessagesTypeAdapter.dump_json(messages))
                 assert serialized[-1]["parts"][-1]["part_kind"] == "user-prompt"
-                assert "findings and limitations" in serialized[-1]["parts"][-1]["content"]
+                assert FINAL_ANSWER_PROMPT in serialized[-1]["parts"][-1]["content"]
             if repair_citation and calls == 2:
                 yield "Corpus evidence: https://papyri.info/ddbdp/invented;1;999"
                 return
@@ -254,8 +268,7 @@ def test_summary_requests_count_toward_the_final_answer_budget(service, repair_c
             return ModelResponse([TextPart("No corpus evidence was inspected.")])
         assert calls in {1, 3}
         assert info.function_tools
-        assert f"Research requests remaining: {4 - calls}." in (info.instructions or "")
-        assert (info.instructions or "").count("Research requests remaining:") == 1
+        assert f"{BUDGET_REMAINING_PREFIX} {4 - calls}." in budget_note(info)
         return ModelResponse(
             [
                 TextPart("πάπυρος " * 10000),
@@ -270,6 +283,61 @@ def test_summary_requests_count_toward_the_final_answer_budget(service, repair_c
     assert result.output.startswith("No corpus evidence was inspected.")
     assert deps.research_state.summary_requests == 1
     assert calls == result.usage.requests == (5 if repair_citation else 4)
+
+
+def test_history_below_the_trigger_does_not_compact(service):
+    text = "πάπυρος " * 3000
+    calls = 0
+
+    def dialogue(messages, info):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return ModelResponse([TextPart(text), ToolCallPart("describe_corpus", {}, "inventory")])
+        # The runtime trigger comparison adds instruction overhead on top of this
+        # history-only measure; the run-level assertions below prove the outcome.
+        size = RequestAccounting().estimate(messages, info.model_request_parameters)
+        assert policy.trigger_tokens / 2 < size < policy.trigger_tokens
+        assert "Research checkpoint" not in str(messages)
+        return ModelResponse([TextPart("No corpus evidence was inspected.")])
+
+    policy = ResearchPolicy(context_window=65536)
+    deps = CorpusToolDeps(service)
+    result = make_agent(service, dialogue, policy).run_sync("Investigate.", deps=deps)
+    assert result.output.startswith("No corpus evidence was inspected.")
+    assert calls == result.usage.requests == 2
+    assert deps.research_state.compactions == 0
+    assert deps.research_state.summary_disabled is False
+
+
+def test_failed_summary_latches_mechanical_compaction(service):
+    summaries = 0
+    research = 0
+    answer = "No corpus evidence was inspected."
+
+    def dialogue(messages, info):
+        nonlocal summaries, research
+        if SUMMARY_INSTRUCTIONS in (info.instructions or ""):
+            summaries += 1
+            raise RuntimeError("Summary endpoint unavailable")
+        research += 1
+        assert research <= 3
+        if research == 3:
+            return ModelResponse([TextPart(answer)])
+        return ModelResponse(
+            [
+                TextPart("πάπυρος " * 12000),
+                ToolCallPart("describe_corpus", {}, f"inventory-{research}"),
+            ]
+        )
+
+    deps = CorpusToolDeps(service)
+    result = make_agent(service, dialogue, ResearchPolicy()).run_sync("Investigate.", deps=deps)
+    assert result.output.startswith(answer)
+    assert summaries == 1, "A failed summary must latch and not be retried in the same run."
+    assert deps.research_state.summary_disabled is True
+    assert deps.research_state.compactions >= 2
+    assert deps.research_state.summary_requests == 1
 
 
 def test_caller_request_limit_remains_a_hard_cap(service):

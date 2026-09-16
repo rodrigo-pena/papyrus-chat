@@ -11,13 +11,14 @@ from pydantic_ai.models import ModelRequestParameters
 from .policy import ResearchPolicy
 from .state import ResearchRunState
 
+BUDGET_INSTRUCTION_NAME = "research_request_budget"
+BUDGET_REMAINING_PREFIX = "Research requests remaining:"
 FINAL_ANSWER_INSTRUCTIONS = """The configured request budget has reached the answer stage.
 Stop research and answer the user's question now using only original evidence already retrieved.
 Do not call tools or propose more searches. Summarize supported findings with their known citations,
 state unresolved questions and incomplete coverage, and do not claim exhaustive discovery.
 If no relevant evidence was retrieved, say so explicitly rather than inventing an answer.
 Explain briefly that the configured request budget ended the research."""
-_BUDGET_INSTRUCTION_NAME = "research_request_budget"
 FINAL_ANSWER_PROMPT = (
     "Research is finished for this request. Return the actual answer now: findings and limitations "
     "supported by evidence already retrieved, with known citations. If evidence is insufficient, "
@@ -52,7 +53,7 @@ def request_budget_parameters(
     reserve = answer_request_reserve(policy)
     remaining = policy.research_request_limit - state.research_requests - reserve
     note = (
-        f"Research requests remaining: {remaining}. This includes the current request; "
+        f"{BUDGET_REMAINING_PREFIX} {remaining}. This includes the current request; "
         f"{reserve} further requests are reserved for answering and any needed correction. "
         "Summary and recovery requests also consume this budget. "
         "Prioritize inspecting the strongest candidates with inspect_documents or "
@@ -66,9 +67,9 @@ def request_budget_parameters(
             *[
                 part
                 for part in parameters.instruction_parts or []
-                if part.name != _BUDGET_INSTRUCTION_NAME
+                if part.name != BUDGET_INSTRUCTION_NAME
             ],
-            InstructionPart(note, dynamic=True, name=_BUDGET_INSTRUCTION_NAME),
+            InstructionPart(note, dynamic=True, name=BUDGET_INSTRUCTION_NAME),
         ],
     )
 
@@ -112,7 +113,7 @@ def final_answer_parameters(parameters: ModelRequestParameters) -> ModelRequestP
             *[
                 part
                 for part in parameters.instruction_parts or []
-                if part.name != _BUDGET_INSTRUCTION_NAME
+                if part.name != BUDGET_INSTRUCTION_NAME
             ],
             InstructionPart(FINAL_ANSWER_INSTRUCTIONS),
         ],

@@ -91,7 +91,7 @@ def test_recent_complete_exchange_has_priority_over_old_records(summary_fails):
         compacted = bounded_history(request.messages, state, ModelRequestParameters(), 3000)
     assert latest[0] in compacted
     assert latest[1] in compacted
-    assert RequestAccounting().estimate(compacted, ModelRequestParameters()) <= 3686
+    assert RequestAccounting().estimate(compacted, ModelRequestParameters()) <= policy.target_tokens
 
 
 def test_oversized_newest_exchange_is_not_replaced_by_older_ones():

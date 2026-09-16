@@ -14,6 +14,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import RunUsage
 
 from papyrus_chat.agent.context import ResearchPolicy
+from papyrus_chat.agent.context.limits import FINAL_ANSWER_INSTRUCTIONS, FINAL_ANSWER_PROMPT
 from papyrus_chat.agent.context.responses import RecoverableResponsesModel
 from papyrus_chat.agent.runtime import create_research_agent
 from papyrus_chat.agent.tools import CorpusToolDeps
@@ -165,10 +166,21 @@ def test_exhaustion_is_discarded_before_execution_and_usage_is_preserved(
             assert bool(body.get("stream")) == (len(requests) == 1)
             if request_limit is not None and len(requests) == 2:
                 assert not body.get("tools")
-                assert "request budget" in str(body)
+
+                def text_values(value):
+                    if isinstance(value, str):
+                        yield value
+                    elif isinstance(value, dict):
+                        for item in value.values():
+                            yield from text_values(item)
+                    elif isinstance(value, list):
+                        for item in value:
+                            yield from text_values(item)
+
+                assert any(FINAL_ANSWER_INSTRUCTIONS in text for text in text_values(body))
                 tail = body["messages" if api == "chat" else "input"][-1]
                 assert tail["role"] == "user"
-                assert "findings and limitations" in str(tail["content"])
+                assert FINAL_ANSWER_PROMPT in str(tail["content"])
             else:
                 assert body.get("tools")
             key = "max_completion_tokens" if api == "chat" else "max_output_tokens"
