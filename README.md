@@ -292,12 +292,13 @@ Searches return pages of 1-100 documents. Both chat and MCP expose `offset` and
 agent to continue through the results. Semantic search can return the full
 ranking of indexed candidates; these candidates still need inspection.
 
-In chat, `inspect_documents` opens focused excerpts. `read_document_passages`
-reads sequentially, returning up to five sections of 2,000 characters with source
-and line references. The agent follows `next_cursor` to continue reading.
-It can also recall earlier evidence and check research progress. Passage reading,
-evidence memory, and automatic summarization are available in chat. Any MCP host
-will manage its own conversation and memory.
+In chat and for any MCP host, `inspect_documents` opens focused excerpts.
+`read_document_passages` reads sequentially, returning up to five sections of
+2,000 characters with source and line references. The agent follows `next_cursor`
+to continue reading; an MCP host manages those cursors itself. In chat, the agent
+can also recall earlier evidence and check research progress. Evidence memory and
+automatic summarization are available only in chat, which manages its own
+conversation; any MCP host manages its own.
 
 ### Troubleshooting long answers
 

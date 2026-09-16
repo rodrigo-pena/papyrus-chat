@@ -26,10 +26,11 @@ EXPECTED_TOOLS = [
     "lookup_document",
     "discover_documents",
     "inspect_documents",
+    "read_document_passages",
 ]
 
 
-def test_mcp_server_lists_exactly_seven_annotated_tools(corpus_artifact: Path) -> None:
+def test_mcp_server_lists_exactly_eight_annotated_tools(corpus_artifact: Path) -> None:
     service = CorpusService.open(corpus_artifact)
 
     async def exercise() -> None:
@@ -102,6 +103,28 @@ def test_mcp_server_returns_structured_results_for_every_tool(corpus_artifact: P
             assert discovery.structured_content["available"] is False
             assert discovery.structured_content["unavailable_reason"]
             assert "candidate_count" not in discovery.structured_content
+
+            row = service._connection.execute("SELECT document_id FROM passages LIMIT 1").fetchone()
+            passages = await client.call_tool("read_document_passages", {"document_id": row[0]})
+            assert passages.is_error is False
+            page = passages.structured_content
+            assert page["document_id"] == row[0]
+            assert 1 <= len(page["windows"]) <= 5
+            assert page["passage_count"] >= 1
+            if page["next_cursor"]:
+                continuation = await client.call_tool(
+                    "read_document_passages", {"document_id": row[0], "cursor": page["next_cursor"]}
+                )
+                assert continuation.is_error is False
+
+            broken = await client.call_tool(
+                "read_document_passages", {"document_id": row[0], "cursor": "broken"}
+            )
+            assert broken.is_error is True
+            cross = await client.call_tool(
+                "read_document_passages", {"document_id": "other:document", "cursor": "broken"}
+            )
+            assert cross.is_error is True
 
     try:
         asyncio.run(exercise())
@@ -208,5 +231,19 @@ def test_real_stdio_process_initializes_and_serves_all_tools(corpus_artifact: Pa
             assert (
                 await client.call_tool("discover_documents", {"query": {"text": "complaints"}})
             ).is_error is False
+            row = service_row_for_passages(corpus_artifact)
+            assert (
+                await client.call_tool("read_document_passages", {"document_id": row[0]})
+            ).is_error is False
 
     asyncio.run(exercise())
+
+
+def service_row_for_passages(corpus_artifact: Path):
+    import sqlite3
+
+    connection = sqlite3.connect(corpus_artifact / "corpus.sqlite")
+    try:
+        return connection.execute("SELECT document_id FROM passages LIMIT 1").fetchone()
+    finally:
+        connection.close()
