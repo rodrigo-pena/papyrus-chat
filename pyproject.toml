@@ -23,6 +23,7 @@ web = ["ddgs>=9.0"]
 dev = [
     "lxml-stubs>=0.5.1",
     "mcp>=2,<3",
+    "playwright>=1.63.0",
     "pytest>=8.2",
     "ruff>=0.5",
     "ty>=0.0.1a5",
@@ -42,9 +43,10 @@ packages = ["src/papyrus_chat"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-m", "not network"]
+addopts = ["-m", "not network and not browser"]
 markers = [
     "network: requires internet access; excluded from the default suite (run with -m network)",
+    "browser: requires a Playwright browser; run explicitly with -m browser",
 ]
 
 [tool.ruff]

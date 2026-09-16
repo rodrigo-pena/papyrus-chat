@@ -1,0 +1,12 @@
+/* Reserve a toolbar above the pinned 2.1.0 UI's viewport-height containers. */
+:root { --papyrus-toolbar-height: 60px; }
+#root { padding-top: var(--papyrus-toolbar-height); }
+#root [data-slot="sidebar-wrapper"] { min-height: calc(100svh - var(--papyrus-toolbar-height)); }
+#root .h-screen { height: calc(100svh - var(--papyrus-toolbar-height)); }
+#root .basis-\[100vh\]:not(:has(.stick-to-bottom:empty)) {
+  flex-basis: calc(100svh - var(--papyrus-toolbar-height));
+}
+#root [data-slot="sidebar-container"] {
+  top: var(--papyrus-toolbar-height);
+  height: calc(100svh - var(--papyrus-toolbar-height));
+}
