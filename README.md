@@ -235,26 +235,28 @@ no limit on the number of model requests or summaries.
 When the conversation approaches 65% of the model's context window, the agent
 summarizes earlier work, aiming to reduce it to 45%. The question and original
 evidence remain available, including exact quotations, counts, and citations.
-The checkpoint preserves research progress and recent decisions so the agent can
-continue unresolved work or answer from existing findings. Saved notes distinguish
-completed searches and rejected directions from questions that still need evidence.
-Summaries use the same model and add time and usage costs. If summarization
-fails, the agent continues with a shorter selection of saved material.
-Follow-up questions use the browser's chat history and may need another summary.
+The summary keeps the research progress and recent decisions, so the agent can
+continue unfinished work or answer from findings it already has. Notes recorded
+by the agent separate completed searches and rejected directions from questions
+that still need evidence. Summaries use the same model and add time and usage
+costs. If summarization fails, the agent continues with a shorter selection of
+saved material. Follow-up questions reuse the browser's chat history, so they may
+need another summary; earlier questions and answers are not carried into the new
+run as evidence.
 
 The model server sets the response length unless you configure an override.
 These optional environment settings apply to the chat agent:
 
 | Setting                          | Default                                                 | Purpose                                                            |
 | -------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
-| `LLM_CONTEXT_WINDOW`             | Matching profile, then model metadata, otherwise 32,768 | Deployment's context capacity in tokens                            |
+| `LLM_CONTEXT_WINDOW`             | Matching profile, then model metadata, otherwise 32,768 | Your model server's context capacity in tokens                     |
 | `LLM_MAX_TOKENS`                 | Server default                                          | Tokens per response, including reasoning                           |
 | `PAPYRUS_SUMMARY_MAX_TOKENS`     | `LLM_MAX_TOKENS`, if set; otherwise server default      | Tokens per summary response                                        |
 | `PAPYRUS_RESEARCH_REQUEST_LIMIT` | No limit                                                | Total model requests per question, including summaries and retries |
 | `PAPYRUS_RUN_TIMEOUT_SECONDS`    | No limit                                                | Total research time in seconds                                     |
 | `PAPYRUS_RUN_COST_LIMIT_USD`     | No limit                                                | Estimated model cost per question in USD                           |
 
-For settings specific to one deployment, copy
+For settings specific to one model server, copy
 [`conf/model-profiles.example.toml`](conf/model-profiles.example.toml) to
 `conf/model-profiles.toml` and enter your endpoint, model name, and server's
 context capacity. The local file is gitignored; keep API keys in `.env`.
@@ -266,14 +268,16 @@ model's defaults unless another profile matches. An explicit `LLM_CONTEXT_WINDOW
 (or a policy supplied in Python) takes precedence over profile capacity.
 Automatic capacity estimates may differ from what the server accepts.
 
-The profile's `reasoning_adapter` controls summaries and recovery attempts:
+The profile's `reasoning_adapter` controls how summaries and retries handle
+"thinking" (extended reasoning) when the provider supports it:
 
-- `auto` (default): use reasoning controls recognized by Pydantic AI. Summaries
-  prefer thinking off; recovery uses low reasoning or retains a lower setting.
-  Models without recognized support receive no added controls.
-- `qwen-chat-template`: for compatible Chat Completions deployments, disable
-  summary thinking with `chat_template_kwargs.enable_thinking` and use low
-  reasoning for recovery. Select this only when your endpoint supports it.
+- `auto` (default): use the reasoning controls recognized by Pydantic AI. For
+  summaries, thinking is turned off; in retries it is reduced to low, unless the
+  request already set something lower. Models your provider does not register as
+  thinking-capable get no added controls.
+- `qwen-chat-template`: for Qwen-style Chat Completions deployments, turns off
+  summary thinking with `chat_template_kwargs.enable_thinking` and uses low
+  reasoning in retries. Select this only when your endpoint supports it.
 - `none`: leave reasoning settings unchanged.
 
 Normal research reasoning stays unchanged. These controls do not set a response
@@ -281,9 +285,12 @@ length, so generation limits remain the server's choice unless you override them
 An explicit response allowance leaves less room for evidence and can trigger
 earlier summarization.
 
-A configured request limit tells the agent how much research remains and reserves
-an answer attempt plus one repair within that limit, with any remaining evidence
-gaps disclosed. Time and cost limits stop the run with an error. Cost limits require available model pricing: estimates may differ from your provider's charges, and the response that crosses the limit can still be billed. Each follow-up question starts fresh limits.
+A configured request limit makes the agent stop researching in time to still
+write an answer from what it has found; it also keeps one retry to fix citation
+problems. The answer will say what it did not check. Time and cost limits stop
+the run with an error. Cost limits require available model pricing: estimates
+may differ from your provider's charges, and the response that crosses the limit
+can still be billed. Each follow-up question starts fresh limits.
 
 ### Reading search results
 
@@ -293,12 +300,13 @@ agent to continue through the results. Semantic search can return the full
 ranking of indexed candidates; these candidates still need inspection.
 
 In chat and for any MCP host, `inspect_documents` opens focused excerpts.
-`read_document_passages` reads sequentially, returning up to five sections of
-2,000 characters with source and line references. The agent follows `next_cursor`
-to continue reading; an MCP host manages those cursors itself. In chat, the agent
-can also recall earlier evidence and check research progress. Evidence memory and
-automatic summarization are available only in chat, which manages its own
-conversation; any MCP host manages its own.
+`read_document_passages` reads a document from start to finish in sequential
+sections of up to 2,000 characters, each with source and line references. The
+agent follows `next_cursor` to keep reading; an MCP host keeps track of those
+cursors itself. In chat, the agent can also quote back evidence it read earlier
+and report its research progress. Those extras, and automatic summarization, are
+chat-only: the chat application keeps the conversation for you, while an MCP host
+manages its own conversation and memory.
 
 ### Troubleshooting long answers
 
