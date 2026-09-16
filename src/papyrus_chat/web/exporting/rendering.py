@@ -34,13 +34,13 @@ hr { border: 0; border-top: 1px solid #ddd; margin: 24px 0; }
               pre { max-height: none; overflow: visible; } }
 """
 TOOL_STATES = {
-    "input-streaming": "Partial input",
-    "input-available": "Awaiting result",
-    "output-available": "Completed",
-    "output-error": "Error",
-    "approval-requested": "Awaiting approval",
-    "approval-responded": "Approval recorded",
-    "output-denied": "Denied",
+    "input-streaming": "partial input",
+    "input-available": "awaiting result",
+    "output-available": "completed",
+    "output-error": "error",
+    "approval-requested": "awaiting approval",
+    "approval-responded": "approval recorded",
+    "output-denied": "denied",
 }
 
 
@@ -69,7 +69,7 @@ def render_part(part: dict, markdown: MarkdownIt) -> str:
     if kind == "reasoning":
         state = f" · {escape(str(part['state']))}" if part.get("state") else ""
         return (
-            f"<details><summary>Reasoning{state}</summary>"
+            f"<details><summary>reasoning{state}</summary>"
             + markdown.render(part["text"])
             + "</details>"
         )

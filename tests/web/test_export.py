@@ -186,11 +186,11 @@ def test_html_export_contains_complete_readable_transcript(export_client, snapsh
     assert tree.xpath("//strong/text()") == ["evidence"]
     text = str(tree.xpath("string()"))
     assert "I will inspect the corpus." in text
-    assert "Reasoning" in str(tree.xpath("string((//summary)[1])"))
+    assert "reasoning" in str(tree.xpath("string((//summary)[1])"))
     outputs = [json.loads(block.text or "") for block in tree.findall(".//pre[@data-json]")]
     assert snapshot["messages"][1]["parts"][2]["output"] in outputs
     assert "Record not found" in text
-    assert "Partial input" in text
+    assert "partial input" in text
     assert "Unfamiliar visible content" in text
     assert "https://papyri.info/ddbdp/example" in [link.get("href") for link in tree.iter("a")]
     assert "PRIVATE_METADATA" not in response.text

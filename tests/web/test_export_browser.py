@@ -253,7 +253,7 @@ def test_html_download_opens_offline_without_requests_and_expands_tools(page, tm
     page.goto(path.as_uri())
     expect(page.get_by_role("heading", name="Question /first")).to_be_visible()
     expect(page.get_by_text("Answer /first", exact=True)).to_be_visible()
-    page.locator("summary").filter(has_text="Reasoning").click()
+    page.locator("summary").filter(has_text="reasoning").click()
     expect(page.get_by_text("Inspect πάπυρος", exact=True)).to_be_visible()
     page.locator("summary").filter(has_text="inspect_documents").click()
     output = page.locator("pre").filter(has_text="πάπυρος")
