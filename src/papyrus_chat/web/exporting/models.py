@@ -47,7 +47,7 @@ class Conversation(BaseModel):
 
 
 class ExportRequest(BaseModel):
-    format: Literal["json"]
+    format: Literal["json", "html"]
     conversation: Conversation
 
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from lxml import html
 from pydantic_ai.models.test import TestModel
 from starlette.testclient import TestClient
 
@@ -172,3 +173,63 @@ def test_default_shell_pins_ui_and_serves_export_assets(export_client):
     for asset in ("export.js", "export-storage.js", "export.css", "shell.css"):
         assert export_client.get(f"/papyrus-assets/{asset}").status_code == 200
     assert json.loads(export_client.get("/api/health").text)
+
+
+def test_html_export_contains_complete_readable_transcript(export_client, snapshot):
+    response = export_client.post("/api/export", json={"format": "html", "conversation": snapshot})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/html; charset=utf-8"
+    assert response.headers["content-disposition"].endswith('.html"')
+    tree = html.fromstring(response.text)
+    assert tree.xpath("//title/text()") == [snapshot["title"]]
+    assert len(tree.findall(".//article")) == 4
+    assert tree.xpath("//strong/text()") == ["evidence"]
+    text = str(tree.xpath("string()"))
+    assert "I will inspect the corpus." in text
+    assert "Reasoning" in str(tree.xpath("string((//summary)[1])"))
+    outputs = [json.loads(block.text or "") for block in tree.findall(".//pre[@data-json]")]
+    assert snapshot["messages"][1]["parts"][2]["output"] in outputs
+    assert "Record not found" in text
+    assert "Partial input" in text
+    assert "Unfamiliar visible content" in text
+    assert "https://papyri.info/ddbdp/example" in [link.get("href") for link in tree.iter("a")]
+    assert "PRIVATE_METADATA" not in response.text
+    assert "OPAQUE_SIGNATURE" not in response.text
+    assert not tree.xpath("//script | //link | //img | //iframe")
+    assert tree.xpath('//meta[@http-equiv="Content-Security-Policy"]')
+
+
+@pytest.mark.parametrize(
+    "unsafe_url",
+    [
+        "javascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "file:///etc/passwd",
+        "//attacker.example/track",
+        "https://[invalid",
+    ],
+)
+def test_html_escapes_content_and_rejects_unsafe_links(export_client, snapshot, unsafe_url):
+    attack = '</pre><script>alert("unsafe")</script><img src="https://attacker.example/track">'
+    snapshot["title"] = attack
+    snapshot["messages"][0]["parts"][0]["text"] = (
+        attack + f"\n[unsafe]({unsafe_url})\n![tracking](https://attacker.example/track)"
+    )
+    snapshot["messages"][1]["parts"][2]["output"] = {"text": attack}
+    snapshot["messages"][1]["parts"][3]["url"] = unsafe_url
+    response = export_client.post("/api/export", json={"format": "html", "conversation": snapshot})
+    assert response.status_code == 200
+    tree = html.fromstring(response.text)
+    assert not tree.xpath("//script | //img | //iframe | //object | //embed | //form")
+    assert not tree.xpath("//@onerror | //@onclick")
+    assert unsafe_url not in [link.get("href") for link in tree.iter("a")]
+    assert attack in str(tree.xpath("string()"))
+
+
+def test_html_renders_tables_without_external_assets(export_client, snapshot):
+    snapshot["messages"][0]["parts"][0]["text"] = "| Record | Text |\n|---|---|\n| 1 | πάπυρος |"
+    response = export_client.post("/api/export", json={"format": "html", "conversation": snapshot})
+    assert response.status_code == 200
+    tree = html.fromstring(response.text)
+    assert tree.xpath("//td/text()") == ["1", "πάπυρος"]
+    assert not tree.xpath("//*[@src] | //link")

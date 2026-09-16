@@ -13,7 +13,10 @@ root.innerHTML = `
     <p id="export-description">Download the latest browser-saved snapshot, including reasoning and tool activity.
       If the agent is still responding, the snapshot may be incomplete.</p>
     <p class="conversation"></p>
-    <div class="downloads"><button type="button" data-format="json">Download JSON</button></div>
+    <div class="downloads">
+      <button type="button" data-format="html">Download HTML</button>
+      <button type="button" data-format="json">Download JSON</button>
+    </div>
     <p class="status" role="status" aria-live="polite"></p>
   </dialog>`;
 document.body.append(host);

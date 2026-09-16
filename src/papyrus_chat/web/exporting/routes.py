@@ -12,6 +12,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from .models import ExportRequest, export_document
+from .rendering import render_html
 
 # Unlike dist/index.html, the offline build does not refer to unversioned CDN assets.
 PINNED_UI_URL = "https://cdn.jsdelivr.net/npm/@pydantic/ai-chat-ui@2.1.0/offline/index.html"
@@ -35,10 +36,11 @@ async def post_export(request: Request) -> Response:
     document = export_document(payload.conversation)
     safe_id = re.sub(r"[^a-zA-Z0-9_-]", "", payload.conversation.id)[:64] or "conversation"
     stamp = re.sub(r"[^0-9]", "", document["exported_at"])[:14]
-    filename = f"papyrus-chat-{safe_id}-{stamp}.json"
+    filename = f"papyrus-chat-{safe_id}-{stamp}.{payload.format}"
+    is_html = payload.format == "html"
     return Response(
-        json.dumps(document, ensure_ascii=False, indent=2),
-        media_type="application/json",
+        render_html(document) if is_html else json.dumps(document, ensure_ascii=False, indent=2),
+        media_type="text/html" if is_html else "application/json",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-store",
