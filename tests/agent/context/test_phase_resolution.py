@@ -13,7 +13,7 @@ def test_research_phase_adds_budget_instructions():
     assert phase.final_prompt is None
     assert any(
         part.content.startswith("Research requests remaining:")
-        for part in phase.parameters.instruction_parts
+        for part in phase.parameters.instruction_parts or []
     )
 
 
@@ -32,7 +32,7 @@ def test_due_phase_reserves_the_final_answer(starting_phase):
     assert phase.reserved_final_answer
     assert phase.final_prompt is not None
     assert not phase.parameters.function_tools
-    assert any("answer" in part.content for part in phase.parameters.instruction_parts)
+    assert any("answer" in part.content for part in phase.parameters.instruction_parts or [])
 
 
 def test_repair_phase_passes_parameters_through():
