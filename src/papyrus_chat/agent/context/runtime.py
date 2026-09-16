@@ -1,4 +1,4 @@
-"""Compact between model requests without deciding when research must finish."""
+"""Compact between requests and reserve a final answer within an explicit budget."""
 
 import asyncio
 import logging
@@ -20,9 +20,17 @@ from pydantic_ai.tools import ToolDefinition
 
 from papyrus_chat.chat.profiles import DeploymentProfile
 
-from .accounting import RequestAccounting
+from .accounting import RequestAccounting, accounting_text, estimate_text
 from .compaction import ContextBudgetExceeded, bounded_history, compact_history, required_messages
-from .limits import check_request_limit, check_response_cost
+from .limits import (
+    answer_request_reserve,
+    check_request_limit,
+    check_response_cost,
+    final_answer_parameters,
+    final_answer_request,
+    final_request_due,
+    request_budget_parameters,
+)
 from .policy import ResearchPolicy, load_research_policy
 from .reasoning import active_deployment_profile
 from .recovery import recover_generation
@@ -83,6 +91,20 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
         effective = policy.model_copy(update={"max_tokens": settings.get("max_tokens")})
         if state.phase == "repair":
             params = repair_parameters(params)
+        elif state.phase == "synthesis" or final_request_due(state, policy):
+            state.phase = "synthesis"
+            params = final_answer_parameters(params)
+            LOGGER.info(
+                "Research request budget reserved for final answer",
+                extra={
+                    "event": "research_final_answer",
+                    "run_id": ctx.run_id,
+                    "research_requests": state.research_requests,
+                    "request_limit": policy.research_request_limit,
+                },
+            )
+        else:
+            params = request_budget_parameters(params, state, policy)
         if state.question is None:
             if ctx.prompt is not None:
                 state.question = ModelRequest(parts=[UserPromptPart(ctx.prompt)])
@@ -95,15 +117,18 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                             break
             if state.question is None:
                 raise ContextBudgetExceeded("A current user prompt is required for research.")
+        final_prompt = final_answer_request() if state.phase == "synthesis" else None
+        prompt_tokens = estimate_text(accounting_text(final_prompt)) if final_prompt else 0
         if (
             RequestAccounting().estimate(required_messages(messages, state), params)
+            + prompt_tokens
             > effective.input_limit
         ):
             raise ContextBudgetExceeded(
                 "The current user prompt and required instructions are too large "
                 "for the context window."
             )
-        size = state.accounting.estimate(messages, params)
+        size = state.accounting.estimate(messages, params) + prompt_tokens
         LOGGER.info(
             "Research context measured",
             extra={
@@ -119,7 +144,13 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                 request_context, model_request_parameters=params, model_settings=settings
             )
             compacted = None
-            if not state.summary_disabled:
+            # Leave room for this research request, the answer, and its retry.
+            can_summarize = (
+                policy.research_request_limit is None
+                or state.research_requests + 1 + answer_request_reserve(policy)
+                < policy.research_request_limit
+            )
+            if not state.summary_disabled and can_summarize:
                 try:
                     compacted = await compact_history(
                         ctx, request, state, effective, self.deployment_profile
@@ -130,14 +161,14 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                 state.summary_disabled = True
                 try:
                     compacted = bounded_history(
-                        messages, state, params, effective.target_tokens
+                        messages, state, params, effective.target_tokens - prompt_tokens
                     )
                 except ContextBudgetExceeded:
                     compacted = bounded_history(
-                        messages, state, params, effective.input_limit
+                        messages, state, params, effective.input_limit - prompt_tokens
                     )
             messages = compacted
-            after = RequestAccounting().estimate(messages, params)
+            after = RequestAccounting().estimate(messages, params) + prompt_tokens
             if after > effective.input_limit:
                 raise ContextBudgetExceeded(
                     "Essential research context cannot fit after compaction."
@@ -158,6 +189,11 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                 },
             )
         check_request_limit(ctx, effective)
+        if state.phase == "research":
+            # A summary may have consumed a request since the initial estimate.
+            params = request_budget_parameters(params, state, policy)
+        if final_prompt is not None:
+            messages = [*messages, final_prompt]
         state.research_requests += 1
         return replace(
             request_context,
@@ -216,8 +252,8 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
         tool_def: ToolDefinition,
         args: dict[str, Any],
     ) -> dict[str, Any]:
-        if ctx.deps.research_state.phase == "repair":
+        if ctx.deps.research_state.phase != "research":
             raise ModelRetry(
-                "Citation repair cannot start new research. Return the corrected answer."
+                "Research has ended. Return the answer using only evidence already retrieved."
             )
         return args

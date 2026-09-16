@@ -12,7 +12,7 @@ from .evidence import EvidenceLedger
 @dataclass
 class ResearchRunState:
     run_id: str | None = None
-    phase: Literal["research", "repair"] = "research"
+    phase: Literal["research", "synthesis", "repair"] = "research"
     research_requests: int = 0
     summary_requests: int = 0
     citation_repairs: int = 0

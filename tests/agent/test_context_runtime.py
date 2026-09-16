@@ -1,19 +1,23 @@
 """Continuous research, explicit limits, and bounded citation repair."""
 
 import asyncio
+import json
 from pathlib import Path
 
 import pytest
-from pydantic_ai import WebSearchTool
+from pydantic_ai import AgentRunResultEvent, UsageLimits, WebSearchTool
 from pydantic_ai.capabilities import NativeTool
 from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
-from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from papyrus_chat.agent.context import ResearchPolicy
+from papyrus_chat.agent.context.accounting import RequestAccounting
 from papyrus_chat.agent.context.compaction import SUMMARY_INSTRUCTIONS, ContextBudgetExceeded
 from papyrus_chat.agent.runtime import create_research_agent
 from papyrus_chat.agent.tools import CorpusToolDeps
+from papyrus_chat.builder.pipeline import build_artifact
+from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.chat.provider import ProviderConfig
 from papyrus_chat.corpus import CorpusService
 from papyrus_chat.retrieval.structured import StructuredCorpusSearch
@@ -33,26 +37,261 @@ def make_agent(service, dialogue, policy=None):
     )
 
 
-def test_explicit_request_cap_raises_without_inventing_a_partial_answer(service):
+@pytest.mark.parametrize("limit,answer_request", [(1, 1), (2, 2), (3, 2)])
+def test_explicit_request_cap_reserves_an_evidence_based_final_answer(
+    service, limit, answer_request
+):
     calls = 0
 
     def dialogue(messages, info):
         nonlocal calls
         calls += 1
-        assert calls <= 3
+        assert calls <= limit
+        if calls == answer_request:
+            assert not info.function_tools
+            assert not info.model_request_parameters.native_tools
+            assert "request budget" in (info.instructions or "").lower()
+            assert "already retrieved" in (info.instructions or "")
+            return ModelResponse([TextPart("No corpus evidence was inspected.")])
         assert info.function_tools
         return ModelResponse([ToolCallPart("describe_corpus", {}, f"inventory-{calls}")])
 
     agent = make_agent(
-        service, dialogue, ResearchPolicy(context_window=131072, research_request_limit=3)
+        service, dialogue, ResearchPolicy(context_window=131072, research_request_limit=limit)
     )
-    with pytest.raises(UsageLimitExceeded):
+    result = agent.run_sync(
+        "Investigate.",
+        deps=CorpusToolDeps(service),
+        capabilities=[NativeTool(WebSearchTool())],
+    )
+    assert result.output.startswith("No corpus evidence was inspected.")
+    assert calls == result.usage.requests == answer_request
+
+
+@pytest.mark.parametrize("failed_output", ["empty", "citation", "tool"])
+def test_budget_synthesis_reserves_one_output_retry(service, failed_output):
+    calls = 0
+
+    def dialogue(messages, info):
+        nonlocal calls
+        calls += 1
+        assert calls <= 4
+        if calls <= 2:
+            assert info.function_tools
+            return ModelResponse([ToolCallPart("describe_corpus", {}, f"inventory-{calls}")])
+        assert not info.function_tools
+        assert not info.model_request_parameters.native_tools
+        if calls == 3:
+            if failed_output == "empty":
+                return ModelResponse([TextPart("")], finish_reason="stop")
+            if failed_output == "citation":
+                return ModelResponse(
+                    [TextPart("Corpus evidence: https://papyri.info/ddbdp/invented;1;999")]
+                )
+            return ModelResponse([ToolCallPart("describe_corpus", {}, "forbidden-research")])
+        return ModelResponse([TextPart("No corpus evidence was inspected.")])
+
+    deps = CorpusToolDeps(service)
+    result = make_agent(service, dialogue, ResearchPolicy(research_request_limit=4)).run_sync(
+        "Investigate.", deps=deps, capabilities=[NativeTool(WebSearchTool())]
+    )
+    assert result.output.startswith("No corpus evidence was inspected.")
+    assert calls == result.usage.requests == 4
+    assert len(deps.research_state.ledger.executions) == 2
+
+
+def test_request_budget_is_visible_before_research_ends(service):
+    calls = 0
+
+    def dialogue(messages, info):
+        nonlocal calls
+        calls += 1
+        if calls <= 2:
+            assert f"Research requests remaining: {3 - calls}." in (info.instructions or "")
+            assert "Prioritize inspecting" in (info.instructions or "")
+            assert "strongest candidates" in (info.instructions or "")
+            return ModelResponse([ToolCallPart("describe_corpus", {}, f"inventory-{calls}")])
+        assert calls == 3
+        assert not info.function_tools
+        return ModelResponse([TextPart("No corpus evidence was inspected.")])
+
+    result = make_agent(service, dialogue, ResearchPolicy(research_request_limit=4)).run_sync(
+        "Investigate.", deps=CorpusToolDeps(service)
+    )
+    assert calls == result.usage.requests == 3
+
+
+def test_compaction_cannot_spend_the_final_answer_request(service):
+    calls = 0
+    policy = ResearchPolicy(research_request_limit=2)
+
+    def dialogue(messages, info):
+        nonlocal calls
+        calls += 1
+        assert SUMMARY_INSTRUCTIONS not in (info.instructions or "")
+        if calls == 1:
+            return ModelResponse(
+                [TextPart("πάπυρος " * 10000), ToolCallPart("describe_corpus", {}, "inventory")]
+            )
+        assert calls == 2
+        assert not info.function_tools
+        assert "documents" in str(messages)
+        serialized = json.loads(ModelMessagesTypeAdapter.dump_json(messages))
+        assert serialized[-1]["parts"][-1]["part_kind"] == "user-prompt"
+        assert "findings and limitations" in serialized[-1]["parts"][-1]["content"]
+        assert (
+            RequestAccounting().estimate(messages, info.model_request_parameters)
+            <= policy.input_limit
+        )
+        return ModelResponse([TextPart("No corpus evidence was inspected.")])
+
+    deps = CorpusToolDeps(service)
+    result = make_agent(service, dialogue, policy).run_sync(
+        "Investigate.", deps=deps
+    )
+    assert result.output.startswith("No corpus evidence was inspected.")
+    assert deps.research_state.compactions == 1
+    assert calls == result.usage.requests == 2
+
+
+def test_explicit_request_cap_still_bounds_a_failed_final_answer(service):
+    calls = 0
+
+    def dialogue(messages, info):
+        nonlocal calls
+        calls += 1
+        assert calls == 1
+        assert not info.function_tools
+        return ModelResponse([TextPart("Corpus evidence: https://papyri.info/ddbdp/invented;1;999")])
+
+    agent = make_agent(service, dialogue, ResearchPolicy(research_request_limit=1))
+    with pytest.raises(UsageLimitExceeded, match="request limit"):
         agent.run_sync("Investigate.", deps=CorpusToolDeps(service))
-    assert calls == 3
+    assert calls == 1
+
+
+@pytest.mark.parametrize("repair_citation", [False, True])
+def test_streaming_request_budget_returns_inspected_evidence(
+    tmp_path, fixture_git_repo, repair_citation
+):
+    artifact = tmp_path / "corpus"
+    build_artifact(
+        ["ddbdp"],
+        output=artifact,
+        source=LocalGitSource(fixture_git_repo),
+        source_url="https://github.com/papyri/idp.data.git",
+        requested_ref="master",
+    )
+    service = CorpusService.open(artifact)
+
+    async def scenario():
+        calls = 0
+        citation = "https://papyri.info/ddbdp/p.mich;8;480"
+        answer = f"Dissimilar handwriting appears in [P.Mich. 8.480]({citation})."
+
+        async def dialogue(messages, info):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                yield {
+                    0: DeltaToolCall(
+                        name="inspect_documents",
+                        json_args=json.dumps({"document_ids": ["ddbdp:DDbDP/27/27093.xml"]}),
+                        tool_call_id="inspection",
+                    )
+                }
+                return
+            assert calls <= (3 if repair_citation else 2)
+            assert not info.function_tools
+            assert citation in str(messages)
+            assert "ἀνόμοιά" in str(messages)
+            if calls == 2:
+                serialized = json.loads(ModelMessagesTypeAdapter.dump_json(messages))
+                assert serialized[-1]["parts"][-1]["part_kind"] == "user-prompt"
+                assert "findings and limitations" in serialized[-1]["parts"][-1]["content"]
+            if repair_citation and calls == 2:
+                yield "Corpus evidence: https://papyri.info/ddbdp/invented;1;999"
+                return
+            yield answer
+
+        agent = create_research_agent(
+            ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+            service,
+            model=FunctionModel(stream_function=dialogue),
+            policy=ResearchPolicy(research_request_limit=3 if repair_citation else 2),
+        )
+        async with agent.run_stream_events(
+            "Find evidence about handwriting.", deps=CorpusToolDeps(service)
+        ) as stream:
+            events = [event async for event in stream]
+        result = next(event.result for event in events if isinstance(event, AgentRunResultEvent))
+        assert result.output.startswith(answer)
+        assert calls == result.usage.requests == (3 if repair_citation else 2)
+
+    try:
+        asyncio.run(scenario())
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize("repair_citation", [False, True])
+def test_summary_requests_count_toward_the_final_answer_budget(service, repair_citation):
+    calls = 0
+
+    def dialogue(messages, info):
+        nonlocal calls
+        calls += 1
+        if SUMMARY_INSTRUCTIONS in (info.instructions or ""):
+            assert calls == 2
+            return ModelResponse([TextPart("Inventory retrieved; answer with available evidence.")])
+        if calls >= 4:
+            assert calls <= 5
+            assert not info.function_tools
+            if repair_citation and calls == 4:
+                return ModelResponse(
+                    [TextPart("Corpus evidence: https://papyri.info/ddbdp/invented;1;999")]
+                )
+            return ModelResponse([TextPart("No corpus evidence was inspected.")])
+        assert calls in {1, 3}
+        assert info.function_tools
+        assert f"Research requests remaining: {4 - calls}." in (info.instructions or "")
+        assert (info.instructions or "").count("Research requests remaining:") == 1
+        return ModelResponse(
+            [
+                TextPart("πάπυρος " * 10000),
+                ToolCallPart("describe_corpus", {}, f"inventory-{calls}"),
+            ]
+        )
+
+    deps = CorpusToolDeps(service)
+    result = make_agent(service, dialogue, ResearchPolicy(research_request_limit=5)).run_sync(
+        "Investigate.", deps=deps
+    )
+    assert result.output.startswith("No corpus evidence was inspected.")
+    assert deps.research_state.summary_requests == 1
+    assert calls == result.usage.requests == (5 if repair_citation else 4)
+
+
+def test_caller_request_limit_remains_a_hard_cap(service):
+    calls = 0
+
+    def dialogue(messages, info):
+        nonlocal calls
+        calls += 1
+        assert calls == 1
+        return ModelResponse([ToolCallPart("describe_corpus", {}, "inventory")])
+
+    agent = make_agent(service, dialogue, ResearchPolicy(research_request_limit=3))
+    with pytest.raises(UsageLimitExceeded, match="request_limit"):
+        agent.run_sync(
+            "Investigate.", deps=CorpusToolDeps(service), usage_limits=UsageLimits(request_limit=1)
+        )
+    assert calls == 1
 
 
 @pytest.mark.parametrize("valid_repair", [True, False])
-def test_natural_answer_gets_one_tool_free_citation_repair(service, valid_repair):
+@pytest.mark.parametrize("request_limit", [None, 3])
+def test_natural_answer_gets_one_tool_free_citation_repair(service, valid_repair, request_limit):
     calls = []
     answer = "No corpus evidence was inspected."
 
@@ -71,7 +310,7 @@ def test_natural_answer_gets_one_tool_free_citation_repair(service, valid_repair
             [TextPart("Corpus evidence: https://papyri.info/ddbdp/invented;1;999")]
         )
 
-    agent = make_agent(service, dialogue)
+    agent = make_agent(service, dialogue, ResearchPolicy(research_request_limit=request_limit))
     kwargs = {"deps": CorpusToolDeps(service), "capabilities": [NativeTool(WebSearchTool())]}
     if valid_repair:
         result = agent.run_sync("Investigate.", **kwargs)

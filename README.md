@@ -283,10 +283,13 @@ length, so generation limits remain the server's choice unless you override them
 An explicit response allowance leaves less room for evidence and can trigger
 earlier summarization.
 
-Reaching a configured limit stops the run with an error. Cost limits require
-available model pricing; estimates may differ from your provider's charges, and
-the response that crosses the limit can still be billed. Each follow-up question
-starts fresh limits.
+A configured request limit tells the agent how much research remains and reserves
+an answer attempt plus one repair within that limit, with any remaining evidence
+gaps disclosed. Limits of one or two requests reserve only the answer attempt.
+Summaries and recovery attempts count toward the same limit. Time and cost limits
+still stop the run with an error. Cost limits require available model pricing;
+estimates may differ from your provider's charges, and the response that crosses
+the limit can still be billed. Each follow-up question starts fresh limits.
 
 ### Reading search results
 

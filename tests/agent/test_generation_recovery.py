@@ -151,8 +151,9 @@ def endpoint_response(body, api, kind, exhausted):
     "api,kind", [("chat", "text"), ("chat", "thinking"), ("chat", "tool"), ("responses", "text")]
 )
 @pytest.mark.parametrize("fail_twice", [False, True])
+@pytest.mark.parametrize("request_limit", [None, 2, 3])
 def test_exhaustion_is_discarded_before_execution_and_usage_is_preserved(
-    corpus_artifact, api, kind, fail_twice
+    corpus_artifact, api, kind, fail_twice, request_limit
 ):
     async def scenario():
         requests = []
@@ -162,7 +163,14 @@ def test_exhaustion_is_discarded_before_execution_and_usage_is_preserved(
             requests.append(body)
             assert len(requests) <= 2
             assert bool(body.get("stream")) == (len(requests) == 1)
-            assert body.get("tools")
+            if request_limit is not None and len(requests) == 2:
+                assert not body.get("tools")
+                assert "request budget" in str(body)
+                tail = body["messages" if api == "chat" else "input"][-1]
+                assert tail["role"] == "user"
+                assert "findings and limitations" in str(tail["content"])
+            else:
+                assert body.get("tools")
             key = "max_completion_tokens" if api == "chat" else "max_output_tokens"
             assert body[key] == 20000
             return endpoint_response(body, api, kind, len(requests) == 1 or fail_twice)
@@ -185,7 +193,11 @@ def test_exhaustion_is_discarded_before_execution_and_usage_is_preserved(
                 ProviderConfig(model="gpt-5.2", base_url="https://example.invalid/v1"),
                 service,
                 model=model,
-                policy=ResearchPolicy(context_window=131072, max_tokens=20000),
+                policy=ResearchPolicy(
+                    context_window=131072,
+                    max_tokens=20000,
+                    research_request_limit=request_limit,
+                ),
             )
             events = []
 

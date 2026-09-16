@@ -179,13 +179,19 @@ def test_concurrent_chats_do_not_share_citation_eligibility(
     assert '"type":"error"' in second_response.text
 
 
-def test_explicit_request_limit_emits_error_without_forced_answer(corpus_artifact, tmp_path):
+def test_explicit_request_limit_streams_final_answer_instead_of_error(corpus_artifact, tmp_path):
     calls = 0
+    answer = "Inventory examined. No corpus evidence was inspected. Request budget reached."
 
     async def stream(messages, info):
         nonlocal calls
         calls += 1
         assert calls <= 2
+        if calls == 2:
+            assert not info.function_tools
+            assert "request budget" in (info.instructions or "")
+            yield answer
+            return
         assert info.function_tools
         yield "PRIVATE_DRAFT"
         yield {0: DeltaToolCall(name="describe_corpus", json_args="{}", tool_call_id=str(calls))}
@@ -198,10 +204,10 @@ def test_explicit_request_limit_emits_error_without_forced_answer(corpus_artifac
     )
     response = post_chat(TestClient(app, base_url="http://localhost"), "Research.")
     assert calls == 2
-    assert '"type":"error"' in response.text
-    assert "request limit" in response.text or "request_limit" in response.text
+    assert '"type":"error"' not in response.text
+    assert answer in response.text
     assert "PRIVATE_DRAFT" not in response.text
-    assert "Coverage:" not in response.text
+    assert "Coverage:" in response.text
 
 
 def test_elapsed_limit_cancels_stream_without_followup_request(corpus_artifact, tmp_path):

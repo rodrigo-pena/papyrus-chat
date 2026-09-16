@@ -34,12 +34,14 @@ uv run papyrus-chat --artifact ./data/papyrus-corpus \
 Keeping the bind address at `127.0.0.1` means the application is not directly
 listening on the local network. Leave this terminal running.
 
-Chat research is bounded by default: each user turn allows 16 model requests
-(including up to 3 summaries) and reserves 2 final-answer attempts. The same
-configured model performs summaries, so they add latency and usage. A run that
-reaches its budget returns a partial answer with an incomplete research notice.
-Each follow-up starts a fresh budget; browser-held history may need summarizing
-again. Separate chat requests do not share citation eligibility or budgets.
+Chat research has no request limit by default and continues until the model
+answers or you cancel. The same configured model performs summaries, so they
+add latency and usage. If you set `PAPYRUS_RESEARCH_REQUEST_LIMIT`, the agent
+reserves an answer attempt and, when the limit permits, one repair using the evidence
+already retrieved, and discloses remaining gaps. Summaries and recovery attempts
+count toward that limit. Each follow-up starts fresh limits; browser-held history
+may need summarizing again. Separate chat requests do not share citation eligibility
+or limits.
 
 Check the startup log's context capacity before sharing a local or proxied
 model. Set `LLM_CONTEXT_WINDOW` to your server's actual capacity if automatic
