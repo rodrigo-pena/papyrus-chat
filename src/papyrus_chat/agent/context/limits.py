@@ -1,6 +1,6 @@
 """Opt-in operational limits shared by research, summarization, and recovery."""
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from pydantic_ai import RunContext, UsageLimits
@@ -71,6 +71,35 @@ def request_budget_parameters(
             InstructionPart(note, dynamic=True, name=_BUDGET_INSTRUCTION_NAME),
         ],
     )
+
+
+@dataclass(frozen=True)
+class RequestPhase:
+    """Phase-specific parameters plus the directive prompt for one request."""
+
+    parameters: ModelRequestParameters
+    final_prompt: ModelRequest | None
+    reserved_final_answer: bool
+
+
+def resolve_request_phase(
+    state: ResearchRunState,
+    policy: ResearchPolicy,
+    parameters: ModelRequestParameters,
+) -> RequestPhase:
+    """Apply phase-specific parameters and the answer reservation to one request.
+
+    Shared by the normal request path and generation recovery so the synthesis
+    transition and budget math cannot drift apart. The repair phase is handled
+    by the callers: the runtime rebuilds repair instructions, while recovery
+    retries the in-flight repair request unchanged.
+    """
+    if state.phase == "synthesis" or final_request_due(state, policy):
+        state.phase = "synthesis"
+        return RequestPhase(final_answer_parameters(parameters), final_answer_request(), True)
+    if state.phase == "research":
+        return RequestPhase(request_budget_parameters(parameters, state, policy), None, False)
+    return RequestPhase(parameters, None, False)
 
 
 def final_answer_parameters(parameters: ModelRequestParameters) -> ModelRequestParameters:

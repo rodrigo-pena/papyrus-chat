@@ -23,13 +23,12 @@ from papyrus_chat.chat.profiles import DeploymentProfile
 from .accounting import RequestAccounting, accounting_text, estimate_text
 from .compaction import ContextBudgetExceeded, bounded_history, compact_history, required_messages
 from .limits import (
+    RequestPhase,
     answer_request_reserve,
     check_request_limit,
     check_response_cost,
-    final_answer_parameters,
-    final_answer_request,
-    final_request_due,
     request_budget_parameters,
+    resolve_request_phase,
 )
 from .policy import ResearchPolicy, load_research_policy
 from .reasoning import active_deployment_profile
@@ -91,20 +90,22 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
         effective = policy.model_copy(update={"max_tokens": settings.get("max_tokens")})
         if state.phase == "repair":
             params = repair_parameters(params)
-        elif state.phase == "synthesis" or final_request_due(state, policy):
-            state.phase = "synthesis"
-            params = final_answer_parameters(params)
-            LOGGER.info(
-                "Research request budget reserved for final answer",
-                extra={
-                    "event": "research_final_answer",
-                    "run_id": ctx.run_id,
-                    "research_requests": state.research_requests,
-                    "request_limit": policy.research_request_limit,
-                },
-            )
+            phase = RequestPhase(params, None, False)
         else:
-            params = request_budget_parameters(params, state, policy)
+            phase = resolve_request_phase(state, policy, params)
+            params = phase.parameters
+            if phase.reserved_final_answer:
+                LOGGER.info(
+                    "Research request budget reserved for final answer",
+                    extra={
+                        "event": "research_final_answer",
+                        "run_id": ctx.run_id,
+                        "research_requests": state.research_requests,
+                        "request_limit": policy.research_request_limit,
+                    },
+                )
+        final_prompt = phase.final_prompt
+        prompt_tokens = estimate_text(accounting_text(final_prompt)) if final_prompt else 0
         if state.question is None:
             if ctx.prompt is not None:
                 state.question = ModelRequest(parts=[UserPromptPart(ctx.prompt)])
@@ -117,11 +118,8 @@ class BoundedResearch(AbstractCapability["CorpusToolDeps"]):
                             break
             if state.question is None:
                 raise ContextBudgetExceeded("A current user prompt is required for research.")
-        final_prompt = final_answer_request() if state.phase == "synthesis" else None
-        prompt_tokens = estimate_text(accounting_text(final_prompt)) if final_prompt else 0
         if (
-            RequestAccounting().estimate(required_messages(messages, state), params)
-            + prompt_tokens
+            RequestAccounting().estimate(required_messages(messages, state), params) + prompt_tokens
             > effective.input_limit
         ):
             raise ContextBudgetExceeded(

@@ -15,11 +15,9 @@ from papyrus_chat.chat.profiles import DeploymentProfile
 from .accounting import RequestAccounting, accounting_text, estimate_text
 from .compaction import bounded_history, required_messages
 from .limits import (
+    RequestPhase,
     check_request_limit,
-    final_answer_parameters,
-    final_answer_request,
-    final_request_due,
-    request_budget_parameters,
+    resolve_request_phase,
 )
 from .policy import ResearchPolicy
 from .reasoning import reasoning_settings
@@ -70,16 +68,15 @@ async def recover_generation(
             InstructionPart(RECOVERY_INSTRUCTIONS),
         ],
     )
-    if state.phase != "repair" and (
-        state.phase == "synthesis" or final_request_due(state, policy)
-    ):
-        # An exhausted generation may spend the reserved slot only on an answer.
-        state.phase = "synthesis"
-        parameters = final_answer_parameters(parameters)
-    elif state.phase == "research":
-        parameters = request_budget_parameters(parameters, state, policy)
+    if state.phase == "repair":
+        # Retry the in-flight repair request unchanged; it already carries the
+        # repair instructions and must not spend the reserved answer slot.
+        phase = RequestPhase(parameters, None, False)
+    else:
+        phase = resolve_request_phase(state, policy, parameters)
+        parameters = phase.parameters
     effective = policy.model_copy(update={"max_tokens": settings.get("max_tokens")})
-    final_prompt = final_answer_request() if state.phase == "synthesis" else None
+    final_prompt = phase.final_prompt
     prompt_tokens = estimate_text(accounting_text(final_prompt)) if final_prompt else 0
     accounting = RequestAccounting()
     essential = accounting.estimate(required_messages(request.messages, state), parameters)
