@@ -90,7 +90,7 @@ without web search, or the bare Git URL without either extra.
   support. Set its base URL and model with `LLM_BASE_URL` and `LLM_MODEL`; an
   API key is optional for unauthenticated local endpoints.
 - Internet access the first time the browser UI is opened, so Pydantic AI can
-  fetch and cache its stock chat UI from the CDN.
+  fetch and cache the pinned, single-file stock chat UI from the CDN (about 16 MB).
 
 ## Supported upstream collections
 
@@ -209,6 +209,33 @@ mechanics, terminology, institutions, and geography. Web results are cited as
 web-sourced background and never replace local corpus evidence or contribute to
 corpus counts; papyri records and transcriptions still come only from local
 corpus tools.
+
+### Sharing conversations
+
+Open a saved conversation, click **Export** in the top toolbar, and choose:
+
+- **Download HTML** for a readable document with expandable reasoning and tool
+  inputs/results. Send the file to your collaborator; they can open it in a browser
+  without Papyrus Chat or an internet connection. Citation links open the original
+  sources when online.
+- **Download JSON** for structured conversation data, including complete recorded
+  tool arguments, results, and errors.
+
+Both formats include the latest browser-saved snapshot of that conversation,
+including earlier visible tool activity retained after model context compaction.
+Existing conversations in the same browser and origin can be exported too.
+During generation, a snapshot may be incomplete; the browser also saves on a short
+delay. For a complete answer, wait for it to finish and save before exporting. If
+the panel reports no saved messages, close it and reopen it after the chat saves.
+
+Reasoning is included only when the provider exposed it and the browser saved it.
+An export cannot recover hidden reasoning, deleted conversations, or content that
+was never saved. Internal checkpoints, rejected answer drafts, and opaque provider
+metadata are not part of the shareable transcript. JSON is a Papyrus browser
+conversation export, not a lossless Pydantic AI run archive or an import/resume file.
+
+See the [conversation export integration guide](docs/conversation-export.md) for
+the format, upstream compatibility contract, and browser test commands.
 
 ### Research answers
 
