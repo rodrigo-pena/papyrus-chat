@@ -46,6 +46,38 @@ def test_invalid_environment(env):
         load_research_policy("unknown", env)
 
 
+@pytest.mark.parametrize(
+    ("setting", "value"),
+    [
+        ("LLM_CONTEXT_WINDOW", "about 32k"),
+        ("PAPYRUS_RESEARCH_REQUEST_LIMIT", "many"),
+        ("LLM_MAX_TOKENS", "4096.5"),
+        ("PAPYRUS_SUMMARY_MAX_TOKENS", "none"),
+        ("PAPYRUS_RUN_TIMEOUT_SECONDS", "two minutes"),
+    ],
+)
+def test_invalid_numeric_settings_name_the_variable(setting, value):
+    with pytest.raises(ValueError, match=setting):
+        load_research_policy("unknown", {setting: value})
+
+
+def test_empty_numeric_settings_are_unset():
+    policy = load_research_policy(
+        "unknown",
+        {
+            "LLM_CONTEXT_WINDOW": "",
+            "PAPYRUS_RESEARCH_REQUEST_LIMIT": "",
+            "LLM_MAX_TOKENS": "",
+            "PAPYRUS_SUMMARY_MAX_TOKENS": "",
+            "PAPYRUS_RUN_TIMEOUT_SECONDS": "",
+        },
+    )
+    assert policy.context_window == 32768
+    assert policy.research_request_limit is None
+    assert policy.max_tokens is None
+    assert policy.run_timeout_seconds is None
+
+
 def test_small_window_rejected():
     with pytest.raises(ValidationError):
         ResearchPolicy(context_window=100)

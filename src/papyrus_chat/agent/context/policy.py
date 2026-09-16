@@ -77,6 +77,16 @@ class ResearchPolicy(BaseModel):
         )
 
 
+def _parse_int_setting(name: str, environment: Mapping[str, str]) -> int | None:
+    raw = environment.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a whole number, got {raw!r}.") from error
+
+
 def load_research_policy(
     model_name: str,
     env: Mapping[str, str] | None = None,
@@ -87,7 +97,12 @@ def load_research_policy(
     raw_window = environment.get("LLM_CONTEXT_WINDOW", "").strip()
     capacity_source: Literal["explicit", "profile", "registry", "fallback"] = "explicit"
     if raw_window:
-        window = int(raw_window)
+        try:
+            window = int(raw_window)
+        except ValueError as error:
+            raise ValueError(
+                f"LLM_CONTEXT_WINDOW must be a whole number of tokens, got {raw_window!r}."
+            ) from error
     elif deployment_profile is not None and deployment_profile.context_window is not None:
         window = deployment_profile.context_window
         capacity_source = "profile"
@@ -106,28 +121,24 @@ def load_research_policy(
         cost = Decimal(raw_cost) if raw_cost else None
     except InvalidOperation as error:
         raise ValueError("PAPYRUS_RUN_COST_LIMIT_USD must be a positive decimal number.") from error
+    raw_timeout = environment.get("PAPYRUS_RUN_TIMEOUT_SECONDS", "").strip()
+    if raw_timeout:
+        try:
+            timeout = float(raw_timeout)
+        except ValueError as error:
+            raise ValueError(
+                f"PAPYRUS_RUN_TIMEOUT_SECONDS must be a number of seconds, got {raw_timeout!r}."
+            ) from error
+    else:
+        timeout = None
     policy = ResearchPolicy(
-        run_timeout_seconds=(
-            float(value)
-            if (value := environment.get("PAPYRUS_RUN_TIMEOUT_SECONDS", "").strip())
-            else None
-        ),
+        run_timeout_seconds=timeout,
         cost_limit_usd=cost,
         context_window=window,
         capacity_source=capacity_source,
-        research_request_limit=(
-            int(value)
-            if (value := environment.get("PAPYRUS_RESEARCH_REQUEST_LIMIT", "").strip())
-            else None
-        ),
-        max_tokens=(
-            int(value) if (value := environment.get("LLM_MAX_TOKENS", "").strip()) else None
-        ),
-        summary_max_tokens=(
-            int(value)
-            if (value := environment.get("PAPYRUS_SUMMARY_MAX_TOKENS", "").strip())
-            else None
-        ),
+        research_request_limit=(_parse_int_setting("PAPYRUS_RESEARCH_REQUEST_LIMIT", environment)),
+        max_tokens=_parse_int_setting("LLM_MAX_TOKENS", environment),
+        summary_max_tokens=_parse_int_setting("PAPYRUS_SUMMARY_MAX_TOKENS", environment),
     )
     validate_pricing(policy, model_name)
     LOGGER.info(

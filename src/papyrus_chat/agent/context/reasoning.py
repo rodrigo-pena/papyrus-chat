@@ -43,7 +43,10 @@ def reasoning_settings(
     body = extra if isinstance(extra, dict) else {}
     template = body.get("chat_template_kwargs")
     template = template if isinstance(template, dict) else {}
-    current = result.get("thinking", thinking)
+    # An explicitly stored None means "not set"; the caller's thinking request wins.
+    current = result.get("thinking")
+    if current is None:
+        current = thinking
     effort = body.get("reasoning_effort", result.get("openai_reasoning_effort"))
     if adapter == "qwen-chat-template" and isinstance(model, OpenAIChatModel):
         result.pop("thinking", None)

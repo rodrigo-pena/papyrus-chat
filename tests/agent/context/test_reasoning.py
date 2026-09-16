@@ -68,6 +68,16 @@ def test_supported_controls_override_conflicting_effort_and_preserve_low_setting
     assert (
         reasoning_settings(selected, None, purpose="recovery", thinking=False)["thinking"] is False
     )
+
+
+def test_explicit_none_in_settings_does_not_shadow_the_request_thinking():
+    selected = model(supports_thinking=True)
+    settings: Any = {"thinking": None}
+    assert (
+        reasoning_settings(selected, settings, purpose="recovery", thinking=False)["thinking"]
+        is False
+    )
+    assert reasoning_settings(selected, settings, purpose="summary")["thinking"] is False
     assert (
         reasoning_settings(model(thinking_always_enabled=True), None, purpose="summary")["thinking"]
         == "low"
