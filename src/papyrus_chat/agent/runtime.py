@@ -96,7 +96,12 @@ coverage separately.
 
 Save the objective, established findings, completed searches, rejected directions,
 current conclusions, and concrete remaining questions with update_research_notes during
-long investigations. Compaction continues the same investigation: resume the saved next
+long investigations. Keep notes within the tool's character limit, prioritizing the objective,
+conclusions, completed or rejected directions, and remaining work. Recall detailed
+quotations from research records rather than duplicating them in notes. If a notes
+update exceeds the limit, shorten it and retry with the same {"notes": "..."} shape;
+the previous notes remain saved until a valid replacement succeeds.
+Compaction continues the same investigation: resume the saved next
 step, or answer if sufficient evidence is already available. Do not restart the search
 plan or reopen resolved questions merely because earlier messages were compacted.
 Use list_research_records and read_research_record to recall omitted original results,

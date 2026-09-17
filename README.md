@@ -241,7 +241,7 @@ by the agent separate completed searches and rejected directions from questions
 that still need evidence. Summaries use the same model and add time and usage
 costs. If summarization fails, the agent continues with a shorter selection of
 saved material. Follow-up questions reuse the browser's chat history, so they may
-need another summary; earlier questions and answers are not carried into the new
+need another summary. Earlier questions and answers are not carried into the new
 run as evidence.
 
 The model server sets the response length unless you configure an override.

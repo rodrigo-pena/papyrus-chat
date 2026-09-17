@@ -1,13 +1,26 @@
 """Research continues through repeated compaction and recoverable model failures."""
 
+import json
 from pathlib import Path
 
 import pytest
-from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelMessagesTypeAdapter,
+    ModelResponse,
+    RetryPromptPart,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
+from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.usage import RequestUsage
 
-from papyrus_chat.agent.context import ResearchPolicy
+from papyrus_chat.agent.context import ResearchPolicy, ResearchRunState
+from papyrus_chat.agent.context.compaction import bounded_history
+from papyrus_chat.agent.context.evidence import EvidenceLedger
 from papyrus_chat.agent.runtime import create_research_agent
 from papyrus_chat.agent.tools import CorpusToolDeps
 from papyrus_chat.chat.provider import ProviderConfig
@@ -18,6 +31,86 @@ from papyrus_chat.retrieval.structured import StructuredCorpusSearch
 @pytest.fixture()
 def service(corpus_artifact: Path) -> CorpusService:
     return CorpusService(StructuredCorpusSearch(corpus_artifact / "corpus.sqlite"))
+
+
+def test_oversized_notes_recover_and_survive_history_replay_and_compaction(service):
+    initial = "Objective: investigate flax. Next: inspect candidates."
+    replacement = (
+        "Objective: flax at Aphrodito. Findings: λιν / ⲗⲓⲛ. Next: resolve dating. "
+        "Unverified lead: https://papyri.info/ddbdp/invented"
+    )
+    answer = "Model-supplied background: research notes saved."
+    deps = CorpusToolDeps(service)
+    requests = 0
+
+    def dialogue(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            return ModelResponse(
+                [ToolCallPart("update_research_notes", json.dumps({"notes": initial}))]
+            )
+        if requests == 2:
+            assert deps.research_state.ledger.notes == initial
+            return ModelResponse(
+                [ToolCallPart("update_research_notes", json.dumps({"notes": "λⲗ" * 2000 + "α"}))]
+            )
+        if requests == 3:
+            assert deps.research_state.ledger.notes == initial
+            retries = [part for part in messages[-1].parts if isinstance(part, RetryPromptPart)]
+            assert len(retries) == 1
+            errors = retries[0].content
+            assert isinstance(errors, list)
+            assert len(errors) == 1
+            assert errors[0]["type"] == "string_too_long"
+            assert tuple(errors[0]["loc"]) == ("notes",)
+            assert "4000" in errors[0]["msg"]
+            return ModelResponse(
+                [ToolCallPart("update_research_notes", json.dumps({"notes": replacement}))]
+            )
+        if requests == 4:
+            assert deps.research_state.ledger.notes == replacement
+            return ModelResponse([ToolCallPart("get_research_progress", {})])
+        assert requests == 5
+        progress = next(part for part in messages[-1].parts if isinstance(part, ToolReturnPart))
+        assert progress.tool_name == "get_research_progress"
+        assert isinstance(progress.content, dict)
+        assert progress.content["notes"] == replacement
+        return ModelResponse([TextPart(answer)])
+
+    agent = create_research_agent(
+        ProviderConfig(base_url="https://provider.example/v1", model="research-model"),
+        service,
+        model=FunctionModel(dialogue),
+        # Exercise retry/replay first; compact the restored ledger explicitly below.
+        policy=ResearchPolicy(context_window=131072),
+    )
+    result = agent.run_sync("Investigate flax and save notes.", deps=deps)
+    assert result.output == answer
+    assert requests == 5
+
+    messages = ModelMessagesTypeAdapter.validate_json(result.all_messages_json())
+    replayed = EvidenceLedger()
+    replayed.ingest(messages)
+    for ledger in (deps.research_state.ledger, replayed):
+        assert ledger.notes == replacement
+        assert not ledger.records
+        assert not ledger.corpus_urls
+    assert not deps.known_corpus_urls
+
+    state = ResearchRunState(ledger=replayed, question=deps.research_state.question)
+    compacted = bounded_history(
+        messages, state, ModelRequestParameters(), budget=8000, keep_recent=False
+    )
+    checkpoint_text = "\n".join(
+        part.content
+        for message in compacted
+        for part in message.parts
+        if isinstance(part, UserPromptPart) and isinstance(part.content, str)
+    )
+    assert "Research notes (model-written)" in checkpoint_text
+    assert replacement in checkpoint_text
+    assert initial not in checkpoint_text
 
 
 def test_default_research_continues_through_repeated_compaction(service):
