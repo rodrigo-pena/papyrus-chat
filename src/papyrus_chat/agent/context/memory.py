@@ -122,6 +122,10 @@ async def update_research_notes(
 ) -> ResearchNotes:
     """Replace research notes before long investigations; preserve outstanding work.
 
+    Use at most 4,000 characters. If too long, shorten and retry with the same
+    {"notes": "..."} shape; rejected updates leave saved notes unchanged.
+    Prioritize the objective, conclusions, completed/rejected directions, and
+    remaining work. Recall detailed quotations from research records instead.
     Notes are model-written interpretations and never establish citation eligibility.
     """
     result = ResearchNotes(notes=notes)

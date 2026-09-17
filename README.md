@@ -238,8 +238,10 @@ evidence remain available, including exact quotations, counts, and citations.
 The summary keeps the research progress and recent decisions, so the agent can
 continue unfinished work or answer from findings it already has. Notes recorded
 by the agent separate completed searches and rejected directions from questions
-that still need evidence. Summaries use the same model and add time and usage
-costs. If summarization fails, the agent continues with a shorter selection of
+that still need evidence. Notes are limited to 4,000 characters; oversized updates
+leave saved notes unchanged and prompt the agent to shorten and retry. Detailed
+quotations remain available in research records. Summaries use the same model and
+add time and usage costs. If summarization fails, the agent continues with a shorter selection of
 saved material. Follow-up questions reuse the browser's chat history, so they may
 need another summary; earlier questions and answers are not carried into the new
 run as evidence.
