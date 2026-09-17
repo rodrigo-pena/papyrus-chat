@@ -1,5 +1,6 @@
 """Structured, distinct-document retrieval over the v2 artifact."""
 
+import re
 import sqlite3
 from pathlib import Path
 
@@ -202,13 +203,18 @@ def test_language_filter_probes_documents_instead_of_scanning_languages(
         params,
     ).fetchall()
     details = [row[3] for row in plan]
+    diagnostic = f"SQLite {sqlite3.sqlite_version}:\n" + "\n".join(details)
 
     # 'grc' matches nearly every passage language row, so driving the correlated
     # filter from the language index re-probes that table per candidate document.
+    # Newer SQLite versions label the same indexed lookup as "SEARCH p EXISTS".
     assert any(
-        "SEARCH p USING INDEX passages_by_document (document_id=?)" in detail for detail in details
-    )
-    assert not any("passage_languages_lookup (language" in detail for detail in details)
+        re.search(
+            r"SEARCH p(?: EXISTS)? USING INDEX passages_by_document \(document_id=\?\)", detail
+        )
+        for detail in details
+    ), diagnostic
+    assert not any("passage_languages_lookup (language" in detail for detail in details), diagnostic
 
 
 def test_transcription_query_returns_exact_distinct_candidates_and_evidence(
