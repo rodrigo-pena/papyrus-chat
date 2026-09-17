@@ -90,7 +90,7 @@ without web search, or the bare Git URL without either extra.
   support. Set its base URL and model with `LLM_BASE_URL` and `LLM_MODEL`; an
   API key is optional for unauthenticated local endpoints.
 - Internet access the first time the browser UI is opened, so Pydantic AI can
-  fetch and cache its stock chat UI from the CDN.
+  fetch and cache the pinned, single-file stock chat UI from the CDN (about 16 MB).
 
 ## Supported upstream collections
 
@@ -241,7 +241,7 @@ by the agent separate completed searches and rejected directions from questions
 that still need evidence. Summaries use the same model and add time and usage
 costs. If summarization fails, the agent continues with a shorter selection of
 saved material. Follow-up questions reuse the browser's chat history, so they may
-need another summary; earlier questions and answers are not carried into the new
+need another summary. Earlier questions and answers are not carried into the new
 run as evidence.
 
 The model server sets the response length unless you configure an override.
@@ -320,3 +320,23 @@ For context overflow errors, check `LLM_CONTEXT_WINDOW` against your server's
 configuration. Very broad questions may also produce more evidence than fits in
 one answer; ask for a narrower synthesis or explore the findings over follow-up
 questions. Provider outages can still interrupt research.
+
+### Sharing conversations
+
+Open a saved conversation, click **Export** in the top toolbar, and choose:
+
+- **Download HTML** for a readable document with expandable reasoning and tool
+  inputs/results. Send the file to your collaborator; they can open it in a browser
+  without Papyrus Chat or an internet connection. Citation links open the original
+  sources when online.
+- **Download JSON** for structured conversation data, including complete recorded
+  tool arguments, results, and errors.
+
+Both formats include the latest browser-saved snapshot of that conversation,
+including earlier visible tool activity retained after model context compaction.
+Existing conversations in the same browser and origin can be exported too.
+
+Reasoning is included only when the provider exposed it and the browser saved it.
+
+See the [conversation export integration guide](docs/conversation-export.md) for
+the format, upstream compatibility contract, and browser test commands.

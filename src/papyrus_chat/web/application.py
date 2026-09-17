@@ -14,6 +14,7 @@ from papyrus_chat.artifact.validation import validate_artifact
 from papyrus_chat.chat.profiles import load_deployment_profile
 from papyrus_chat.chat.provider import ProviderError, load_provider_config
 from papyrus_chat.corpus import CorpusService
+from papyrus_chat.web.exporting import PINNED_UI_URL, install_export_routes
 from papyrus_chat.web.streaming import install_validated_chat_route
 
 
@@ -56,7 +57,7 @@ def load_app(
     """Build the stock Pydantic AI web app with artifact-backed dependencies.
 
     ``html_source`` is injectable for offline tests; production defaults to
-    Pydantic AI's CDN-and-cache delivery. ``model`` is injectable for
+    a pinned stock UI build with Pydantic AI's CDN-and-cache delivery. ``model`` is injectable for
     deterministic tests and is otherwise constructed from the existing
     ``LLM_BASE_URL``, ``LLM_MODEL``, and optional ``LLM_API_KEY`` settings.
     """
@@ -83,9 +84,10 @@ def load_app(
     deps = CorpusToolDeps(service=tool_service)
     app = agent.to_web(
         deps=deps,
-        html_source=html_source,
+        html_source=html_source if html_source is not None else PINNED_UI_URL,
     )
     install_validated_chat_route(app, agent, deps, policy)
+    install_export_routes(app)
     app.state.artifact = artifact
     app.state.manifest = manifest
     app.state.search = tool_service
