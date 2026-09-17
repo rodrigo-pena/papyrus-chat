@@ -340,3 +340,22 @@ Reasoning is included only when the provider exposed it and the browser saved it
 
 See the [conversation export integration guide](docs/conversation-export.md) for
 the format, upstream compatibility contract, and browser test commands.
+
+## Development
+
+Contributions via pull requests are welcome. From a repository checkout, install
+the development dependencies and optional extras, then run the same checks as CI:
+
+```bash
+uv sync --locked --all-extras --dev
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked ty check
+uv run --locked pytest
+```
+
+Use `uv run ruff format .` to apply formatting. CI runs on every push to `main`
+and every pull request, using Python 3.13. The default test suite excludes tests
+marked `network` or `browser`. See the
+[conversation export integration guide](docs/conversation-export.md) for browser
+test setup and commands.
