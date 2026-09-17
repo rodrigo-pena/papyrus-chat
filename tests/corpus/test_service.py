@@ -55,11 +55,40 @@ def test_get_corpus_info_reports_manifest_provenance_and_capability(
         assert info.builder.name == "papyrus-corpus-build"
         assert info.source.resolved_commit
         assert info.collections == ("dclp", "translations")
+        expected_names = {
+            "dclp": "Digital Corpus of Literary Papyri",
+            "translations": "Papyri.info translations",
+        }
+        assert info.model_dump(mode="json")["collection_names"] == expected_names
+        assert info.metadata_source_names == {}
+        assert (
+            service.describe_corpus().model_dump(mode="json")["collection_names"] == expected_names
+        )
+        legacy_payload = info.model_dump(exclude={"collection_names", "metadata_source_names"})
+        legacy_info = type(info).model_validate(legacy_payload)
+        assert legacy_info.collection_names == {}
+        assert legacy_info.metadata_source_names == {}
         assert info.statistics.documents == 4
         assert info.languages == ("grc",)
         assert info.logical_content_hash.startswith("sha256:")
         assert info.semantic_capability.available is False
         assert "semantic" in (info.semantic_capability.unavailable_reason or "")
+    finally:
+        service.close()
+
+
+def test_info_names_follow_manifest_inventory_without_guessing(corpus_artifact: Path) -> None:
+    service = CorpusService.open(corpus_artifact)
+    try:
+        service.manifest = service.manifest.model_copy(
+            update={"collections": ["translations", "unknown"]}
+        )
+
+        info = service.get_corpus_info()
+
+        assert info.collections == ("translations", "unknown")
+        assert info.collection_names == {"translations": "Papyri.info translations"}
+        assert info.metadata_source_names == {}
     finally:
         service.close()
 

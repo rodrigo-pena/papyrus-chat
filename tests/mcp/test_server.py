@@ -59,6 +59,11 @@ def test_mcp_server_returns_structured_results_for_every_tool(corpus_artifact: P
             info = await client.call_tool("get_corpus_info", {})
             assert info.is_error is False
             assert info.structured_content["artifact_schema_version"] == 4
+            assert info.structured_content["collection_names"] == {
+                "dclp": "Digital Corpus of Literary Papyri",
+                "translations": "Papyri.info translations",
+            }
+            assert info.structured_content["metadata_source_names"] == {}
 
             suggestions = await client.call_tool(
                 "suggest_subjects", {"concept": "taxes", "scope": {}, "limit": 3}
@@ -130,6 +135,25 @@ def test_mcp_server_returns_structured_results_for_every_tool(corpus_artifact: P
         asyncio.run(exercise())
     finally:
         service.close()
+
+
+def test_mcp_info_names_hgv_as_metadata_only(content_service: CorpusService) -> None:
+    async def exercise() -> None:
+        async with Client(create_mcp_server(content_service)) as client:
+            result = await client.call_tool("get_corpus_info", {})
+            assert result.is_error is False
+            content = result.structured_content
+            assert content["collections"] == ["dclp", "ddbdp", "translations"]
+            assert content["collection_names"] == {
+                "dclp": "Digital Corpus of Literary Papyri",
+                "ddbdp": "Duke Data Bank of Documentary Papyri",
+                "translations": "Papyri.info translations",
+            }
+            assert content["metadata_source_names"] == {
+                "hgv": "Heidelberger Gesamtverzeichnis der griechischen Papyrusurkunden Ägyptens"
+            }
+
+    asyncio.run(exercise())
 
 
 def test_mcp_discovery_matches_service_and_chunk_inspection_works(content_service) -> None:

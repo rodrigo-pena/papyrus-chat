@@ -16,6 +16,7 @@ from papyrus_chat.artifact.records import (
     ComponentRecord,
     SourceReference,
 )
+from papyrus_chat.catalog import COLLECTION_NAMES, METADATA_SOURCE_NAMES
 from papyrus_chat.retrieval.evidence import snippet_for
 from papyrus_chat.retrieval.scope import document_scope_where
 from papyrus_chat.retrieval.search import build_fts_query
@@ -312,6 +313,13 @@ class CorpusDescription(BaseModel):
     passages: int
     components: int
     languages: tuple[str, ...]
+    collection_names: dict[str, str] = Field(
+        default_factory=dict, description="Authoritative names keyed by collection identifier."
+    )
+    metadata_source_names: dict[str, str] = Field(
+        default_factory=dict,
+        description="Names of present auxiliary metadata sources, not searchable collections.",
+    )
 
 
 class CorpusInspection(BaseModel):
@@ -558,6 +566,16 @@ class StructuredCorpusSearch:
         }
         return CorpusDescription(
             collections=collections,
+            collection_names={
+                key: COLLECTION_NAMES[key] for key in collections if key in COLLECTION_NAMES
+            },
+            metadata_source_names={
+                row["kind"]: METADATA_SOURCE_NAMES[row["kind"]]
+                for row in self._connection.execute(
+                    "SELECT DISTINCT kind FROM components ORDER BY kind"
+                )
+                if row["kind"] in METADATA_SOURCE_NAMES
+            },
             documents=int(self._connection.execute("SELECT count(*) FROM documents").fetchone()[0]),
             passages=int(self._connection.execute("SELECT count(*) FROM passages").fetchone()[0]),
             components=int(

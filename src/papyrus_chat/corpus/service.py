@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from papyrus_chat.artifact.manifest import ArtifactManifest, load_manifest
+from papyrus_chat.catalog import COLLECTION_NAMES
 from papyrus_chat.corpus.models import (
     CorpusDescription,
     CorpusDocumentMatch,
@@ -112,13 +113,20 @@ class CorpusService:
                     "chunks": self._content_capability("chunks"),
                 }
             )
+            description = self._search.describe()
             return CorpusInfo(
                 artifact_schema_version=self.manifest.artifact_schema_version,
                 builder=self.manifest.builder,
                 source=self.manifest.source,
                 collections=tuple(self.manifest.collections),
+                collection_names={
+                    key: COLLECTION_NAMES[key]
+                    for key in self.manifest.collections
+                    if key in COLLECTION_NAMES
+                },
+                metadata_source_names=description.metadata_source_names,
                 statistics=self.manifest.statistics,
-                languages=self._search.describe().languages,
+                languages=description.languages,
                 logical_content_hash=self.manifest.logical_content_hash,
                 created_at=self.manifest.created_at,
                 semantic_capability=capability,
