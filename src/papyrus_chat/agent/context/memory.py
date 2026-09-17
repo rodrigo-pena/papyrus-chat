@@ -11,11 +11,16 @@ from papyrus_chat.agent.tools import CorpusToolDeps
 
 from .progress import progress_overview
 
+RESEARCH_NOTES_MAX_LENGTH = 4000
+
 ResearchNotesText = Annotated[
     str,
     Field(
-        max_length=4000,
-        description="Objective, interpretations, uncertainties, and remaining work; not evidence.",
+        max_length=RESEARCH_NOTES_MAX_LENGTH,
+        description=(
+            f"At most {RESEARCH_NOTES_MAX_LENGTH:,} characters. "
+            "Objective, interpretations, uncertainties, and remaining work; not evidence."
+        ),
     ),
 ]
 
@@ -122,7 +127,7 @@ async def update_research_notes(
 ) -> ResearchNotes:
     """Replace research notes before long investigations; preserve outstanding work.
 
-    Use at most 4,000 characters. If too long, shorten and retry with the same
+    Respect the character limit in the notes schema. If too long, shorten and retry with the same
     {"notes": "..."} shape; rejected updates leave saved notes unchanged.
     Prioritize the objective, conclusions, completed/rejected directions, and
     remaining work. Recall detailed quotations from research records instead.

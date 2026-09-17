@@ -96,7 +96,7 @@ coverage separately.
 
 Save the objective, established findings, completed searches, rejected directions,
 current conclusions, and concrete remaining questions with update_research_notes during
-long investigations. Keep notes within 4,000 characters, prioritizing the objective,
+long investigations. Keep notes within the tool's character limit, prioritizing the objective,
 conclusions, completed or rejected directions, and remaining work. Recall detailed
 quotations from research records rather than duplicating them in notes. If a notes
 update exceeds the limit, shorten it and retry with the same {"notes": "..."} shape;

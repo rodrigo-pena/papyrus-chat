@@ -49,7 +49,7 @@ def test_invalid_notes_report_field_error_and_preserve_saved_notes(serialized, p
 
 
 @pytest.mark.parametrize("serialized", [False, True])
-@pytest.mark.parametrize("notes", ["", "λⲗ" * 2000])
+@pytest.mark.parametrize("notes", ["", "λⲗ" * 2000], ids=["empty", "unicode-boundary"])
 def test_valid_notes_preserve_text_and_advertise_bounded_string(serialized, notes):
     ledger = EvidenceLedger(notes="Previous findings")
     deps = SimpleNamespace(research_state=SimpleNamespace(ledger=ledger))
@@ -62,6 +62,8 @@ def test_valid_notes_preserve_text_and_advertise_bounded_string(serialized, note
         assert set(schema["properties"]) == {"notes"}
         assert schema["properties"]["notes"]["type"] == "string"
         assert schema["properties"]["notes"]["maxLength"] == 4000
+        notes_schema = schema["properties"]["notes"]
+        assert f"{notes_schema['maxLength']:,} characters" in notes_schema["description"]
         if len(messages) == 1:
             payload = {"notes": notes}
             args = json.dumps(payload) if serialized else payload
