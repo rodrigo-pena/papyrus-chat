@@ -57,6 +57,13 @@ class CorpusInfo(BaseModel):
     logical_content_hash: str
     created_at: str
     semantic_capability: CorpusSemanticCapability
+    collection_names: dict[str, str] = Field(
+        default_factory=dict, description="Authoritative names keyed by collection identifier."
+    )
+    metadata_source_names: dict[str, str] = Field(
+        default_factory=dict,
+        description="Names of present auxiliary metadata sources, not searchable collections.",
+    )
 
 
 class CorpusDocumentSummary(BaseModel):

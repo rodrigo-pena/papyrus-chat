@@ -147,6 +147,12 @@ and keep external entities and network access disabled.
 
 ## Register the collection
 
+Register the collection's authoritative full name in
+[`catalog.py`](../src/papyrus_chat/catalog.py), with a reference to its source.
+Auxiliary sources such as HGV belong in `METADATA_SOURCE_NAMES`, separately from
+searchable `COLLECTION_NAMES`. Both `describe_corpus` and MCP's `get_corpus_info`
+expose these names offline at runtime.
+
 Adding an adapter module is not enough. Update both registration points:
 
 ```python

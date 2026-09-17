@@ -11,6 +11,7 @@ from papyrus_chat.builder.pipeline import build_artifact
 from papyrus_chat.builder.source import LocalGitSource
 from papyrus_chat.retrieval.structured import (
     CorpusDateInterval,
+    CorpusDescription,
     CorpusFacetValue,
     CorpusQuery,
     CorpusSearchResult,
@@ -406,6 +407,52 @@ def test_describe_reports_distinct_corpus_inventory(
     assert description.passages == 1
     assert description.components == 2
     assert description.languages == ("grc",)
+    dumped = description.model_dump(mode="json")
+    assert dumped["collection_names"] == {"ddbdp": "Duke Data Bank of Documentary Papyri"}
+    assert dumped["metadata_source_names"] == {
+        "hgv": "Heidelberger Gesamtverzeichnis der griechischen Papyrusurkunden Ägyptens"
+    }
+
+
+def test_describe_ddbdp_without_hgv_does_not_claim_metadata(
+    documentary_search: StructuredCorpusSearch,
+) -> None:
+    connection = documentary_search._connection
+    connection.execute("DELETE FROM component_links")
+    connection.execute("DELETE FROM components WHERE kind = 'hgv'")
+
+    description = documentary_search.describe()
+
+    assert description.collections == ("ddbdp",)
+    assert description.collection_names == {"ddbdp": "Duke Data Bank of Documentary Papyri"}
+    assert description.metadata_source_names == {}
+
+
+def test_describe_preserves_unknown_collection_without_guessing_name(
+    literary_search: StructuredCorpusSearch,
+) -> None:
+    literary_search._connection.execute("UPDATE documents SET collection = 'unknown'")
+
+    description = literary_search.describe()
+
+    assert description.collections == ("unknown",)
+    assert description.collection_names == {}
+    assert description.metadata_source_names == {}
+
+
+def test_description_accepts_legacy_payload_without_names() -> None:
+    description = CorpusDescription.model_validate(
+        {
+            "collections": ["ddbdp"],
+            "documents": 1,
+            "passages": 1,
+            "components": 2,
+            "languages": ["grc"],
+        }
+    )
+
+    assert description.collection_names == {}
+    assert description.metadata_source_names == {}
 
 
 def test_transcription_languages_use_actual_edition_passages(

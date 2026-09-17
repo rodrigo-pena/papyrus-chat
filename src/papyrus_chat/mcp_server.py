@@ -92,7 +92,9 @@ def create_mcp_server(service: CorpusService):
         name="get_corpus_info",
         description=(
             "Return corpus schema, provenance, collections, statistics, languages, "
-            "logical hash, creation time, and semantic capability."
+            "logical hash, creation time, and semantic capability. Consult before expanding "
+            "source acronyms: use collection_names and metadata_source_names for full names, "
+            "and leave unknown identifiers unexpanded."
         ),
         annotations=annotations,
         structured_output=True,

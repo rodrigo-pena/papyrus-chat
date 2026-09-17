@@ -37,7 +37,11 @@ class CorpusToolDeps:
 
 
 def describe_corpus(ctx: RunContext[CorpusToolDeps]) -> CorpusDescription:
-    """Describe available collections, counts, languages, and components."""
+    """Describe collections, full source names, counts, languages, and components.
+
+    Consult before expanding source acronyms; use the supplied collection_names
+    and metadata_source_names, and leave unknown identifiers unexpanded.
+    """
     return ctx.deps.service.describe_corpus()
 
 

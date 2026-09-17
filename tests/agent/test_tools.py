@@ -523,3 +523,12 @@ def test_describe_and_search_tools_still_project_lean_summaries(
 
     description = describe_corpus(_tool_ctx(deps))
     assert description.collections == ("ddbdp",)
+    dumped = description.model_dump(mode="json")
+    assert dumped["collection_names"] == {"ddbdp": "Duke Data Bank of Documentary Papyri"}
+    assert dumped["metadata_source_names"] == {
+        "hgv": "Heidelberger Gesamtverzeichnis der griechischen Papyrusurkunden Ägyptens"
+    }
+    info = corpus_tools.get_corpus_info()
+    assert info.collection_names == description.collection_names
+    assert info.metadata_source_names == description.metadata_source_names
+    assert info.collections == ("ddbdp",)
