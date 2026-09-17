@@ -15,6 +15,7 @@ from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from pydantic_ai.models.test import TestModel
 
 from papyrus_chat.web.application import load_app
+from papyrus_chat.web.exporting.rendering import render_html
 
 pytestmark = pytest.mark.browser
 
@@ -240,6 +241,40 @@ def download_html(page):
         page.get_by_role("button", name="Download HTML").click()
     assert saved.value.suggested_filename.endswith(".html")
     return Path(saved.value.path())
+
+
+def test_bare_record_link_navigates_from_export(browser, tmp_path):
+    url = "https://papyri.info/ddbdp/p.fouad;1;86"
+    path = tmp_path / "linked-conversation.html"
+    path.write_text(
+        render_html(
+            {
+                "exported_at": "2026-09-17T07:40:44+00:00",
+                "conversation": {
+                    "id": "/links",
+                    "title": "Record links",
+                    "messages": [
+                        {
+                            "role": "assistant",
+                            "parts": [{"type": "text", "text": f"Record ({url})."}],
+                        }
+                    ],
+                },
+            }
+        )
+    )
+    with browser.new_context() as context:
+        page = context.new_page()
+        # Verify navigation without depending on the remote record service.
+        page.route(
+            url, lambda route: route.fulfill(body="Record opened", content_type="text/plain")
+        )
+        page.goto(path.as_uri())
+        link = page.get_by_role("link", name=url, exact=True)
+        expect(link).to_have_attribute("href", url)
+        link.click()
+        expect(page).to_have_url(url)
+        expect(page.locator("body")).to_contain_text("Record opened")
 
 
 def test_html_download_opens_offline_without_requests_and_expands_tools(page, tmp_path):

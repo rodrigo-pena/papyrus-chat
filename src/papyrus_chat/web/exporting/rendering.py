@@ -5,6 +5,7 @@ from datetime import datetime
 from html import escape
 from urllib.parse import urlsplit
 
+from linkify_it import LinkifyIt
 from markdown_it import MarkdownIt
 
 CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
@@ -105,7 +106,13 @@ def render_part(part: dict, markdown: MarkdownIt) -> str:
 
 
 def render_html(document: dict) -> str:
-    markdown = TranscriptMarkdown("commonmark", {"html": False}).enable("table").disable("image")
+    markdown = (
+        TranscriptMarkdown("commonmark", {"html": False, "linkify": True})
+        .enable(["table", "linkify"])
+        .disable("image")
+    )
+    # Require explicit URLs so papyrus identifiers are not mistaken for domains.
+    markdown.linkify = LinkifyIt(options={"fuzzy_link": False, "fuzzy_email": False})
     conversation = document["conversation"]
     title = escape(conversation["title"])
     exported_at = datetime.fromisoformat(document["exported_at"]).strftime("%Y-%m-%d %H:%M UTC")

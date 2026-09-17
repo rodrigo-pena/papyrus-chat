@@ -226,6 +226,29 @@ def test_html_escapes_content_and_rejects_unsafe_links(export_client, snapshot, 
     assert attack in str(tree.xpath("string()"))
 
 
+@pytest.mark.parametrize("kind", ["text", "reasoning"])
+def test_html_links_bare_record_urls(export_client, snapshot, kind):
+    url = "https://papyri.info/ddbdp/p.fouad;1;86"
+    query_url = "https://papyri.info/search?q=flax&start=1"
+    text = (
+        f"Record ({url}).\n\n- {url}\n\n"
+        f"| Record |\n|---|\n| {url} |\n\n"
+        f"Search {query_url}.\n\n[Named record]({url})\n\n"
+        f"`{url}`\n\n```text\n{url}\n```\n\n"
+        "p.fouad;1;86 user@example.org ftp://example.org //example.org "
+        "javascript:alert(1) file:///etc/passwd"
+    )
+    snapshot["messages"] = [
+        {"id": "a", "role": "assistant", "parts": [{"type": kind, "text": text}]}
+    ]
+    response = export_client.post("/api/export", json={"format": "html", "conversation": snapshot})
+    assert response.status_code == 200
+    tree = html.fromstring(response.text)
+    assert tree.xpath("//a/@href") == [url, url, url, query_url, url]
+    assert tree.xpath("//a/text()") == [url, url, url, query_url, "Named record"]
+    assert not tree.xpath("//code//a | //a//a | //script")
+
+
 def test_html_renders_tables_without_external_assets(export_client, snapshot):
     snapshot["messages"][0]["parts"][0]["text"] = "| Record | Text |\n|---|---|\n| 1 | πάπυρος |"
     response = export_client.post("/api/export", json={"format": "html", "conversation": snapshot})

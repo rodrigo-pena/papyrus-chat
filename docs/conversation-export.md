@@ -125,6 +125,10 @@ reasoning or tool activity are collapsed behind native `<details>` controls —
 no JavaScript and no internet connection are needed to read the file. Click a
 collapsed section to see its full contents.
 
+Bare `http://` and `https://` URLs in messages and reasoning are clickable,
+including record links in paragraphs, lists, and tables. Surrounding punctuation
+is excluded from the link.
+
 ### What exports don't include
 
 The exports capture the conversation as the browser saw it. They are not the
