@@ -359,3 +359,36 @@ and every pull request, using Python 3.13. The default test suite excludes tests
 marked `network` or `browser`. See the
 [conversation export integration guide](docs/conversation-export.md) for browser
 test setup and commands.
+
+## Building your own "talk to a corpus" tool
+
+Whether your material lives in text files, a database, or XML, several lessons
+from this project carry over:
+
+- **Give the model a few clear ways to explore.** Let it ask what the collection
+  contains, search, count matches, and read selected records. Keep these actions
+  independent of the chat interface. Let the model choose the next question and
+  the search system calculate the counts.
+- **Prepare the material once and keep the originals.** Reuse searchable copies
+  across conversations, preserving original wording and signs of uncertainty
+  for quotations. Keep stable record references, source locations, and the
+  version of the data used, so readers can check an answer.
+- **Start small, then read further.** Return short search results with enough
+  detail to choose what to open. Let the model request surrounding passages or
+  more results as needed. This uses its limited reading space efficiently and
+  avoids sending the whole collection with every question.
+- **Offer more than one way to find things.** Exact words, names, dates, and
+  subject labels answer different needs from searches for similar meaning.
+  Combine them where useful, including spelling and language alternatives.
+  Read promising matches before citing them.
+- **Make the limits visible.** Report the filters used and distinguish records
+  found from passages actually read. Missing dates, labels, or text can leave
+  relevant records out. Counts describe matches to those filters; relevance to
+  a topic still needs judgment.
+- **Keep notes without losing evidence.** In longer conversations, save what
+  has been checked and keep exact passages available to reopen. Separate source
+  evidence from interpretation and outside background. Stop when further
+  searching adds little, and state what remains uncertain.
+- **Try questions you can check yourself.** Use a small, varied sample with known
+  answers, including missing information and misleading matches. Check whether
+  the right records were found and the quoted passages support the answer.
