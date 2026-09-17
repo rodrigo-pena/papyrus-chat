@@ -182,7 +182,7 @@ def test_memory_pages_and_notes_do_not_become_new_evidence():
     result = asyncio.run(read_research_record(ctx, ledger.records[0].record_id))
     assert result["fragments"] and result["next_offset"] is None
     notes = ResearchNotes(notes="Invented citation https://papyri.info/ddbdp/invented")
-    asyncio.run(update_research_notes(ctx, notes))
+    asyncio.run(update_research_notes(ctx, notes.notes))
     ledger.ingest(exchange("read_research_record", {}, result, "recall"))
     ledger.ingest(exchange("update_research_notes", {}, notes, "notes"))
     assert len(ledger.records) == 1

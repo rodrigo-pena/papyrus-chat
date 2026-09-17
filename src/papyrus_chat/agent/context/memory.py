@@ -11,12 +11,17 @@ from papyrus_chat.agent.tools import CorpusToolDeps
 
 from .progress import progress_overview
 
-
-class ResearchNotes(BaseModel):
-    notes: str = Field(
+ResearchNotesText = Annotated[
+    str,
+    Field(
         max_length=4000,
         description="Objective, interpretations, uncertainties, and remaining work; not evidence.",
-    )
+    ),
+]
+
+
+class ResearchNotes(BaseModel):
+    notes: ResearchNotesText
 
 
 def record_fragments(value: Any, path: tuple[str | int, ...] = ()) -> Iterator[dict[str, Any]]:
@@ -113,14 +118,15 @@ async def get_research_progress(
 
 
 async def update_research_notes(
-    ctx: RunContext["CorpusToolDeps"], notes: ResearchNotes
+    ctx: RunContext["CorpusToolDeps"], notes: ResearchNotesText
 ) -> ResearchNotes:
     """Replace research notes before long investigations; preserve outstanding work.
 
     Notes are model-written interpretations and never establish citation eligibility.
     """
-    ctx.deps.research_state.ledger.notes = notes.notes
-    return notes
+    result = ResearchNotes(notes=notes)
+    ctx.deps.research_state.ledger.notes = result.notes
+    return result
 
 
 def register_memory_tools(agent: Agent[Any, Any]) -> None:
